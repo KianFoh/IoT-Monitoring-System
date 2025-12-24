@@ -136,12 +136,12 @@ def fetch_device_data(
     """Fetch data for a specific device by UID."""
     require_role(current_user, [UserRole.superuser, UserRole.user])
     
-    # device = device_crud.get_device_by_uid(db, device_uid)
-    # if not device:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_404_NOT_FOUND,
-    #         detail="Device not found"
-    #     )
+    device = device_crud.get_device_by_uid(db, device_uid)
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Device not found"
+        )
     if current_user == UserRole.user:
         if device.department_id != current_user.department_id:
             raise HTTPException(
