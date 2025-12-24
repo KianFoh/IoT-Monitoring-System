@@ -1,0 +1,8 @@
+# Create Alembic Migration env
+alembic init alembic
+
+# Create migration Script
+alembic revision --autogenerate -m "Message"
+
+# Apply the Script to update DB
+alembic upgrade head

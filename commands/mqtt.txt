@@ -1,0 +1,26 @@
+# Install MQTT Mosquitto
+sudo apt-get install mosquitto mosquitto-clients -y
+
+# Create User
+sudo mosquitto_passwd -c /etc/mosquitto/passwd username
+
+# Configure
+sudo nano /etc/mosquitto/mosquitto.conf
+
+listener 1883 default port
+
+# Setup Authentication
+allow_anonymous false
+password_file /etc/mosquitto/passwd
+
+# Start MQTT
+systemctl start mosquitto
+
+# Restart MQTT
+systemctl restart mosquitto
+
+# Enable for boot up
+systemctl enable mosquitto
+
+# Delete User
+sudo mosquitto_passwd -c /etc/mosquitto/passwd username
