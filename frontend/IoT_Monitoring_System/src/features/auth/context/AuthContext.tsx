@@ -1,68 +1,66 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
+import { api } from "@/services/api";
 
 interface AuthContextType {
   isLoggedIn: boolean;
-  accessToken: string | null;
-  isAuthChecked: boolean;       // expose loading state
-  login: () => Promise<void>;
+  access_token: string | null;
+  isAuthChecked: boolean;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [access_token, setAccessToken] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAuthChecked, setIsAuthChecked] = useState(false); // important!
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
-  // On app load, try to get a new access token using refresh token cookie
   useEffect(() => {
     async function initAuth() {
       try {
-        const res = await fetch("/api/refresh-token", {
-          method: "POST",
-          credentials: "include", // sends HTTP-only cookie
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setAccessToken(data.accessToken);
-          setIsLoggedIn(true);
-        } else {
-          setAccessToken(null);
-          setIsLoggedIn(false);
-        }
+        const data = await api.post<{ access_token: string }>(
+          "/auth/refresh-token"
+        );
+        setAccessToken(data.access_token);
+        api.setTokenGetter(() => data.access_token);
+        setIsLoggedIn(true);
       } catch {
         setAccessToken(null);
         setIsLoggedIn(false);
       } finally {
-        setIsAuthChecked(true); // ✅ mark that auth check finished
+        setIsAuthChecked(true);
       }
     }
     initAuth();
   }, []);
 
-  const login = async () => {
-    const res = await fetch("/api/login", {
-      method: "POST",
-      body: JSON.stringify({ email: "demo", password: "demo" }),
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    });
-    const data = await res.json();
-    setAccessToken(data.accessToken);
+  const login = async (email: string, password: string) => {
+    const data = await api.post<{ access_token: string }>(
+      "/auth/login",
+      {
+        email,
+        password,
+      }
+    );
+    setAccessToken(data.access_token);
+    api.setTokenGetter(() => data.access_token);
     setIsLoggedIn(true);
   };
 
-  const logout = () => {
-    setAccessToken(null);
-    setIsLoggedIn(false);
-    fetch("/api/logout", { method: "POST", credentials: "include" });
+  const logout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      setAccessToken(null);
+      setIsLoggedIn(false);
+    }
   };
 
   return (
     <AuthContext.Provider
-      value={{ isLoggedIn, accessToken, login, logout, isAuthChecked }}
+      value={{ isLoggedIn, access_token, login, logout, isAuthChecked }}
     >
       {children}
     </AuthContext.Provider>

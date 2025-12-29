@@ -16,6 +16,8 @@ export default function AppRoutes() {
       <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/dashboard" element={isLoggedIn ? <DashboardPage /> : <Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to={defaultRoute} replace />} />
+      <Route path="/reset-password" element={<div>Reset Password Page (to be implemented)</div>} />
+      <Route path="/verify-email" element={<div>Verify Email Page (to be implemented)</div>} />
     </Routes>
   );
 }

@@ -1,0 +1,66 @@
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.inputLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIconLeft {
+  position: absolute;
+  left: var(--spacing-md);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-lg);
+  pointer-events: none;
+}
+
+.inputField {
+  width: 100%;
+  padding: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+  outline: none;
+}
+
+.inputField.withIcon {
+  padding-left: 44px;
+}
+
+.inputField:focus {
+  background: var(--bg-primary);
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.inputField::placeholder {
+  color: var(--text-tertiary);
+}
+
+.inputField:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inputField.inputError {
+  border-color: var(--color-error-500);
+}
+
+.inputErrorMessage {
+  font-size: var(--font-size-xs);
+  color: var(--color-error-600);
+}

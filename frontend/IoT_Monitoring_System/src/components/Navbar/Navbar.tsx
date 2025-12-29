@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from "@/features/auth/context/AuthContext";
 import type { ReactElement } from 'react';
 import { FaTachometerAlt, FaBoxes, FaBuilding, FaUsers, FaCog, FaUserCircle } from 'react-icons/fa';
 import './Navbar.css';
@@ -11,6 +12,7 @@ interface NavItem {
 
 const Navbar = () => {
   const [activeItem, setActiveItem] = useState('dashboard');
+  const { logout } = useAuth();
 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <FaTachometerAlt /> },
@@ -49,7 +51,7 @@ const Navbar = () => {
 
       {/* Footer/Logout */}
       <div className="navbar-footer">
-        <button className="logout-btn">
+        <button className="logout-btn" onClick={logout}>
           <span>Logout</span>
         </button>
       </div>

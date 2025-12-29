@@ -39,10 +39,10 @@ class Settings(BaseSettings):
     EMAIL_TOKEN_EXPIRE_HOURS: int = Field(default=24)
 
     # ==================== CORS ====================
-    ALLOWED_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:5173")
+    ALLOWED_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:3001")
 
     # ==================== Server ====================
-    PORT: int = Field(default=8000)
+    FASTAPI_PORT: int = Field(default=8000)
     ENVIRONMENT: str = Field(default="development")
     DEBUG: bool = True if os.getenv("ENVIRONMENT", "development") == "development" else False
     

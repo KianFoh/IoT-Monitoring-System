@@ -164,8 +164,6 @@ def refresh_jwt_token(
     token_version = payload.get("version")
 
     user = db.query(UserModel).get(user_id)
-    print(user.refresh_token_version )
-    print(token_version)
     if not user or user.refresh_token_version != token_version:
         raise HTTPException(status_code=401, detail="Token revoked")
 
