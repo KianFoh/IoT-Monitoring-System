@@ -1,0 +1,146 @@
+@import '../../styles/theme.css';
+
+.navbar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 260px;
+  background: linear-gradient(180deg, var(--bg-sidebar-start) 0%, var(--bg-sidebar-end) 100%);
+  color: var(--text-inverse);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  box-shadow: var(--shadow-sidebar);
+  z-index: var(--z-navbar);
+}
+
+/* Profile Section */
+.navbar-profile {
+  padding: var(--spacing-lg) var(--spacing-md);
+  border-bottom: 1px solid var(--color-overlay-white-medium);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: var(--color-overlay-dark-light);
+}
+
+.profile-avatar {
+  color: var(--color-primary-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-white);
+  margin: 0 0 var(--spacing-xs) 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-role {
+  font-size: var(--font-size-xs);
+  color: var(--color-dark-400);
+  margin: 0;
+}
+
+/* Navigation Menu */
+.navbar-menu {
+  list-style: none;
+  margin: 0;
+  padding: var(--spacing-md) var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: 1;
+  overflow-y: auto;
+}
+
+.navbar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-dark-300);
+  transition: all var(--transition-normal);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
+
+.navbar-item:hover {
+  background: var(--color-overlay-white-light);
+  color: var(--text-white);
+}
+
+.navbar-item.active {
+  background: linear-gradient(90deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+  color: var(--text-white);
+  box-shadow: 0 2px 8px var(--color-primary-shadow);
+}
+
+.navbar-icon {
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.navbar-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Footer/Logout */
+.navbar-footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--color-overlay-white-medium);
+}
+
+.logout-btn {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-error-bg-light);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-md);
+  color: var(--color-error-300);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.logout-btn:hover {
+  background: var(--color-error-bg-medium);
+  border-color: var(--color-error-border-hover);
+  color: var(--color-error-500);
+}
+
+/* Scrollbar styling for menu */
+.navbar-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.navbar-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.navbar-menu::-webkit-scrollbar-thumb {
+  background: var(--color-overlay-white-medium);
+  border-radius: var(--radius-sm);
+}
+
+.navbar-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--color-overlay-white-bold);
+}
