@@ -1,0 +1,46 @@
+.loadingScreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  padding: var(--spacing-md);
+  margin: 0;
+}
+
+.loadingCard {
+  background: var(--card-background, #fff);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.2));
+  padding: var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-width: 280px;
+}
+
+.loadingSpinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 6px solid rgba(255, 255, 255, 0.3);
+  border-top-color: var(--color-primary-500);
+  animation: loading-spin 0.9s linear infinite;
+}
+
+.loadingText {
+  color: var(--text-primary, #1f2937);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold, 600);
+  text-align: center;
+}
+
+@keyframes loading-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

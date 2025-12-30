@@ -4,11 +4,12 @@ import LoginPage from "@/features/auth/pages/login/LoginPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 import ResendVerificationPage from "@/features/auth/pages/resend_verification/ResendVerificationPage";
 import ResetPasswordPage from "@/features/auth/pages/send_reset_password/ResetPasswordPage";
+import { LoadingScreen } from "@/components/Loading/LoadingScreen";
 
 export default function AppRoutes() {
   const { isLoggedIn, isAuthChecked } = useAuth();
 
-  if (!isAuthChecked) return <div>Loading...</div>;
+  if (!isAuthChecked) return <LoadingScreen />;
 
   const defaultRoute = isLoggedIn ? "/dashboard" : "/login";
 

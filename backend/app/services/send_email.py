@@ -32,6 +32,8 @@ def _send_email_smtp(to_email: str, subject: str, html_body: str) -> bool:
 
 # ==================== Send Verification Email ====================
 def send_verification_email(to_email: str, token: str) -> bool:
+    if not token:
+        return False
     link = f"{settings.FRONTEND_URL}/verify-and-set-password?token={token}"
     if getattr(settings, "ENVIRONMENT", "development") == "development":
         print(f"[DEV] Verification link for {to_email}: {link}")
@@ -51,6 +53,8 @@ def send_verification_email(to_email: str, token: str) -> bool:
 
 # ==================== Send Reset Password Email ====================
 def send_reset_password_email(to_email: str, token: str) -> bool:
+    if not token:
+        return False
     link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
     if getattr(settings, "ENVIRONMENT", "development") == "development":
         print(f"[DEV] Password reset link for {to_email}: {link}")
