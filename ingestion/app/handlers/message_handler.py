@@ -15,7 +15,7 @@ class MessageHandler:
 
             saved_count = self.ingestion.ingest(topic, payload)
             if saved_count:
-                logger.info(f"✓ Processed message from topic: {topic}, saved {saved_count} document(s)")
+                logger.info(f"✓ Processed message from topic: {topic}")
             else:
                 logger.warning(f"⚠ No data saved from topic: {topic}")
         except Exception as e:

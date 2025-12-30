@@ -32,13 +32,14 @@ def create_device(
             detail="Device with this UID already exists"
         )
     
-    department = department_crud.get_department(db, device.department_id)
-    if not department:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Department not found"
-        )
-    
+    if device.department_id:
+        department = department_crud.get_department(db, device.department_id)
+        if not department:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Department not found"
+            )
+
     return device_crud.create_device(db, device)
 
 

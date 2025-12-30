@@ -6,6 +6,14 @@ class Settings(BaseSettings):
     # App
     PROJECT_NAME: str
 
+    # PostgreSQL
+    DB_DRIVER: str
+    DB_HOST: str
+    DB_PORT: int
+    DB_NAME: str
+    DB_USER: str
+    DB_PASSWORD: str
+    
     # MongoDB
     MONGO_HOST: str
     MONGO_PORT: int
@@ -22,10 +30,9 @@ class Settings(BaseSettings):
     MQTT_PASSWORD: str
     MONGO_AUTH_SOURCE: str = "admin"
     MQTT_KEEPALIVE: int = 60
-    MQTT_TOPIC_PATTERN: str = "devices/#"
+    MQTT_TOPIC_PATTERN: str = "#"
 
     # Monitoring / logging
-    OFFLINE_THRESHOLD_MINUTES: int = 5
     LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(
