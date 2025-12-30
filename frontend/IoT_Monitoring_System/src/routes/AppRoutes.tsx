@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
-import LoginPage from "@/features/auth/LoginPage";
+import LoginPage from "@/features/auth/pages/login/LoginPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 
 export default function AppRoutes() {

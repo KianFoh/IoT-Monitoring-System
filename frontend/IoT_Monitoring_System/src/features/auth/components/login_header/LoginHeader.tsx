@@ -8,7 +8,7 @@ interface LoginHeaderProps {
 
 export const LoginHeader = ({
   title = "Welcome Back",
-  subtitle = "Sign in to your IoT Monitoring System",
+  subtitle = "Sign in to IoT Monitoring System",
   icon = "🔐",
 }: LoginHeaderProps) => {
   return (

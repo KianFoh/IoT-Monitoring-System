@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
+import { authApi } from "@/features/auth/api/authApi";
+import { useAuthInit } from "@/features/auth/hooks/useAuthInit";
 import { api } from "@/services/api";
 
 interface AuthContextType {
@@ -13,45 +15,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [access_token, setAccessToken] = useState<string | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const { access_token, setAccessToken, isLoggedIn, setIsLoggedIn, isAuthChecked } = useAuthInit();
 
-  useEffect(() => {
-    async function initAuth() {
-      try {
-        const data = await api.post<{ access_token: string }>(
-          "/auth/refresh-token"
-        );
-        setAccessToken(data.access_token);
-        api.setTokenGetter(() => data.access_token);
-        setIsLoggedIn(true);
-      } catch {
-        setAccessToken(null);
-        setIsLoggedIn(false);
-      } finally {
-        setIsAuthChecked(true);
-      }
-    }
-    initAuth();
-  }, []);
+  api.setTokenGetter(() => access_token);
 
   const login = async (email: string, password: string) => {
-    const data = await api.post<{ access_token: string }>(
-      "/auth/login",
-      {
-        email,
-        password,
-      }
-    );
+    const data = await authApi.login(email, password);
     setAccessToken(data.access_token);
-    api.setTokenGetter(() => data.access_token);
     setIsLoggedIn(true);
   };
 
   const logout = async () => {
     try {
-      await api.post("/auth/logout");
+      await authApi.logout();
     } finally {
       setAccessToken(null);
       setIsLoggedIn(false);
