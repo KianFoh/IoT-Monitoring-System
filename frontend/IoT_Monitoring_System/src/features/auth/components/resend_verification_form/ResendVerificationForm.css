@@ -1,0 +1,25 @@
+.resendVerificationForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.resendVerificationFormError {
+  padding: var(--spacing-md);
+  background: var(--color-error-bg-light);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-md);
+  color: var(--color-error-600);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.resendVerificationFormSuccess {
+  padding: var(--spacing-md);
+  background: var(--color-success-bg-light);
+  border: 1px solid var(--color-success-border);
+  border-radius: var(--radius-md);
+  color: var(--color-success-600);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}

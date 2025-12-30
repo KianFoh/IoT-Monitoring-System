@@ -22,8 +22,8 @@ export default function LoginPage() {
           error={error}
         />
         <div className="loginLinks">
-          <Link to="/reset-password" className="loginLink">Forgot Password?</Link>
-          <Link to="/verify-email" className="loginLink">Send email verification</Link>
+          <Link to="/send-reset-password" className="loginLink">Forgot Password?</Link>
+          <Link to="/resend-verification" className="loginLink">Resend Email Verification</Link>
         </div>
         <div className="loginFooter">
           <p>IoT Monitoring System &copy; {new Date().getFullYear()}</p>
