@@ -90,7 +90,7 @@ def set_password(
     user_crud.update_user(db, current_user.id, user_update)
     update_one_time_token(db, current_user)
 
-    return {"message": "Password set successfully"}
+    return {"message": "Email Verification Completed"}
 
 # ==================== Request-Send-Verification ====================
 @router.post("/send-verification", response_model=MessageResponse)
@@ -130,7 +130,7 @@ def reset_password(
     user_crud.update_user(db, current_user.id, user_update)
     update_one_time_token(db, current_user)
             
-    return {"message": f"Password reset successfully for user: {user.email}"}
+    return {"message": f"Password reset successfully"}
 
 # ==================== Check One Time Token ====================
 @router.get("/check-verify-password-token", response_model=MessageResponse)

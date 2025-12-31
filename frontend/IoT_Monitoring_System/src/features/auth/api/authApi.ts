@@ -19,5 +19,21 @@ export const authApi = {
 
   sendResetPassword: async (email: string) => {
     return api.post<{ message: string }>("/auth/request-password-reset", { email });
+  },
+
+  verifyResetPasswordToken: async () => {
+    return api.get<{ valid: boolean }>("/auth/check-reset-password-token");
+  },
+
+  verifyEmailToken: async () => {
+    return api.get<{ message: string }>("/auth/check-verify-password-token");
+  },
+
+  resetPasswordConfirm: async (new_password: string) => {
+    return api.post<{ message: string }>("/auth/reset-password", { new_password });
+  },
+
+  verifyEmailConfirm: async (setpassword: string) => {
+    return api.post<{ message: string }>("/auth/set-password", { setpassword });
   }
 };

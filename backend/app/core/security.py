@@ -280,7 +280,7 @@ def get_one_time_user(token_type: str):
                 detail="User not found",
             )
 
-        if user.token_version != int(token_version):
+        if user.one_time_token_version != int(token_version):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token already used or revoked",

@@ -4,6 +4,7 @@ import LoginPage from "@/features/auth/pages/login/LoginPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 import ResendVerificationPage from "@/features/auth/pages/resend_verification/ResendVerificationPage";
 import ResetPasswordPage from "@/features/auth/pages/send_reset_password/ResetPasswordPage";
+import ResetPasswordConfirmPage from "@/features/auth/pages/reset_password_confirm/ResetPasswordConfirmPage";
 import { LoadingScreen } from "@/components/Loading/LoadingScreen";
 
 export default function AppRoutes() {
@@ -22,7 +23,7 @@ export default function AppRoutes() {
       <Route path="/send-reset-password" element={<ResetPasswordPage />} />
       <Route path="/resend-verification" element={<ResendVerificationPage />} />
       <Route path="/verify-email" element={<div>Verify Email Page (to be implemented)</div>} />
-      <Route path="/reset-password" element={<div>Reset Password Page (to be implemented)</div>} />
+      <Route path="/reset-password" element={<ResetPasswordConfirmPage />} />
     </Routes>
   );
 }

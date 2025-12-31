@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, logger, status, Query
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.core.database import get_db
-from app.core.security import create_one_time_token, get_current_user, require_role
+from app.core.security import create_one_time_token_by_email, get_current_user, require_role
 from app.crud.postgres import user as user_crud
+from app.crud.postgres import department as department_crud
 from app.models.user import User as UserModel
 from app.schemas.user import UserCreate, UserUpdate, UserOut
 from app.models.enum.user_role import UserRole
 from app.services.send_email import send_verification_email
+
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -25,14 +28,18 @@ def create_user(
     existing_user = user_crud.get_user_by_email(db, user.email)
     if existing_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-
+    if user.department_id:
+        department_exists = department_crud.get_department(db, user.department_id)
+        if not department_exists:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid department ID")
+        
     db_user = user_crud.create_user(db, user)
 
     try:
-        token = create_one_time_token(db, db_user, "email_verification")
+        token = create_one_time_token_by_email(db, db_user.email, "email_verification")
         send_verification_email(db_user.email, token)
     except Exception as e:
-        logger.error(f"Failed to send verification email: {e}")
+        logging.error(f"Failed to send verification email: {e}")
     return db_user
 
 # ==================== Read (List) ====================

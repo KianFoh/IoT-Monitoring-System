@@ -6,7 +6,7 @@ from app.models.enum.user_role import UserRole
 
 class UserBase(BaseModel):
     email: EmailStr
-    department_id: Optional[int]
+    department_id: Optional[int] = None
     role: UserRole
     
 class UserCreate(UserBase):
