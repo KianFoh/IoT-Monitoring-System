@@ -271,7 +271,7 @@ def get_one_time_user(token_type: str):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload",
             )
-
+        
         user = db.query(UserModel).filter(UserModel.id == int(user_id)).first()
 
         if not user:

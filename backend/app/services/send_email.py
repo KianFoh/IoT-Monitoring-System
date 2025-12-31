@@ -34,7 +34,7 @@ def _send_email_smtp(to_email: str, subject: str, html_body: str) -> bool:
 def send_verification_email(to_email: str, token: str) -> bool:
     if not token:
         return False
-    link = f"{settings.FRONTEND_URL}/verify-and-set-password?token={token}"
+    link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
     if getattr(settings, "ENVIRONMENT", "development") == "development":
         print(f"[DEV] Verification link for {to_email}: {link}")
         return True
@@ -44,7 +44,7 @@ def send_verification_email(to_email: str, token: str) -> bool:
       <body>
         <p>Welcome! to {settings.PROJECT_NAME}</p>
         <p>Please verify your email and set your password:</p>
-        <p><a href="{link}">Verify & Set Password</a></p>
+        <p><a href="{link}">Verify Email</a></p>
         <p>If you didn’t request this, ignore this email.</p>
       </body>
     </html>

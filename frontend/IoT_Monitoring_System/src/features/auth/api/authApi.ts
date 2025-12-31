@@ -33,7 +33,7 @@ export const authApi = {
     return api.post<{ message: string }>("/auth/reset-password", { new_password });
   },
 
-  verifyEmailConfirm: async (setpassword: string) => {
-    return api.post<{ message: string }>("/auth/set-password", { setpassword });
+  verifyEmailConfirm: async (password: string) => {
+    return api.post<{ message: string }>("/auth/set-password", { password });
   }
 };
