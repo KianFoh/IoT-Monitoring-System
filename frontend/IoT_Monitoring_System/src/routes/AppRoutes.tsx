@@ -1,13 +1,9 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
-import LoginPage from "@/features/auth/pages/login/LoginPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
-import ResendVerificationPage from "@/features/auth/pages/resend_verification/ResendVerificationPage";
-import ResetPasswordPage from "@/features/auth/pages/send_reset_password/ResetPasswordPage";
-import ResetPasswordConfirmPage from "@/features/auth/pages/reset_password_confirm/ResetPasswordConfirmPage";
-import EmailVerificationPage from "@/features/auth/pages/email_verification/EmailVerificationPage";
 import { LoadingScreen } from "@/components/Loading/LoadingScreen";
-  
+import { LoginPage, EmailVerificationPage, ResendVerificationPage, ResetPasswordPage, ResetPasswordConfirmPage } from "@/features/auth";
+
 
 export default function AppRoutes() {
   const { isLoggedIn, isAuthChecked } = useAuth();
