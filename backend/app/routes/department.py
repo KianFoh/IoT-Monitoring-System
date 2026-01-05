@@ -9,13 +9,14 @@ from app.crud.postgres import customer as customer_crud
 from app.models.user import User as UserModel
 from app.schemas.department import DepartmentCreate, DepartmentUpdate, DepartmentOut
 from app.models.enum.user_role import UserRole
+from app.utils.ws_events import broadcast_department_event
 
 router = APIRouter(prefix="/departments", tags=["departments"])
 
 
 # ==================== Create ====================
 @router.post("/", response_model=DepartmentOut, status_code=status.HTTP_201_CREATED)
-def create_department(
+async def create_department(
     department: DepartmentCreate,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -38,7 +39,9 @@ def create_department(
             detail="Customer not found"
         )
     
-    return department_crud.create_department(db, department)
+    db_department = department_crud.create_department(db, department)
+    await broadcast_department_event("add", DepartmentOut.model_validate(db_department, from_attributes=True))
+    return db_department
 
 
 # ==================== Read (List) ====================
@@ -76,7 +79,7 @@ def get_department(
 
 # ==================== Update ====================
 @router.patch("/{department_id}", response_model=DepartmentOut)
-def update_department(
+async def update_department(
     department_id: int,
     department_update: DepartmentUpdate,
     current_user: UserModel = Depends(get_current_user),
@@ -109,12 +112,13 @@ def update_department(
             )
     
     updated_department = department_crud.update_department(db, department_id, department_update)
+    await broadcast_department_event("update", DepartmentOut.model_validate(updated_department, from_attributes=True))
     return updated_department
 
 
 # ==================== Delete ====================
 @router.delete("/{department_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_department(
+async def delete_department(
     department_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -131,4 +135,4 @@ def delete_department(
         )
     
     department_crud.delete_department(db, department_id)
-    return None
+    await broadcast_department_event("delete", {"id": department_id})

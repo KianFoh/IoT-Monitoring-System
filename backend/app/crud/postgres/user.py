@@ -46,11 +46,8 @@ def get_users(db: Session, skip: int = 0, limit: int = 10, department_id: int = 
 
 
 # ==================== Update ====================
-def update_user(db: Session, user_id: int, user_update: UserUpdate):
+def update_user(db: Session, db_user: UserModel, user_update: UserUpdate):
     """Update user"""
-    db_user = get_user(db, user_id)
-    if not db_user:
-        return None
     
     update_data = user_update.model_dump(exclude_unset=True)
     
@@ -106,3 +103,8 @@ def deactivate_user(db: Session, user_id: int):
         db.commit()
         db.refresh(db_user)
     return db_user
+
+# ==================== Count ====================
+def count_users(db: Session):
+    """Count total number of users."""
+    return db.query(UserModel).count()

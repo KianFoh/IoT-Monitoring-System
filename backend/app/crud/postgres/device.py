@@ -33,11 +33,8 @@ def get_devices(db: Session, skip: int = 0, limit: int = 10):
     return db.query(DeviceModel).offset(skip).limit(limit).all()
 
 # ==================== Update ====================
-def update_device(db: Session, device_id: int, device_update: DeviceUpdate):
+def update_device(db: Session, db_device: DeviceModel, device_update: DeviceUpdate):
     """Update device"""
-    db_device = get_device(db, device_id)
-    if not db_device:
-        return None
     
     update_data = device_update.model_dump(exclude_unset=True)
     
@@ -56,3 +53,8 @@ def delete_device(db: Session, device_id: int):
         db.commit()
         return True
     return False
+
+# ==================== Count ====================
+def count_devices(db: Session):
+    """Count total number of devices."""
+    return db.query(DeviceModel).count()

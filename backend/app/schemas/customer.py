@@ -22,3 +22,6 @@ class CustomerOut(CustomerBase):
     phone_no: Optional[str] = None
     is_active: bool
     created_at: datetime
+
+    class Config:
+        from_attributes = True

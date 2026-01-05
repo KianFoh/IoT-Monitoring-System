@@ -10,13 +10,14 @@ from app.models.user import User as UserModel
 from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut
 from app.models.enum.user_role import UserRole
 from app.utils.mongodb import serialize_document
+from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
 
 # ==================== Create ====================
 @router.post("/", response_model=DeviceOut, status_code=status.HTTP_201_CREATED)
-def create_device(
+async def create_device(
     device: DeviceCreate,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -40,7 +41,9 @@ def create_device(
                 detail="Department not found"
             )
 
-    return device_crud.create_device(db, device)
+    db_device = device_crud.create_device(db, device)
+    await broadcast_device_event("add", DeviceOut.model_validate(db_device, from_attributes=True))
+    return db_device
 
 
 # ==================== Read (List) ====================
@@ -77,7 +80,7 @@ def get_device(
 
 # ==================== Update ====================
 @router.patch("/{device_id}", response_model=DeviceOut)
-def update_device(
+async def update_device(
     device_id: int,
     device_update: DeviceUpdate,
     current_user: UserModel = Depends(get_current_user),
@@ -103,12 +106,13 @@ def update_device(
                 detail="Department not found"
             )
 
-    updated_device = device_crud.update_device(db, device_id, device_update)
+    updated_device = device_crud.update_device(db, existing_device, device_update)
+    await broadcast_device_event("update", DeviceOut.model_validate(updated_device, from_attributes=True))
     return updated_device
 
 # ==================== Delete ====================
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_device(
+async def delete_device(
     device_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -125,7 +129,7 @@ def delete_device(
         )
     
     device_crud.delete_device(db, device_id)
-    return None
+    await broadcast_device_event("delete", {"id": device_id})
 
 # ==================== Fetch Device Data =====================
 @router.get("/data/{device_uid}")

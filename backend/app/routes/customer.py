@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
+from app.utils.ws_events import broadcast_customer_event
 from app.crud.postgres import customer as customer_crud
 from app.models.user import User as UserModel
 from app.models.enum.user_role import UserRole
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/customers", tags=["customers"])
 
 # ==================== Create ====================
 @router.post("/", response_model=CustomerOut, status_code=status.HTTP_201_CREATED)
-def create_customer(
+async def create_customer(
     customer: CustomerCreate,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -28,6 +29,7 @@ def create_customer(
         )
     
     db_customer = customer_crud.create_customer(db, customer)
+    await broadcast_customer_event("add", CustomerOut.model_validate(db_customer, from_attributes=True))
     return db_customer
 
 
@@ -67,7 +69,7 @@ def get_customer(
 
 # ==================== Update ====================
 @router.patch("/{customer_id}", response_model=CustomerOut)
-def update_customer(
+async def update_customer(
     customer_id: int,
     customer_update: CustomerUpdate,
     current_user: UserModel = Depends(get_current_user),
@@ -95,12 +97,13 @@ def update_customer(
             )
     
     db_customer = customer_crud.update_customer(db, customer_id, customer_update)
+    await broadcast_customer_event("update", CustomerOut.model_validate(db_customer, from_attributes=True))
     return db_customer
 
 
 # ==================== Delete ====================
 @router.delete("/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_customer(
+async def delete_customer(
     customer_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -110,7 +113,5 @@ def delete_customer(
     
     success = customer_crud.delete_customer(db, customer_id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Customer not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+    await broadcast_customer_event("delete", {"id": customer_id})

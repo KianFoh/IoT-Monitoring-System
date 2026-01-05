@@ -1,8 +1,8 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.models.mqtt_user import Mqtt_User as MqttUserModel
-from app.schemas.mqtt_user import MqttUserCreate, MqttUserUpdate, MqttUserOut
-from app.core.security import decrypt_password, encrypt_password
+from app.schemas.mqtt_user import MqttUserCreate, MqttUserUpdate
+from app.core.security import encrypt_password
 
 # ==================== Create ====================
 def create_mqtt_user(db: Session, mqtt_user: MqttUserCreate):
@@ -34,11 +34,8 @@ def get_mqtt_users(db: Session, skip: int = 0, limit: int = 10):
     return db.query(MqttUserModel).offset(skip).limit(limit).all()
 
 # ==================== Update ====================
-def update_mqtt_user(db: Session, mqtt_user_id: int, mqtt_user_update: MqttUserUpdate):
+def update_mqtt_user(db: Session, db_mqtt_user: MqttUserModel, mqtt_user_update: MqttUserUpdate):
     """Update MQTT user"""
-    db_mqtt_user = get_mqtt_user(db, mqtt_user_id)
-    if not db_mqtt_user:
-        return None
     
     update_data = mqtt_user_update.model_dump(exclude_unset=True)
     
@@ -75,3 +72,8 @@ def check_mqtt_user_username_unique(db: Session, username: str, exclude_mqtt_use
 
     existing_mqtt_user = query.first()
     return existing_mqtt_user is None
+
+# ==================== Count ====================
+def count_mqtt_users(db: Session):
+    """Count total number of MQTT users."""
+    return db.query(MqttUserModel).count()

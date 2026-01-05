@@ -3,7 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import get_settings
-from app.routes import health, user, auth, customer, department, device, mqtt_user
+from app.routes import health, user, auth, customer, department, device, mqtt_user, ws
 
 # Get settings
 settings = get_settings()
@@ -53,6 +53,7 @@ app.include_router(health.router)
 app.include_router(department.router)
 app.include_router(device.router)
 app.include_router(mqtt_user.router)
+app.include_router(ws.router)
 
 if __name__ == "__main__":
     import uvicorn

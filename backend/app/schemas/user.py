@@ -28,3 +28,6 @@ class UserOut(UserBase):
     is_active: bool
     last_login: Optional[datetime] = None
     created_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -22,3 +22,6 @@ class DeviceOut(DeviceBase):
     is_online: bool
     is_active: bool
     created_at: datetime
+
+    class Config:
+        from_attributes = True

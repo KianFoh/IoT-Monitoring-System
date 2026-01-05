@@ -31,10 +31,8 @@ def get_departments(db: Session, skip: int = 0, limit: int = 10):
 
 # ==================== Update ====================
 def update_department(db: Session, department_id: int, department_update: DepartmentUpdate):
-    """Update department"""
+    """Update department."""
     db_department = get_department(db, department_id)
-    if not db_department:
-        return None
     
     update_data = department_update.model_dump(exclude_unset=True)
     
@@ -68,3 +66,8 @@ def check_department_name_unique(db: Session, customer_id: int, name: str, exclu
 
     existing_department = query.first()
     return existing_department is None
+
+# ==================== Count ====================
+def count_departments(db: Session):
+    """Count total number of departments."""
+    return db.query(DepartmentModel).count()

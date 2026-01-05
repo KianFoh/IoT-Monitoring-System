@@ -11,13 +11,14 @@ from app.models.user import User as UserModel
 from app.schemas.user import UserCreate, UserUpdate, UserOut
 from app.models.enum.user_role import UserRole
 from app.services.send_email import send_verification_email
+from app.utils.ws_events import broadcast_user_event
 
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 # ==================== Create ====================
 @router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def create_user(
+async def create_user(
     user: UserCreate,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -40,6 +41,7 @@ def create_user(
         send_verification_email(db_user.email, token)
     except Exception as e:
         logging.error(f"Failed to send verification email: {e}")
+    await broadcast_user_event("add", UserOut.model_validate(db_user, from_attributes=True))
     return db_user
 
 # ==================== Read (List) ====================
@@ -85,7 +87,7 @@ def get_user(
 
 # ==================== Update ====================
 @router.patch("/{user_id}", response_model=UserOut)
-def update_user(
+async def update_user(
     user_id: int,
     user_update: UserUpdate,
     current_user: UserModel = Depends(get_current_user),
@@ -102,17 +104,20 @@ def update_user(
             detail="Only superuser can change roles"
         )
     
-    db_user = user_crud.update_user(db, user_id, user_update)
+    db_user = user_crud.get_user(db, user_id)
     if not db_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+    
+    db_user = user_crud.update_user(db, db_user, user_update)
+    await broadcast_user_event("update", UserOut.model_validate(db_user, from_attributes=True))
     return db_user
 
 # ==================== Delete ====================
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(
+async def delete_user(
     user_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -132,6 +137,7 @@ def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+    await broadcast_user_event("delete", {"id": user_id})
 
 # ==================== Activate ====================
 @router.post("/{user_id}/activate", response_model=UserOut)

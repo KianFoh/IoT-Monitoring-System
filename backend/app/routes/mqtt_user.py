@@ -9,12 +9,13 @@ from app.crud.postgres import customer as customer_crud
 from app.models.user import User as UserModel
 from app.schemas.mqtt_user import MqttUserCreate, MqttUserUpdate, MqttUserOut
 from app.models.enum.user_role import UserRole
+from app.utils.ws_events import broadcast_mqtt_user_event
 
 router = APIRouter(prefix="/mqtt_users", tags=["mqtt_users"])
 
 # ==================== Create ====================
 @router.post("/", response_model=MqttUserOut, status_code=status.HTTP_201_CREATED)
-def create_mqtt_user(
+async def create_mqtt_user(
     mqtt_user: MqttUserCreate,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -37,7 +38,9 @@ def create_mqtt_user(
                 detail="Customer not found"
             )
         
-    return mqtt_user_crud.create_mqtt_user(db, mqtt_user)
+    db_mqtt_user = mqtt_user_crud.create_mqtt_user(db, mqtt_user)
+    await broadcast_mqtt_user_event("add", MqttUserOut.model_validate(db_mqtt_user, from_attributes=True))
+    return db_mqtt_user
 
 
 # ==================== Read (List) ====================
@@ -83,7 +86,7 @@ def get_mqtt_user(
 
 # ==================== Update ====================
 @router.patch("/{mqtt_user_id}", response_model=MqttUserOut)
-def update_mqtt_user(
+async def update_mqtt_user(
     mqtt_user_id: int,
     mqtt_user_update: MqttUserUpdate,
     current_user: UserModel = Depends(get_current_user),
@@ -115,13 +118,14 @@ def update_mqtt_user(
                 detail="Customer not found"
             )
     
-    updated_mqtt_user = mqtt_user_crud.update_mqtt_user(db, mqtt_user_id, mqtt_user_update)
+    updated_mqtt_user = mqtt_user_crud.update_mqtt_user(db, existing_mqtt_user, mqtt_user_update)
+    await broadcast_mqtt_user_event("update", MqttUserOut.model_validate(updated_mqtt_user, from_attributes=True))
     return updated_mqtt_user
 
 
 # ==================== Delete ====================
 @router.delete("/{mqtt_user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_mqtt_user(
+async def delete_mqtt_user(
     mqtt_user_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -138,4 +142,4 @@ def delete_mqtt_user(
         )
     
     mqtt_user_crud.delete_mqtt_user(db, mqtt_user_id)
-    return None
+    await broadcast_mqtt_user_event("delete", {"id": mqtt_user_id})
