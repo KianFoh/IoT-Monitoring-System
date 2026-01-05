@@ -1,5 +1,3 @@
-@import '../../../styles/theme.css';
-
 .dashboardLayout {
   display: flex;
   min-height: 100vh;
@@ -25,5 +23,18 @@
   font-size: var(--font-size-base);
   color: var(--color-primary-100);
   margin: 0 0 2rem 0;
+}
+
+/* Dashboard Container */
+.dashboard-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
 }
 
