@@ -1,11 +1,6 @@
-@import '../../styles/theme.css';
-
 .navbar {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
   width: 260px;
+  min-height: 100vh;
   background: linear-gradient(180deg, var(--bg-sidebar-start) 0%, var(--bg-sidebar-end) 100%);
   color: var(--text-inverse);
   display: flex;
@@ -37,8 +32,8 @@
   min-width: 0;
 }
 
-.profile-name {
-  font-size: var(--font-size-base);
+.profile-email {
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-white);
   margin: 0 0 var(--spacing-xs) 0;
@@ -76,6 +71,7 @@
   transition: all var(--transition-normal);
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
+  text-decoration: none;
 }
 
 .navbar-item:hover {

@@ -1,8 +1,9 @@
 import { api } from "@/services/api";
+import type { User } from "@/types/auth";
 
 export const authApi = {
   login: async (email: string, password: string) => {
-    return api.post<{ access_token: string }>("/auth/login", { email, password });
+    return api.post<{ access_token: string; user: User }>("/auth/login", { email, password });
   },
 
   logout: async () => {

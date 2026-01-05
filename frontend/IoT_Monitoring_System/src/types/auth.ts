@@ -15,4 +15,13 @@ export interface LoginFormData {
   password: string;
 }
 
-
+export interface User {
+        email: string;
+        department_id: number | null;
+        role: "admin" | "user" | "superuser";
+        id: number;
+        is_verified: boolean;
+        is_active: boolean;
+        last_login: string;
+        created_at: string;
+    }

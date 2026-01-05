@@ -1,0 +1,29 @@
+@import '../../../styles/theme.css';
+
+.dashboardLayout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-secondary);
+}
+
+.dashboardContent {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  background: linear-gradient(135deg, var(--color-dark-700), var(--color-dark-800));
+}
+
+/* Dashboard Page Styling */
+.dashboardContent h1 {
+  font-size: 2rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-white);
+  margin: 0 0 0.5rem 0;
+}
+
+.dashboardContent p {
+  font-size: var(--font-size-base);
+  color: var(--color-primary-100);
+  margin: 0 0 2rem 0;
+}
+
