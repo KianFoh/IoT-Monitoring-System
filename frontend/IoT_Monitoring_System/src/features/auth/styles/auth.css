@@ -43,7 +43,7 @@
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
-  margin: 0 0 var(--spacing-sm) 0;
+  margin: 0 0 var(--spacing-md) 0;
 }
 
 .authHeaderSubtitle {
@@ -73,13 +73,6 @@
   height: 80px;
   background: var(--color-success-bg-light);
   border-radius: 50%;
-}
-
-.authHeaderTitle {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-md) 0;
 }
 
 .successMessage {
@@ -150,15 +143,15 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  background: var(--bg-sidebar-start);
   padding: var(--spacing-md);
   margin: 0;
 }
 
 .authCard {
   width: 100%;
-  max-width: 420px;
-  background: var(--color-neutral-50);
+  max-width: 360px;
+  background: var(--color-dark-100);
   padding: var(--spacing-xl);
   border-radius: var(--radius-lg);
 }

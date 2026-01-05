@@ -180,7 +180,11 @@ def refresh_jwt_token(
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserOut.model_validate(user, from_attributes=True),
+    }
 
 # ==================== Logout ====================
 @router.post("/logout", response_model=MessageResponse)

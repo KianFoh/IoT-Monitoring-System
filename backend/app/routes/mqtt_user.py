@@ -13,6 +13,17 @@ from app.utils.ws_events import broadcast_mqtt_user_event
 
 router = APIRouter(prefix="/mqtt_users", tags=["mqtt_users"])
 
+# ==================== Count ====================
+@router.get("/count", response_model=int)
+def count_mqtt_users(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Count total number of MQTT users."""
+    require_role(current_user, [UserRole.superuser])
+    
+    return mqtt_user_crud.count_mqtt_users(db)
+
 # ==================== Create ====================
 @router.post("/", response_model=MqttUserOut, status_code=status.HTTP_201_CREATED)
 async def create_mqtt_user(

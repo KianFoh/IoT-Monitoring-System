@@ -16,6 +16,18 @@ from app.utils.ws_events import broadcast_user_event
 
 router = APIRouter(prefix="/users", tags=["users"])
 
+# ==================== Count ====================
+@router.get("/count", response_model=int)
+def count_users(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Count total number of users."""
+    require_role(current_user, [UserRole.superuser])
+    
+    user_count = user_crud.count_users(db)
+    return user_count
+
 # ==================== Create ====================
 @router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(

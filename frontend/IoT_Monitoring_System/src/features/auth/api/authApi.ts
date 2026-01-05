@@ -11,7 +11,7 @@ export const authApi = {
   },
 
   refreshToken: async () => {
-    return api.post<{ access_token: string }>("/auth/refresh-token");
+    return api.post<{ access_token: string; user: User }>("/auth/refresh-token");
   },
 
   resendVerificationEmail: async (email: string) => {

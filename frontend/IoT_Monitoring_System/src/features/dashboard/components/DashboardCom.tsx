@@ -1,13 +1,24 @@
 import { StatCard } from "../../../components/StatCard/StatCard";
+import { useDashboardOverview } from "../hooks/useDashboardOverview";
+import { LoadingScreen } from "../../../components/Loading/LoadingScreen";
 
 export function DashboardCom() {
-  // Mock data - replace with actual API calls
-  const stats = {
-    totalCustomers: 24,
-    totalDevices: 156,
-    totalUsers: 42,
-    mqttUsers: 148,
-  };
+  const { stats, loading, error } = useDashboardOverview();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-container">
+        <div className="dashboard-header">
+          <h1>Dashboard</h1>
+          <p>Error loading dashboard stats: {error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">

@@ -10,6 +10,17 @@ from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerOut
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
+# ==================== Count ====================
+@router.get("/count", response_model=int)
+def count_customers(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Count total number of customers."""
+    require_role(current_user, [UserRole.superuser])
+    
+    total_customers = customer_crud.count_customers(db)
+    return total_customers
 
 # ==================== Create ====================
 @router.post("/", response_model=CustomerOut, status_code=status.HTTP_201_CREATED)

@@ -13,6 +13,15 @@ from app.utils.ws_events import broadcast_department_event
 
 router = APIRouter(prefix="/departments", tags=["departments"])
 
+# ==================== Count ====================
+@router.get("/count", response_model=int)
+def count_departments(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Count total number of departments."""
+    require_role(current_user, [UserRole.superuser])
+    return department_crud.count_departments(db)
 
 # ==================== Create ====================
 @router.post("/", response_model=DepartmentOut, status_code=status.HTTP_201_CREATED)

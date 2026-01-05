@@ -14,6 +14,17 @@ from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
+# ==================== Count ====================
+@router.get("/count", response_model=int)
+def count_devices(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Count total number of devices."""
+    require_role(current_user, [UserRole.superuser])
+    
+    device_count = device_crud.count_devices(db)
+    return device_count
 
 # ==================== Create ====================
 @router.post("/", response_model=DeviceOut, status_code=status.HTTP_201_CREATED)
@@ -161,5 +172,3 @@ def fetch_device_data(
         )
     data = [serialize_document(doc) for doc in data]
     return data
-
-

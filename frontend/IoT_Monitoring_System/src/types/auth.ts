@@ -25,3 +25,13 @@ export interface User {
         last_login: string;
         created_at: string;
     }
+
+export interface AuthContextType {
+  isLoggedIn: boolean;
+  access_token: string | null;
+  isAuthChecked: boolean;
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  setUser: (user: User | null) => void;
+}

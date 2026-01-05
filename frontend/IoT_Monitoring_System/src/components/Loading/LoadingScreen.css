@@ -3,15 +3,17 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  background: linear-gradient(135deg, var(--color-dark-700), var(--color-dark-800));
   padding: var(--spacing-md);
   margin: 0;
 }
 
 .loadingCard {
-  background: var(--card-background, #fff);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.2));
   padding: var(--spacing-xl);
   display: flex;
   flex-direction: column;
@@ -24,13 +26,13 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 6px solid rgba(255, 255, 255, 0.3);
-  border-top-color: var(--color-primary-500);
+  border: 6px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--color-primary-400);
   animation: loading-spin 0.9s linear infinite;
 }
 
 .loadingText {
-  color: var(--text-primary, #1f2937);
+  color: var(--text-white);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold, 600);
   text-align: center;

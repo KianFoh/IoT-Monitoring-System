@@ -1,25 +1,14 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { authApi } from "@/features/auth/api/authApi";
 import { useAuthInit } from "@/features/auth/hooks/useAuthInit";
 import { api } from "@/services/api";
-import type { User } from "@/types/auth";
-
-interface AuthContextType {
-  isLoggedIn: boolean;
-  access_token: string | null;
-  isAuthChecked: boolean;
-  user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  setAccessToken: (access_token: string | null) => void;
-}
+import type { AuthContextType } from "@/types/auth";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { access_token, setAccessToken, isLoggedIn, setIsLoggedIn, isAuthChecked } = useAuthInit();
-  const [user, setUser] = useState<User | null>(null);
+  const { access_token, setAccessToken, user, setUser, isLoggedIn, setIsLoggedIn, isAuthChecked } = useAuthInit();
 
   api.setTokenGetter(() => access_token);
 
@@ -42,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ isLoggedIn, access_token, user, login, logout, isAuthChecked, setAccessToken }}
+      value={{ isLoggedIn, access_token, user, login, logout, isAuthChecked, setUser }}
     >
       {children}
     </AuthContext.Provider>

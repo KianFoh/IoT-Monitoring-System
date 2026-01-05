@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { authApi } from "@/features/auth/api/authApi";
+import type { User } from "@/types/auth";
 
 export function useAuthInit() {
   const [access_token, setAccessToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
 
@@ -11,9 +13,11 @@ export function useAuthInit() {
       try {
         const data = await authApi.refreshToken();
         setAccessToken(data.access_token);
+        setUser(data.user);
         setIsLoggedIn(true);
       } catch {
         setAccessToken(null);
+        setUser(null);
         setIsLoggedIn(false);
       } finally {
         setIsAuthChecked(true);
@@ -22,5 +26,5 @@ export function useAuthInit() {
     initAuth();
   }, []);
 
-  return { access_token, setAccessToken, isLoggedIn, setIsLoggedIn, isAuthChecked };
+  return { access_token, setAccessToken, user, setUser, isLoggedIn, setIsLoggedIn, isAuthChecked };
 }
