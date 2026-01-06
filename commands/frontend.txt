@@ -1,5 +1,5 @@
 # Install Depedency
-npm Install
+npm install
 
 # Start React Sever
 npm run dev

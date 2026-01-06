@@ -10,8 +10,7 @@ settings = get_settings()
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="IoT Monitoring System API",
-    description="API for IoT device monitoring with JWT authentication",
+    title=settings.PROJECT_NAME,
     version="1.0.0",
     debug=settings.DEBUG
 )
