@@ -1,0 +1,11 @@
+# Create Python Virtual Environment
+python -m venv venv
+
+# Activate Environment
+venv\Scripts\activate
+
+# Start API & Ingesion Services
+python main.py
+
+# Backend Create first superuser scripts
+python -m app.scripts.create_superadmin
