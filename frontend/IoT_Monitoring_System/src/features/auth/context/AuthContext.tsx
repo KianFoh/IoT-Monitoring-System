@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect } from "react";
 import type { ReactNode } from "react";
 import { authApi } from "@/features/auth/api/authApi";
 import { useAuthInit } from "@/features/auth/hooks/useAuthInit";
@@ -10,7 +10,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { access_token, setAccessToken, user, setUser, isLoggedIn, setIsLoggedIn, isAuthChecked } = useAuthInit();
 
-  api.setTokenGetter(() => access_token);
+  // Set token getter for both API and WebSocket
+  useEffect(() => {
+    const tokenGetter = () => access_token;
+    api.setTokenGetter(tokenGetter);
+    
+  }, [access_token]);
 
   const login = async (email: string, password: string) => {
     const data = await authApi.login(email, password);

@@ -1,10 +1,68 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type { AxiosInstance, AxiosRequestConfig } from "axios";
 import { config } from "@/config";
+import { authApi } from "../features/auth/api/authApi";
+
+type RetryableRequest = AxiosRequestConfig & { _retry?: boolean };
 
 class ApiClient {
   private client: AxiosInstance;
   private getToken: (() => string | null) | null = null;
+  private isRefreshing = false;
+  private refreshQueue: Array<() => void> = [];
+
+  private setUpInterceptors(instance: AxiosInstance) {
+    instance.interceptors.request.use((config) => {
+      const token = this.getToken?.();
+      if (token) {
+        config.headers = config.headers ?? {};
+        config.headers.Authorization = `Bearer ${token}`;
+        
+      }
+      return config;
+    });
+
+    instance.interceptors.response.use(
+      (response) => response,
+      async (error: AxiosError) => {
+        const originalRequest = error.config as RetryableRequest;
+        if (!originalRequest || originalRequest._retry) {
+          return Promise.reject(error);
+        }
+
+        if (error.response?.status === 401) {
+          // Avoid multiple refresh calls
+          if (this.isRefreshing) {
+            await new Promise<void>((resolve) => this.refreshQueue.push(resolve));
+          } else {
+            this.isRefreshing = true;
+            try {
+              const data = await authApi.refreshToken();
+              // update token in auth store/localStorage
+              this.setTokenGetter(() => data.access_token);
+            } catch (e) {
+              this.isRefreshing = false;
+              this.refreshQueue = [];
+              return Promise.reject(error);
+            }
+            this.isRefreshing = false;
+            this.refreshQueue.forEach((resolve) => resolve());
+            this.refreshQueue = [];
+          }
+
+          originalRequest._retry = true;
+          const token = this.getToken?.();
+          if (token) {
+            originalRequest.headers = originalRequest.headers ?? {};
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return instance(originalRequest);
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+  }
 
   constructor(baseURL: string, timeout: number) {
     this.client = axios.create({
@@ -15,44 +73,7 @@ class ApiClient {
         "Content-Type": "application/json",
       },
     });
-
-    // 🔑 attach token automatically if it exists
-    this.client.interceptors.request.use((config) => {
-      const token = this.getToken?.();
-      if (token) {
-        config.headers = config.headers ?? {};
-        config.headers.Authorization = `Bearer ${token}`;
-        
-      }
-      return config;
-    });
-
-    this.client.interceptors.response.use(
-      (res) => res,
-      (error) => {
-        if (error.code === "ECONNABORTED") {
-          return Promise.reject(new Error("Request timed out"));
-        }
-        if (!error.response) {
-          return Promise.reject(
-            new Error("Network error. Please check your connection.")
-          );
-        }
-
-        const { status, statusText, data } = error.response as {
-          status: number;
-          statusText: string;
-          data?: any;
-        };
-        
-        const detail = typeof data?.detail === "string" ? data.detail : undefined;
-        const message =
-          detail ||
-          (typeof data?.message === "string" ? data.message : undefined) ||
-          `HTTP ${status}: ${statusText}`;
-        return Promise.reject(new Error(message));
-      }
-    );
+    this.setUpInterceptors(this.client);
   }
 
   // public API
