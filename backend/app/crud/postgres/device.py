@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from app.models.device import Device as DeviceModel
-from app.schemas.device import DeviceCreate, DeviceUpdate
+from app.models.department import Department as DepartmentModel
+from app.models.customer import Customer as CustomerModel
+from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceRecentOut
 
 # ==================== Create ====================
 def create_device(db: Session, device: DeviceCreate):
@@ -58,3 +60,41 @@ def delete_device(db: Session, device_id: int):
 def count_devices(db: Session):
     """Count total number of devices."""
     return db.query(DeviceModel).count()
+
+# ==================== Recent Devices ====================
+def get_recent_devices(db: Session, limit: int = 5):
+    """Get recently added devices enriched with department and customer names.
+
+    Returns a list of DeviceRecentOut items containing:
+    - id, uid, name, is_online (from device)
+    - department_name (nullable)
+    - customer_name (nullable)
+    """
+    rows = (
+        db.query(
+            DeviceModel,
+            DepartmentModel.name.label("department_name"),
+            CustomerModel.name.label("customer_name"),
+        )
+        .outerjoin(DepartmentModel, DeviceModel.department_id == DepartmentModel.id)
+        .outerjoin(CustomerModel, DepartmentModel.customer_id == CustomerModel.id)
+        .order_by(DeviceModel.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    results = []
+    for device, department_name, customer_name in rows:
+        results.append(
+            DeviceRecentOut.model_validate(
+                {
+                    "id": device.id,
+                    "uid": device.uid,
+                    "name": device.name,
+                    "is_online": device.is_online,
+                    "department_name": department_name,
+                    "customer_name": customer_name,
+                }
+            )
+        )
+    return results

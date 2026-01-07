@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { authApi } from "@/features/auth/api/authApi";
+import { wsManager } from "@/services/ws";
+import { api } from "@/services/api";
 import type { User } from "@/types/auth";
 
 export function useAuthInit() {
@@ -13,6 +15,9 @@ export function useAuthInit() {
       try {
         const data = await authApi.refreshToken();
         setAccessToken(data.access_token);
+        wsManager.setTokenGetter(() => data.access_token);
+        api.setTokenGetter(() => data.access_token);
+        
         setUser(data.user);
         setIsLoggedIn(true);
       } catch {

@@ -1,14 +1,10 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "@/features/auth/context/AuthContext";import { LoadingScreen } from "@/components/Loading/LoadingScreen";
 import { LoginPage, EmailVerificationPage, ResendVerificationPage, ResetPasswordPage, ResetPasswordConfirmPage } from "@/features/auth";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { GuestRoute } from "./GuestRoute";
 import { DashboardLayout, DashboardHome, CustomersPage, DevicesPage, MqttUserPage, SettingsPage, UsersPage } from "@/features/dashboard";
 
 export default function AppRoutes() {
-  const { isAuthChecked } = useAuth();
-
-  if (!isAuthChecked) return <LoadingScreen />;
 
   return (
     <Routes>

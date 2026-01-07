@@ -1,9 +1,10 @@
 import { StatCard } from "../../../components/StatCard/StatCard";
 import { useDashboardOverview } from "../hooks/useDashboardOverview";
 import { LoadingScreen } from "../../../components/Loading/LoadingScreen";
+import { Link } from "react-router-dom";
 
 export function DashboardCom() {
-  const { stats, loading, error } = useDashboardOverview();
+  const { stats, devices, loading, error } = useDashboardOverview();
 
   if (loading) {
     return <LoadingScreen />;
@@ -24,7 +25,7 @@ export function DashboardCom() {
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1>Dashboard</h1>
-        <p>Monitor your IoT devices and systems in real-time</p>
+        <p>Monitor your IoT devices and in real-time</p>
       </div>
 
       <div className="stats-grid">
@@ -54,7 +55,51 @@ export function DashboardCom() {
         />
       </div>
 
-      {/* Add more dashboard widgets, charts here */}
+      {/* Devices Table */}
+      <div className="dashboard-section">
+        <div className="section-header">
+          <h2>Recent Devices</h2>
+          <Link to="/dashboard/devices" className="section-link">
+            See all
+          </Link>
+        </div>
+        <div className="table-container">
+          <table className="dashboard-table">
+              <thead>
+                <tr>
+                  <th>UID</th>
+                  <th>Name</th>
+                  <th>Department</th>
+                  <th>Customer</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {devices.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: "center" }}>
+                      No devices found
+                    </td>
+                  </tr>
+                ) : (
+                  devices.map((device) => (
+                    <tr key={device.id}>
+                      <td className="device-id">{device.uid}</td>
+                      <td>{device.name}</td>
+                      <td>{device.department_name}</td>
+                      <td>{device.customer_name}</td>
+                      <td>
+                        <span className={`status-badge ${device.is_online ? "online" : "offline"}`}>
+                          {device.is_online ? "Online" : "Offline"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+        </div>
+      </div>
     </div>
   );
 }

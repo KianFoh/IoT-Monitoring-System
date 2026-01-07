@@ -17,7 +17,6 @@ class ApiClient {
       if (token) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
-        
       }
       return config;
     });
@@ -26,7 +25,9 @@ class ApiClient {
       (response) => response,
       async (error: AxiosError) => {
         const originalRequest = error.config as RetryableRequest;
-        if (!originalRequest || originalRequest._retry) {
+        
+        // Don't retry if no config, already retried, or is the refresh endpoint itself
+        if (!originalRequest || originalRequest._retry || originalRequest.url?.includes('/auth/refresh')) {
           return Promise.reject(error);
         }
 
@@ -38,11 +39,12 @@ class ApiClient {
             this.isRefreshing = true;
             try {
               const data = await authApi.refreshToken();
-              // update token in auth store/localStorage
+              // Update token getter
               this.setTokenGetter(() => data.access_token);
             } catch (e) {
               this.isRefreshing = false;
               this.refreshQueue = [];
+              // Don't retry, let the error propagate so user gets redirected
               return Promise.reject(error);
             }
             this.isRefreshing = false;
@@ -68,7 +70,7 @@ class ApiClient {
     this.client = axios.create({
       baseURL,
       timeout,
-      withCredentials: true, // needed for refresh cookie
+      withCredentials: true,
       headers: {
         "Content-Type": "application/json",
       },
@@ -76,7 +78,6 @@ class ApiClient {
     this.setUpInterceptors(this.client);
   }
 
-  // public API
   get<T>(url: string, config?: AxiosRequestConfig) {
     return this.client.get<T>(url, config).then((r) => r.data);
   }
@@ -93,7 +94,10 @@ class ApiClient {
     return this.client.delete<T>(url, config).then((r) => r.data);
   }
 
-  // 🔑 single bridge between auth & api
+  patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return this.client.patch<T>(url, data, config).then((r) => r.data);
+  }
+
   setTokenGetter(getter: () => string | null) {
     this.getToken = getter;
   }

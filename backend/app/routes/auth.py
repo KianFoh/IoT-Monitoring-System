@@ -87,7 +87,7 @@ def set_password(
     db: Session = Depends(get_db)
 ):
     user_update = UserUpdate(password=set_password_request.password, is_active=True, is_verified=True)
-    user_crud.update_user(db, current_user.id, user_update)
+    user_crud.update_user(db, current_user, user_update)
     update_one_time_token(db, current_user)
 
     return {"message": "Email Verification Completed"}

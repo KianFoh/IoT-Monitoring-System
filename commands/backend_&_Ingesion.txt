@@ -4,6 +4,9 @@ python -m venv venv
 # Activate Environment
 venv\Scripts\activate
 
+# Install Dependency
+pip install --no-deps -r requirement.txt
+
 # Start API & Ingesion Services
 python main.py
 

@@ -7,7 +7,7 @@ from app.crud.postgres import device as device_crud
 from app.crud.postgres import department as department_crud
 from app.crud.mongodb import devices_data as device_data_crud
 from app.models.user import User as UserModel
-from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut
+from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRecentOut
 from app.models.enum.user_role import UserRole
 from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
@@ -25,6 +25,19 @@ def count_devices(
     
     device_count = device_crud.count_devices(db)
     return device_count
+
+# ==================== Recent Devices ====================
+@router.get("/recent", response_model=List[DeviceRecentOut])
+def get_recent_devices(
+    limit: int = Query(5, ge=1, le=100),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get most recently added devices."""
+    require_role(current_user, [UserRole.superuser])
+
+    recent_devices = device_crud.get_recent_devices(db, limit=limit)
+    return recent_devices
 
 # ==================== Create ====================
 @router.post("/", response_model=DeviceOut, status_code=status.HTTP_201_CREATED)
