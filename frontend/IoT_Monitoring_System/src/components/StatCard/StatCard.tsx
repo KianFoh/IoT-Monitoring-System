@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import "./StatCard.css";
+import styles from "./StatCard.module.css";
 
 interface StatCardProps {
   title: string;
@@ -17,11 +17,11 @@ export const StatCard = ({
   className = "",
 }: StatCardProps) => {
   return (
-    <div className={`stat-card stat-card--${color} ${className}`}>
-      {icon && <div className="stat-card__icon">{icon}</div>}
-      <div className="stat-card__content">
-        <p className="stat-card__title">{title}</p>
-        <h3 className="stat-card__value">{value}</h3>
+    <div className={`${styles["gen-stat-card"]} ${styles[`gen-stat-card--${color}`]} ${className}`}>
+      {icon && <div className={styles["gen-stat-card__icon"]}>{icon}</div>}
+      <div className={styles["gen-stat-card__content"]}>
+        <p className={styles["gen-stat-card__title"]}>{title}</p>
+        <h3 className={styles["gen-stat-card__value"]}>{value}</h3>
       </div>
     </div>
   );

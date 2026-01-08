@@ -1,18 +1,14 @@
-.loadingScreen {
+.gen-loadingScreen {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: linear-gradient(135deg, var(--color-dark-700), var(--color-dark-800));
-  padding: var(--spacing-md);
-  margin: 0;
 }
 
-.loadingCard {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(14px);
+.gen-loadingCard {
+  background: var(--color-overlay-white-medium);
+  border: 1px solid var(--color-overlay-white-bold);
+  box-shadow: var(--shadow-xl);
   border-radius: var(--radius-lg);
   padding: var(--spacing-xl);
   display: flex;
@@ -22,19 +18,19 @@
   min-width: 280px;
 }
 
-.loadingSpinner {
+.gen-loadingSpinner {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 6px solid rgba(255, 255, 255, 0.2);
+  border: 6px solid var(--color-overlay-white-bold);
   border-top-color: var(--color-primary-400);
   animation: loading-spin 0.9s linear infinite;
 }
 
-.loadingText {
+.gen-loadingText {
   color: var(--text-white);
   font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold, 600);
+  font-weight: var(--font-weight-semibold);
   text-align: center;
 }
 

@@ -1,0 +1,114 @@
+.gen-stat-card {
+  background: linear-gradient(135deg, var(--color-overlay-white-light), var(--color-overlay-white-extra-light));
+  border: 1px solid var(--color-overlay-white-medium);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  transition: all var(--transition-normal);
+  backdrop-filter: blur(10px);
+  border-left: 3px solid transparent;
+}
+
+.gen-stat-card:hover {
+  background: linear-gradient(135deg, var(--color-overlay-white-heavy), var(--color-overlay-white-extra-heavy));
+  border-color: var(--color-overlay-white-boldest);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+}
+
+.gen-stat-card__icon {
+  font-size: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--color-overlay-white-light);
+  border: 1px solid var(--color-overlay-white-medium);
+}
+
+.gen-stat-card__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-dark-300);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gen-stat-card__value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-white);
+}
+
+/* Color Variants */
+.gen-stat-card--primary {
+  border-left-color: var(--color-primary-500);
+}
+
+.gen-stat-card--primary .gen-stat-card__icon {
+  background: var(--statcard-primary-100);
+  border-color: var(--statcard-primary-200);
+  color: var(--color-primary-400);
+}
+
+.gen-stat-card--success {
+  border-left-color: var(--color-success-500);
+}
+
+.gen-stat-card--success .gen-stat-card__icon {
+  background: var(--statcard-success-100);
+  border-color: var(--statcard-success-200);
+  color: var(--color-success-500);
+}
+
+.gen-stat-card--warning {
+  border-left-color: var(--color-warning-500);
+}
+
+.gen-stat-card--warning .gen-stat-card__icon {
+  background: var(--statcard-warning-100);
+  border-color: var(--statcard-warning-200);
+  color: var(--color-warning-500);
+}
+
+.gen-stat-card--error {
+  border-left-color: var(--color-error-500);
+}
+
+.gen-stat-card--error .gen-stat-card__icon {
+  background: var(--statcard-error-100);
+  border-color: var(--statcard-error-200);
+  color: var(--color-error-500);
+}
+
+.gen-stat-card--info {
+  border-left-color: var(--color-info-500);
+}
+
+.gen-stat-card--info .gen-stat-card__icon {
+  background: var(--statcard-info-100);
+  border-color: var(--statcard-info-200);
+  color: var(--color-info-500);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stat-card {
+    padding: var(--spacing-md);
+    gap: var(--spacing-md);
+  }
+
+  .stat-card__icon {
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+  }
+
+  .stat-card__value {
+    font-size: var(--font-size-2xl);
+  }
+}

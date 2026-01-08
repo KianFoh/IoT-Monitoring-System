@@ -1,9 +1,0 @@
-export function SettingsCom() {
-  return (
-    <div>
-      <h1>Settings</h1>
-      <p>Configure system settings and preferences</p>
-      {/* Add settings forms, configurations here */}
-    </div>
-  );
-}

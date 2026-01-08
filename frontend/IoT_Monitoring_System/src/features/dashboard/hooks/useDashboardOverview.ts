@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import { wsManager, type WSEvent } from "../../../services/ws";
-import { dashboardApi, type DashboardDevice } from "../api/dashboardApi";
+import { dashboardApi } from "../api/dashboardApi";
 import { useAuth } from "../../auth/context/AuthContext";
+import type { DashboardStats } from "@/types/dashboard";
+import type { DashboardOverviewDevice } from "@/types/dashboard";
 
-interface DashboardStats {
-  totalCustomers: number;
-  totalDevices: number;
-  totalUsers: number;
-  mqttUsers: number;
-}
 
-export type Device = DashboardDevice;
+export type Device = DashboardOverviewDevice;
 
 export const useDashboardOverview = () => {
 

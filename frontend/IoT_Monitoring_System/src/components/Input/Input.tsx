@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes } from "react";
-import "./Input.css";
+import styles from "./Input.module.css";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -7,23 +7,23 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export const Input = ({ label, icon, error, id, className = "", ...props }: InputProps) => {
+export const Input = ({ label, icon, error, id, ...props }: InputProps) => {
   return (
-    <div className="inputGroup">
+    <div className={styles["gen-inputGroup"]}>
       {label && (
-        <label htmlFor={id} className="inputLabel">
+        <label htmlFor={id} className={styles["gen-inputLabel"]}>
           {label}
         </label>
       )}
-      <div className="inputContainer">
-        {icon && <span className="inputIconLeft">{icon}</span>}
+      <div className={styles["gen-inputContainer"]}>
+        {icon && <span className={styles["gen-inputIconLeft"]}>{icon}</span>}
         <input
           id={id}
-          className={`inputField ${icon ? "withIcon" : ""} ${error ? "inputError" : ""} ${className}`}
+          className={`${styles["gen-inputField"]} ${icon ? styles.withIcon : ""} ${error ? styles.inputError : ""}`}
           {...props}
         />
       </div>
-      {error && <span className="inputErrorMessage">{error}</span>}
+      {error && <span className={styles["gen-inputErrorMessage"]}>{error}</span>}
     </div>
   );
 };

@@ -3,14 +3,14 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 import type { ReactElement } from "react";
 import {
   FaTachometerAlt,
-  FaBoxes,
+  FaNetworkWired,
   FaUsers,
   FaCog,
   FaUserCircle,
   FaUserCog,
   FaUserAlt ,
 } from "react-icons/fa";
-import "./Navbar.css";
+import styles from"./Navbar.module.css";
 
 export interface NavItem {
   to: string;
@@ -23,7 +23,7 @@ const Navbar = () => {
 
   const navItems: NavItem[] = [
     { to: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
-    { to: "/dashboard/devices", label: "Devices", icon: <FaBoxes /> },
+    { to: "/dashboard/devices", label: "Devices", icon: <FaNetworkWired /> },
     { to: "/dashboard/customers", label: "Customers", icon: <FaUserAlt  /> },
     { to: "/dashboard/users", label: "Users", icon: <FaUsers /> },
     { to: "/dashboard/mqtt-users", label: "MQTT Users", icon: <FaUserCog  /> },
@@ -31,39 +31,38 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="navbar">
+    <nav className={styles["gen-navbar"]}>
       {/* Profile */}
-      <div className="navbar-profile">
-        <div className="profile-avatar">
+      <div className={styles["gen-navbar-profile"]}>
+        <div className={styles["gen-navbar-profile-avatar"]}>
           <FaUserCircle size={48} />
         </div>
-        <div className="profile-info">
-          <h3 className="profile-email">{user?.email || 'User'}</h3>
-          <p className="profile-role">{user?.role || 'Role'}</p>
+        <div>
+          <h3 className={styles["gen-navbar-profile-email"]}>{user?.email || 'User'}</h3>
+          <p className={styles["gen-navbar-profile-role"]}>{user?.role || 'Role'}</p>
         </div>
       </div>
-
       {/* Menu */}
-      <ul className="navbar-menu">
+      <ul className={styles["gen-navbar-menu"]}>
         {navItems.map((item) => (
           <li key={item.to}>
             <NavLink
               to={item.to}
               end
               className={({ isActive }) =>
-                `navbar-item ${isActive ? "active" : ""}`
+                `${styles["gen-navbar-item"]} ${isActive ? styles["active"] : ""}`
               }
             >
-              <span className="navbar-icon">{item.icon}</span>
-              <span className="navbar-label">{item.label}</span>
+              <span className={styles["gen-navbar-icon"]}>{item.icon}</span>
+              <span className={styles["gen-navbar-label"]}>{item.label}</span>
             </NavLink>
           </li>
         ))}
       </ul>
 
       {/* Footer */}
-      <div className="navbar-footer">
-        <button onClick={logout} className="logout-btn">
+      <div className={styles["gen-navbar-footer"]}>
+        <button onClick={logout} className={styles["gen-navbar-logout-btn"]}>
           Logout
         </button>
       </div>

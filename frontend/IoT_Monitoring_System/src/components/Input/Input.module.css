@@ -1,22 +1,22 @@
-.inputGroup {
+.gen-inputGroup {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
 }
 
-.inputLabel {
+.gen-inputLabel {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
 
-.inputContainer {
+.gen-inputContainer {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.inputIconLeft {
+.gen-inputIconLeft {
   position: absolute;
   left: var(--spacing-md);
   color: var(--text-tertiary);
@@ -24,7 +24,7 @@
   pointer-events: none;
 }
 
-.inputField {
+.gen-inputField {
   width: 100%;
   padding: var(--spacing-md);
   font-size: var(--font-size-sm);
@@ -33,34 +33,30 @@
   background: var(--bg-secondary);
   border: 2px solid var(--border-light);
   border-radius: var(--radius-md);
-  transition: all var(--transition-normal);
+  transition: all var(--transition-slow);
   outline: none;
 }
 
-.inputField.withIcon {
+.gen-inputField.withIcon {
   padding-left: 44px;
 }
 
-.inputField:focus {
+.gen-inputField:focus {
   background: var(--bg-primary);
   border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: var(--shadow-xl);
 }
 
-.inputField::placeholder {
-  color: var(--text-tertiary);
-}
-
-.inputField:disabled {
+.gen-inputField:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.inputField.inputError {
+.gen-inputField.inputError {
   border-color: var(--color-error-500);
 }
 
-.inputErrorMessage {
+.gen-inputErrorMessage {
   font-size: var(--font-size-xs);
   color: var(--color-error-600);
 }

@@ -4,7 +4,7 @@ import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthFor
 import { AuthSuccess } from "@/features/auth/components/AuthSuccess";
 import { AuthError } from "@/features/auth/components/AuthError";
 import { AuthContainer } from "@/features/auth/components/AuthContainer";
-import { AuthCard } from "@/features/auth/components/AuthCard";
+import { Card} from "@/components/Card/Card";
 import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
@@ -52,21 +52,21 @@ export function ResetPasswordConfirmPage() {
   if (!tokenValid && error) {
     return (
       <AuthContainer>
-        <AuthCard>
+        <Card>
           <AuthError
             title="Invalid Reset Link"
             message={error}
             backLink="/send-reset-password"
             backLinkText="Request a new reset link"
           />
-        </AuthCard>
+        </Card>
       </AuthContainer>
     );
   }
 
   return (
     <AuthContainer>
-      <AuthCard>
+      <Card>
         {success ? (
           <AuthSuccess
             title={success}
@@ -92,7 +92,7 @@ export function ResetPasswordConfirmPage() {
         <AuthFooter>
           <p>IoT Monitoring System &copy; {new Date().getFullYear()}</p>
         </AuthFooter>
-      </AuthCard>
+      </Card>
     </AuthContainer>
   );
 }

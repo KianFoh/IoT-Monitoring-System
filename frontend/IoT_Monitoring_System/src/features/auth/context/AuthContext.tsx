@@ -20,9 +20,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoggedIn(true);
   };
 
-  const logout = async () => {
+  const logout = () => {
     try {
-      await authApi.logout();
+      authApi.logout();
     } finally {
       setAccessToken(null);
       setIsLoggedIn(false);

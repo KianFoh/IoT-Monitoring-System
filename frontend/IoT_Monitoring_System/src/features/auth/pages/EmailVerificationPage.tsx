@@ -4,11 +4,11 @@ import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthFor
 import { AuthSuccess } from "@/features/auth/components/AuthSuccess";
 import { AuthError } from "@/features/auth/components/AuthError";
 import { AuthContainer } from "@/features/auth/components/AuthContainer";
-import { AuthCard } from "@/features/auth/components/AuthCard";
 import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
 import { LoadingScreen } from "@/components/Loading/LoadingScreen";
+import { Card } from "@/components/Card/Card";
 
 export function EmailVerificationPage() {
   const {
@@ -52,21 +52,21 @@ export function EmailVerificationPage() {
   if (!tokenValid && error) {
     return (
       <AuthContainer>
-        <AuthCard>
+        <Card>
           <AuthError
             title="Invalid Verification Link"
             message={error}
             backLink="/resend-verification"
             backLinkText="Request a new verification link"
           />
-        </AuthCard>
+        </Card>
       </AuthContainer>
     );
   }
 
   return (
     <AuthContainer>
-      <AuthCard>
+      <Card>
         {success ? (
           <AuthSuccess
             title={success}
@@ -92,7 +92,7 @@ export function EmailVerificationPage() {
         <AuthFooter>
           <p>IoT Monitoring System &copy; {new Date().getFullYear()}</p>
         </AuthFooter>
-      </AuthCard>
+      </Card>
     </AuthContainer>
   );
 }

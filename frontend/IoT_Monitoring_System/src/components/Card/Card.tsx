@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import "./Card.css";
+import styles from "./Card.module.css";
 
 interface CardProps {
   children: ReactNode;
@@ -7,5 +7,5 @@ interface CardProps {
 }
 
 export const Card = ({ children, className = "" }: CardProps) => {
-  return <div className={`card ${className}`}>{children}</div>;
+  return <div className={`${styles.card} ${className}`}>{children}</div>;
 };

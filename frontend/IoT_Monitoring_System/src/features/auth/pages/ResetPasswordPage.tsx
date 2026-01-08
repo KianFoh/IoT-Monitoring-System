@@ -2,7 +2,7 @@ import { useResetPassword } from "@/features/auth/hooks/useResetPassword";
 import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm";
 import { AuthSuccess } from "@/features/auth/components/AuthSuccess";
 import { AuthContainer } from "@/features/auth/components/AuthContainer";
-import { AuthCard } from "@/features/auth/components/AuthCard";
+import { Card } from "@/components/Card/Card";
 import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
@@ -25,7 +25,7 @@ export function ResetPasswordPage() {
 
   return (
     <AuthContainer>
-      <AuthCard>
+      <Card>
         {success ? (
           <AuthSuccess
             title={success}
@@ -51,7 +51,7 @@ export function ResetPasswordPage() {
         <AuthFooter>
           <p>IoT Monitoring System &copy; {new Date().getFullYear()}</p>
         </AuthFooter>
-      </AuthCard>
+      </Card>
     </AuthContainer>
   );
 }

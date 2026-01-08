@@ -2,10 +2,10 @@ import { useLogin } from "@/features/auth/hooks/useLogin";
 import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm";
 import { AuthContainer } from "@/features/auth/components/AuthContainer";
-import { AuthCard } from "@/features/auth/components/AuthCard";
 import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
 import { Link } from "react-router-dom";
+import { Card } from "@/components/Card/Card";
 
 
 export function LoginPage() {
@@ -34,7 +34,7 @@ export function LoginPage() {
 
   return (
     <AuthContainer>
-      <AuthCard>
+      <Card>
         <AuthHeader title="Sign In" subtitle="Welcome back!" />
         <AuthForm
           fields={fields}
@@ -50,7 +50,7 @@ export function LoginPage() {
         <AuthFooter>
           <p>IoT Monitoring System &copy; {new Date().getFullYear()}</p>
         </AuthFooter>
-      </AuthCard>
+      </Card>
     </AuthContainer>
   );
 }

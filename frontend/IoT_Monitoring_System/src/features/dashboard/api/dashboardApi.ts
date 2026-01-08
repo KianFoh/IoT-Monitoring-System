@@ -1,14 +1,5 @@
 import { api } from "@/services/api";
-
-export interface DashboardDevice {
-    id: number;
-    name: string;
-    uid: string;
-    is_online: boolean;
-    customer_name: string;
-    department_name: string;
-    last_seen?: string;
-}
+import type { DashboardOverviewDevice } from "@/types/dashboard";
 
 export const dashboardApi = {
     getCounts: async (): Promise<{ customers: number; devices: number; users: number; mqttUsers: number }> => {
@@ -22,7 +13,7 @@ export const dashboardApi = {
         return { customers, devices, users, mqttUsers };
     },
 
-    getRecentDevices: async (limit: number): Promise<DashboardDevice[]> => {
-        return api.get<DashboardDevice[]>(`/devices/recent?limit=${limit}`);
+    getRecentDevices: async (limit: number): Promise<DashboardOverviewDevice[]> => {
+        return api.get<DashboardOverviewDevice[]>(`/devices/recent?limit=${limit}`);
     },
 };
