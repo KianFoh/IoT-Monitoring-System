@@ -1,5 +1,3 @@
-import React from "react";
-
 interface PageSizeSelectProps {
   value: number;
   onChange: (n: number) => void;

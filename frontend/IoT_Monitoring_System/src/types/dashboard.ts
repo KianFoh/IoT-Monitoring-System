@@ -23,7 +23,8 @@ export interface Device {
   name: string;
   uid: string;
   is_online: boolean;
-  department_id: number;
+  department_name?: string;
+  customer_name?: string;
   is_active: boolean;
   created_at: string;
 }

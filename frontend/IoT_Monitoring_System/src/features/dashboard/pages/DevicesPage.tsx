@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Device } from "@/types/dashboard";
 import { DataTable } from "../components/DataTable";
@@ -9,51 +9,37 @@ import { Button } from "@/components/Button/Button";
 import PageSizeSelect from "../components/PageSizeSelect";
 import { FaPlus } from "react-icons/fa";
 import styles from "../styles/dashboard.module.css";
+import { useDevicesTable } from "../hooks/useDevicesTable";
 
 export function DevicesPage() {
-  const [query, setQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
 
   const data: Device[] = useMemo(
     () => [
-      { id: 1, uid: "DEV00123122312321312213123231232133", name: "Temperature Sensor", department_id: 1, is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 2, uid: "DEV002", name: "Humidity Sensor", department_id: 2, is_online: false, is_active: false, created_at: new Date().toISOString() },
-      { id: 3, uid: "DEV003", name: "Pressure Sensor", department_id: 1, is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 4, uid: "DEV004", name: "CO2 Sensor", department_id: 3, is_online: false, is_active: true, created_at: new Date().toISOString() },
-      { id: 5, uid: "DEV005", name: "Light Sensor", department_id: 2, is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 6, uid: "DEV006", name: "Vibration Sensor", department_id: 4, is_online: true, is_active: false, created_at: new Date().toISOString() },
-      { id: 7, uid: "DEV007", name: "Door Sensor", department_id: 1, is_online: false, is_active: true, created_at: new Date().toISOString() },
-      { id: 8, uid: "DEV008", name: "Motion Sensor", department_id: 3, is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 9, uid: "DEV009", name: "Smoke Sensor", department_id: 2, is_online: false, is_active: true, created_at: new Date().toISOString() },
-      { id: 10, uid: "DEV010", name: "Gas Sensor", department_id: 4, is_online: true, is_active: false, created_at: new Date().toISOString() },
-      { id: 11, uid: "DEV011", name: "Water Leak Sensor", department_id: 1, is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 12, uid: "DEV012", name: "Proximity Sensor", department_id: 2, is_online: false, is_active: true, created_at: new Date().toISOString() },
+      { id: 1, uid: "DEV0012312231232131221312323123", name: "Temperature Sensor", customer_name: "ACME Corp", department_name: "Building Controls", is_online: true, is_active: true, created_at: new Date().toISOString() },
+      { id: 2, uid: "DEV002", name: "Humidity Sensor", customer_name: "Beta Ltd", department_name: "Environmental", is_online: false, is_active: false, created_at: new Date().toISOString() },
+      { id: 3, uid: "DEV003", name: "Pressure Sensor", customer_name: "ACME Corp", department_name: "Process", is_online: true, is_active: true, created_at: new Date().toISOString() },
+      { id: 4, uid: "DEV004", name: "CO2 Sensor", customer_name: "Gamma Inc", department_name: "Air Quality", is_online: false, is_active: true, created_at: new Date().toISOString() },
+      { id: 5, uid: "DEV005", name: "Light Sensor", customer_name: "Beta Ltd", department_name: "Lighting", is_online: true, is_active: true, created_at: new Date().toISOString() },
+      { id: 6, uid: "DEV006", name: "Vibration Sensor", customer_name: "Delta PLC", department_name: "Mechanical", is_online: true, is_active: false, created_at: new Date().toISOString() },
+      { id: 7, uid: "DEV007", name: "Door Sensor", customer_name: "ACME Corp", department_name: "Security", is_online: false, is_active: true, created_at: new Date().toISOString() },
+      { id: 8, uid: "DEV008", name: "Motion Sensor", customer_name: "Gamma Inc", department_name: "Security", is_online: true, is_active: true, created_at: new Date().toISOString() },
+      { id: 9, uid: "DEV009", name: "Smoke Sensor", customer_name: "Beta Ltd", department_name: "Safety", is_online: false, is_active: true, created_at: new Date().toISOString() },
+      { id: 10, uid: "DEV010", name: "Gas Sensor", customer_name: "Delta PLC", department_name: "Safety", is_online: true, is_active: false, created_at: new Date().toISOString() },
+      { id: 11, uid: "DEV011", name: "Water Leak Sensor", customer_name: "ACME Corp", department_name: "Facilities", is_online: true, is_active: true, created_at: new Date().toISOString() },
+      { id: 12, uid: "DEV012", name: "Proximity Sensor", customer_name: "Beta Ltd", department_name: "Access", is_online: false, is_active: true, created_at: new Date().toISOString() },
     ],
     []
   );
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return data;
-    const q = query.toLowerCase();
-    return data.filter(
-      (d) =>
-        String(d.uid).toLowerCase().includes(q) ||
-        String(d.name ?? "").toLowerCase().includes(q) ||
-        String(d.department_id ?? "").toLowerCase().includes(q)
-    );
-  }, [data, query]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(1);
-  }, [currentPage, totalPages]);
-
-  const pagedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
+  const {
+    query,
+    setQuery,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    pagedData,
+    totalPages,
+  } = useDevicesTable(data, 5);
 
   const handleEdit = (device: Device) => console.log("Edit device:", device);
   const handleDelete = (device: Device) => console.log("Delete device:", device);
@@ -64,10 +50,15 @@ export function DevicesPage() {
         accessorKey: "uid",
         header: "UID",
         meta: { width: 250 },
-        cell: (info) => <span className={styles["device-id"]}>{info.getValue<string>()}</span>,
+        cell: (info) => <>{info.getValue<string>()}</>,
       },
       { accessorKey: "name", header: "Name", meta: { width: 200 } },
-      { accessorKey: "department_id", header: "Department ID", meta: { width: 200 } },
+      {
+        accessorKey: "customer_name",
+        header: "Customer",
+        meta: { width: 220},
+        cell: (info) => <>{info.getValue<string>()}</>,
+      },
       {
         accessorKey: "is_online",
         header: "Status",
@@ -116,18 +107,16 @@ export function DevicesPage() {
         <div className={styles["dashboard-search-and-action"]}>
           <div className={styles["dashboard-search-wrapper"]}>
             <SearchFilter
-              value={query}
-              onChange={(v) => {
-                setQuery(v);
-                setCurrentPage(1);
-              }}
-              placeholder="Search devices by UID, name or department ID"
+                value={query}
+                onChange={(v) => setQuery(v)}
+              placeholder="Search devices by UID, Name or Customer Name..."
             />
           </div>
 
           <div className={styles["dashboard-add-button-container"]}>
             <Button
               icon={FaPlus}
+              className={styles["dashboard-add-button"]}
               onClick={() => {
                 console.log("Add device");
               }}
