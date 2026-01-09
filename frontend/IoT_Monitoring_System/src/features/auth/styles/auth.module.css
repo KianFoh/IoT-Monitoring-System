@@ -1,8 +1,6 @@
 
 
-/* ============================================
-   AUTH FORMS - Base Styles
-   ============================================ */
+/* AUTH FORMS - Base Styles */
 
 .auth-Form {
   display: flex;
@@ -30,9 +28,7 @@
   text-align: center;
 }
 
-/* ============================================
-   AUTH HEADERS - Base Styles
-   ============================================ */
+/* AUTH HEADERS - Base Styles */
 
 .auth-Header {
   text-align: center;
@@ -52,9 +48,7 @@
   margin: 0;
 }
 
-/* ============================================
-   SUCCESS SCREENS - Base Styles
-   ============================================ */
+/* SUCCESS SCREENS - Base Styles */
 
 .auth-Success {
   text-align: center;
@@ -98,9 +92,7 @@
   color: white;
 }
 
-/* ============================================
-   ERROR STATES - Base Styles
-   ============================================ */
+/* ERROR STATES - Base Styles */
 
 .auth-Error {
   text-align: center;
@@ -134,15 +126,14 @@
   color: var(--color-primary-700);
 }
 
-/* ============================================
-   PAGE CONTAINERS
-   ============================================ */
+/* PAGE CONTAINERS */
 
 .auth-Container {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  min-height: 100vh;
+  box-sizing: border-box;
   background: linear-gradient(135deg, var(--color-dark-700), var(--color-dark-800));
   padding: var(--spacing-md);
   margin: 0;
@@ -178,9 +169,7 @@
   color: var(--color-primary-700);
 }
 
-/* ============================================
-   ANIMATIONS
-   ============================================ */
+/* ANIMATIONS */
 
 @keyframes auth-fadeIn {
   from {
