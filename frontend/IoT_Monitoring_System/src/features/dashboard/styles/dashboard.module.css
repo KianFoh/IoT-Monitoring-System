@@ -1,64 +1,53 @@
-.dashboardLayout {
+/* Dashboard Layout */
+.dashboard-Layout {
   display: flex;
   min-height: 100vh;
-  background-color: var(--bg-secondary);
 }
 
-.dashboardContent {
+/* Dashboard Content */
+.dashboard-Content {
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
   background: linear-gradient(135deg, var(--color-dark-700), var(--color-dark-800));
 }
 
-/* Dashboard Page Styling */
-.dashboardContent h1 {
-  font-size: 2rem;
+.dashboard-Content h1 {
+  font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
   color: var(--text-white);
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 var(--spacing-sm) 0;
 }
 
-.dashboardContent p {
+.dashboard-Content p {
   font-size: var(--font-size-base);
   color: var(--color-primary-100);
-  margin: 0 0 2rem 0;
-}
-
-/* Dashboard Container */
-.dashboard-header {
-  margin-bottom: var(--spacing-xl);
+  margin: 0 0 var(--spacing-xl) 0;
 }
 
 /* Stats Grid */
-.stats-grid {
+.dashboard-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--spacing-lg);
   margin-bottom: var(--spacing-xl);
 }
 
-/* Dashboard Section */
-.dashboard-section {
-  margin-top: var(--spacing-xl);
-}
-
-.section-header {
+/* Dashboard Section Header */
+.dashboard-section-header {
   margin-bottom: var(--spacing-lg);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-md);
 }
 
-.section-header h2 {
+.dashboard-section-header h2 {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--text-white);
-  margin: 0;
 }
 
-.section-link {
+.dashboard-section-link {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-primary-200);
@@ -67,18 +56,17 @@
   border-radius: var(--radius-full);
 }
 
-.section-link:hover {
+.dashboard-section-link:hover {
   color: var(--color-primary-50);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-overlay-white-extra-heavy);
 }
 
 /* Table Styles */
-.table-container {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.dashboard-table-container {
+  background: var(--color-overlay-white-extra-light);
+  border: 1px solid var(--color-overlay-white-medium);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  backdrop-filter: blur(10px);
 }
 
 .dashboard-table {
@@ -87,7 +75,7 @@
 }
 
 .dashboard-table thead {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-overlay-white-light);
 }
 
 .dashboard-table th {
@@ -98,14 +86,14 @@
   color: var(--text-inverse);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-} 
+}
 
 .dashboard-table tbody tr {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-overlay-white-light);
 }
 
 .dashboard-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-overlay-white-light);
 }
 
 .dashboard-table td {
@@ -115,79 +103,102 @@
 }
 
 .dashboard-table .device-id {
-  font-family: monospace;
   color: var(--color-primary-300);
+  font-weight: var(--font-weight-semibold);
 }
 
 /* Status Badge */
-.status-badge {
+.dashboard-status-badge {
   display: inline-block;
-  padding: 4px 12px;
+  padding: var(--spacing-xs) var(--spacing-sm)  ;
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
-.status-badge.online {
-  background: rgba(34, 197, 94, 0.15);
+.dashboard-status-badge.online {
+  background: var(--statcard-success-100);
   color: var(--color-success-100);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  border: 1px solid var(--statcard-success-200);
 }
 
-.status-badge.offline {
-  background: rgba(156, 163, 175, 0.15);
+.dashboard-status-badge.offline {
+  background: var(--color-neutral-700);
   color: var(--color-dark-300);
-  border: 1px solid rgba(156, 163, 175, 0.3);
+  border: 1px solid var(--color-neutral-500);
 }
 
-.action-buttons {
+/* Action Buttons (Edit / Delete) */
+.dashboard-action-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   justify-content: center;
   align-items: center;
 }
 
-.btn-edit,
-.btn-delete {
-  padding: 0.5rem;
+.dashboard-btn-edit,
+.dashboard-btn-delete {
+  padding: var(--spacing-sm);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--transition-normal);
   background: transparent;
 }
 
-.btn-edit {
-  color: #3b82f6;
+.dashboard-btn-edit {
+  color: var( --color-info-500);
 }
 
-.btn-edit:hover {
-  color: #2563eb;
-  background: rgba(59, 130, 246, 0.1);
+.dashboard-btn-edit:hover {
+  color: var(--color-info-600);
+  background: var(--statcard-info-100);
 }
 
-.btn-delete {
-  color: #ef4444;
+.dashboard-btn-delete {
+  color: var(--color-error-500);
 }
 
-.btn-delete:hover {
-  color: #dc2626;
-  background: rgba(239, 68, 68, 0.1);
+.dashboard-btn-delete:hover {
+  color: var(--color-error-600);
+  background: var(--statcard-error-100);
 }
 
-.btn-edit svg,
-.btn-delete svg {
+.dashboard-btn-edit svg,
+.dashboard-btn-delete svg {
   width: 16px;
   height: 16px;
 }
 
-/* Ensure Actions column is centered */
+/* Table Column Alignment Helpers */
 .dashboard-table thead th:last-child,
 .dashboard-table tbody td:last-child {
   text-align: center;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .dashboard-Content {
+    padding: 1rem;
+  }
+
+  .dashboard-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-table th,
+  .dashboard-table td {
+    padding: 0.75rem;
+    font-size: var(--font-size-xs);
+  }
+
+  .dashboard-btn-edit,
+  .dashboard-btn-delete {
+    padding: 0.4rem;
+  }
 }

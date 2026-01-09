@@ -1,5 +1,3 @@
-import "./styles/dashboard.css";
-
 export * from "./pages/DashboardLayout"
 export * from "./pages/DashboardHome";
 export * from "./pages/DevicesPage";

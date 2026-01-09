@@ -64,6 +64,7 @@
   --color-overlay-dark-light: rgba(0, 0, 0, 0.2);
 
   /* White overlays */
+  --color-overlay-white-lightest: rgba(255, 255, 255, 0.05);
   --color-overlay-white-extra-light: rgba(255, 255, 255, 0.02);
   --color-overlay-white-light: rgba(255, 255, 255, 0.08);
   --color-overlay-white-medium: rgba(255, 255, 255, 0.1);

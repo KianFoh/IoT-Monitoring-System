@@ -1,5 +1,5 @@
 import { FaEdit, FaTrashAlt } from "react-icons/fa";
-import "../styles/dashboard.css";
+import styles from "../styles/dashboard.module.css";
 
 type TableActionsProps<TData> = {
   item: TData;
@@ -21,10 +21,10 @@ export function TableActions<TData>({
   showDelete = true,
 }: TableActionsProps<TData>) {
   return (
-    <div className="action-buttons">
+    <div className={styles["dashboard-action-buttons"]}>
       {showEdit && onEdit && (
         <button
-          className="btn-edit"
+          className={styles["dashboard-btn-edit"]}
           onClick={() => onEdit(item)}
           title={editTitle}
         >
@@ -33,7 +33,7 @@ export function TableActions<TData>({
       )}
       {showDelete && onDelete && (
         <button
-          className="btn-delete"
+          className={styles["dashboard-btn-delete"]}
           onClick={() => onDelete(item)}
           title={deleteTitle}
         >

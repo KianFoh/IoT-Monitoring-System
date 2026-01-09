@@ -5,7 +5,8 @@ import { DataTable } from "../components/DataTable";
 import { TableActions } from "../components/TableActions";
 import Pagination from "../components/Pagination";
 import SearchFilter from "../components/SearchFilter";
-import "../styles/dashboard.css";
+import styles from "../styles/dashboard.module.css";
+
 
 export function DevicesPage() {
   const [query, setQuery] = useState("");
@@ -57,14 +58,14 @@ export function DevicesPage() {
 
   const columns = useMemo<ColumnDef<Device>[]>(
     () => [
-      { accessorKey: "uid", header: "UID", cell: (info) => <span className="device-id">{info.getValue<string>()}</span> },
+      { accessorKey: "uid", header: "UID", cell: (info) => <span className={styles["device-id"]}>{info.getValue<string>()}</span> },
       { accessorKey: "name", header: "Name" },
       { accessorKey: "department_id", header: "Department ID" },
       {
         accessorKey: "is_online",
         header: "Status",
         cell: (info) => (
-          <span className={`status-badge ${info.getValue<boolean>() ? "online" : "offline"}`}>
+          <span className={`${styles["dashboard-status-badge"]} ${info.getValue<boolean>() ? styles["online"] : styles["offline"]}`}>
             {info.getValue<boolean>() ? "Online" : "Offline"}
           </span>
         ),
@@ -73,7 +74,7 @@ export function DevicesPage() {
         accessorKey: "is_active",
         header: "Active",
         cell: (info) => (
-          <span className={`status-badge ${info.getValue<boolean>() ? "active" : "inactive"}`}>
+          <span className={`${styles["dashboard-status-badge"]} ${info.getValue<boolean>() ? styles["active"] : styles["inactive"]}`}>
             {info.getValue<boolean>() ? "Active" : "Inactive"}
           </span>
         ),
@@ -96,12 +97,12 @@ export function DevicesPage() {
   );
 
   return (
-    <div className="devices-container">
+    <div className={styles["devices-container"]}>
       <h1>Devices</h1>
       <p>Manage and monitor your IoT devices</p>
 
-      <div className="devices-topbar">
-        <div className="search-wrapper">
+      <div className={styles["devices-topbar"]}>
+        <div className={styles["search-wrapper"]}>
           <SearchFilter
             value={query}
             onChange={(v) => {
@@ -112,16 +113,16 @@ export function DevicesPage() {
           />
         </div>
 
-        <div className="devices-spacer" />
+        <div className={styles["devices-spacer"]} />
 
-        <div className="add-button-container">
+        <div className={styles["add-button-container"]}>
           
         </div>
       </div>
 
-      <DataTable data={pagedData} columns={columns} tableClassName="dashboard-table" emptyMessage="No devices found" />
+      <DataTable data={pagedData} columns={columns} tableClassName={styles["dashboard-table"]} emptyMessage="No devices found" />
 
-      <div className="pagination-wrapper">
+      <div className={styles["pagination-wrapper"]}>
         <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(p) => setCurrentPage(p)} maxPagesToShow={5} />
       </div>
     </div>

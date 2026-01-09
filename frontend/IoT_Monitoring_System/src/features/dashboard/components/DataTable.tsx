@@ -1,18 +1,18 @@
 import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
 import type { ColumnDef } from "@tanstack/react-table";
-import "../styles/dashboard.css";
+import styles from "../styles/dashboard.module.css";
 
 type DataTableProps<TData> = {
   data: TData[];
   columns: ColumnDef<TData>[];
-  tableClassName?: string;
+  tableClassName?: string; // accepts final classname (module value or global string)
   emptyMessage?: string;
 };
 
 export function DataTable<TData>({
   data,
   columns,
-  tableClassName = "dashboard-table",
+  tableClassName = styles["dashboard-table"], // default to module class value
   emptyMessage = "No records found",
 }: DataTableProps<TData>) {
   const table = useReactTable({
@@ -22,7 +22,7 @@ export function DataTable<TData>({
   });
 
   return (
-    <div className="table-container">
+    <div className={styles["dashboard-table-container"]}>
       <table className={tableClassName}>
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (

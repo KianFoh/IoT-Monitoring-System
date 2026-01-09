@@ -1,12 +1,12 @@
 import { Outlet } from "react-router-dom";
 import Navbar from "@/components/Navbar/Navbar";
-import "../styles/dashboard.css";
+import styles from "../styles/dashboard.module.css";
 
 export function DashboardLayout() {
   return (
-    <div className="dashboardLayout">
+    <div className={styles["dashboard-Layout"]}>
       <Navbar />
-      <main className="dashboardContent">
+      <main className={styles["dashboard-Content"]}>
         <Outlet />
       </main>
     </div>
