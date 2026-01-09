@@ -1,4 +1,8 @@
 .gen-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
   width: 100%;
   padding: var(--spacing-md);
   font-size: var(--font-size-sm);
@@ -7,10 +11,10 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-normal);
-  outline: none;
   color: var(--text-white);
   background: var(--color-primary-500);
 }
+
 
 .gen-btn:hover:not(:disabled) {
   transform: translateY(-2px);
@@ -20,4 +24,11 @@
 .gen-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* icon wrapper inside button */
+.gen-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--spacing-sm);
 }

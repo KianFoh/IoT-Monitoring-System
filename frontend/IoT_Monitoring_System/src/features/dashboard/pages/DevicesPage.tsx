@@ -6,12 +6,14 @@ import { TableActions } from "../components/TableActions";
 import Pagination from "../components/Pagination";
 import SearchFilter from "../components/SearchFilter";
 import { Button } from "@/components/Button/Button";
+import PageSizeSelect from "../components/PageSizeSelect";
+import { FaPlus } from "react-icons/fa";
 import styles from "../styles/dashboard.module.css";
 
 export function DevicesPage() {
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const [pageSize, setPageSize] = useState(5);
 
   const data: Device[] = useMemo(
     () => [
@@ -125,13 +127,11 @@ export function DevicesPage() {
 
           <div className={styles["dashboard-add-button-container"]}>
             <Button
+              icon={FaPlus}
               onClick={() => {
                 console.log("Add device");
               }}
             >
-              <svg viewBox="0 0 24 24" aria-hidden focusable="false" width="16" height="16">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
               Add Device
             </Button>
           </div>
@@ -139,8 +139,13 @@ export function DevicesPage() {
       </div>
       <DataTable data={pagedData} columns={columns} tableClassName={styles["dashboard-table"]} emptyMessage="No devices found" />
 
-      <div className={styles["pagination-wrapper"]}>
-        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(p) => setCurrentPage(p)} maxPagesToShow={5} />
+      <div className={styles["dashboard-pagination-row"]}>
+        <div className={styles["dashboard-page-size-left"]}>
+          <PageSizeSelect value={pageSize} onChange={(n) => { setPageSize(n); setCurrentPage(1); }} />
+        </div>
+        <div className={styles["dashboard-pagination-right"]}>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(p) => setCurrentPage(p)} maxPagesToShow={5} />
+        </div>
       </div>
     </div>
   );
