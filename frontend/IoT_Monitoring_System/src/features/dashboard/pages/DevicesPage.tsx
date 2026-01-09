@@ -5,8 +5,8 @@ import { DataTable } from "../components/DataTable";
 import { TableActions } from "../components/TableActions";
 import Pagination from "../components/Pagination";
 import SearchFilter from "../components/SearchFilter";
+import { Button } from "@/components/Button/Button";
 import styles from "../styles/dashboard.module.css";
-
 
 export function DevicesPage() {
   const [query, setQuery] = useState("");
@@ -15,7 +15,7 @@ export function DevicesPage() {
 
   const data: Device[] = useMemo(
     () => [
-      { id: 1, uid: "DEV001", name: "Temperature Sensor", department_id: 1, is_online: true, is_active: true, created_at: new Date().toISOString() },
+      { id: 1, uid: "DEV00123122312321312213123231232133", name: "Temperature Sensor", department_id: 1, is_online: true, is_active: true, created_at: new Date().toISOString() },
       { id: 2, uid: "DEV002", name: "Humidity Sensor", department_id: 2, is_online: false, is_active: false, created_at: new Date().toISOString() },
       { id: 3, uid: "DEV003", name: "Pressure Sensor", department_id: 1, is_online: true, is_active: true, created_at: new Date().toISOString() },
       { id: 4, uid: "DEV004", name: "CO2 Sensor", department_id: 3, is_online: false, is_active: true, created_at: new Date().toISOString() },
@@ -58,12 +58,18 @@ export function DevicesPage() {
 
   const columns = useMemo<ColumnDef<Device>[]>(
     () => [
-      { accessorKey: "uid", header: "UID", cell: (info) => <span className={styles["device-id"]}>{info.getValue<string>()}</span> },
-      { accessorKey: "name", header: "Name" },
-      { accessorKey: "department_id", header: "Department ID" },
+      {
+        accessorKey: "uid",
+        header: "UID",
+        meta: { width: 250 },
+        cell: (info) => <span className={styles["device-id"]}>{info.getValue<string>()}</span>,
+      },
+      { accessorKey: "name", header: "Name", meta: { width: 200 } },
+      { accessorKey: "department_id", header: "Department ID", meta: { width: 200 } },
       {
         accessorKey: "is_online",
         header: "Status",
+        meta: { width: 100 },
         cell: (info) => (
           <span className={`${styles["dashboard-status-badge"]} ${info.getValue<boolean>() ? styles["online"] : styles["offline"]}`}>
             {info.getValue<boolean>() ? "Online" : "Offline"}
@@ -73,6 +79,7 @@ export function DevicesPage() {
       {
         accessorKey: "is_active",
         header: "Active",
+        meta: { width: 100 },
         cell: (info) => (
           <span className={`${styles["dashboard-status-badge"]} ${info.getValue<boolean>() ? styles["active"] : styles["inactive"]}`}>
             {info.getValue<boolean>() ? "Active" : "Inactive"}
@@ -82,6 +89,7 @@ export function DevicesPage() {
       {
         accessorKey: "created_at",
         header: "Created At",
+        meta: { width: 200 },
         cell: (info) => {
           const v = info.getValue<string>();
           return <span>{v ? new Date(v).toLocaleString() : ""}</span>;
@@ -90,6 +98,7 @@ export function DevicesPage() {
       {
         id: "actions",
         header: "Actions",
+        meta: { width: 140 },
         cell: (info) => <TableActions item={info.row.original} onEdit={handleEdit} onDelete={handleDelete} />,
       },
     ],
@@ -101,25 +110,33 @@ export function DevicesPage() {
       <h1>Devices</h1>
       <p>Manage and monitor your IoT devices</p>
 
-      <div className={styles["devices-topbar"]}>
-        <div className={styles["search-wrapper"]}>
-          <SearchFilter
-            value={query}
-            onChange={(v) => {
-              setQuery(v);
-              setCurrentPage(1);
-            }}
-            placeholder="Search devices by UID, name or department ID"
-          />
-        </div>
+      <div className={styles["dashboard-devices-topbar"]}>
+        <div className={styles["dashboard-search-and-action"]}>
+          <div className={styles["dashboard-search-wrapper"]}>
+            <SearchFilter
+              value={query}
+              onChange={(v) => {
+                setQuery(v);
+                setCurrentPage(1);
+              }}
+              placeholder="Search devices by UID, name or department ID"
+            />
+          </div>
 
-        <div className={styles["devices-spacer"]} />
-
-        <div className={styles["add-button-container"]}>
-          
+          <div className={styles["dashboard-add-button-container"]}>
+            <Button
+              onClick={() => {
+                console.log("Add device");
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden focusable="false" width="16" height="16">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Add Device
+            </Button>
+          </div>
         </div>
       </div>
-
       <DataTable data={pagedData} columns={columns} tableClassName={styles["dashboard-table"]} emptyMessage="No devices found" />
 
       <div className={styles["pagination-wrapper"]}>

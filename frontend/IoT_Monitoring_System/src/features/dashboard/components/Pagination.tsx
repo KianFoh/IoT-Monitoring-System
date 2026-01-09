@@ -12,6 +12,8 @@ function range(start: number, end: number) {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i);
 }
 
+import styles from "../styles/dashboard.module.css";
+
 export default function Pagination({
   currentPage,
   totalPages,
@@ -54,10 +56,10 @@ export default function Pagination({
   };
 
   return (
-    <div className={`pagination ${className ?? ""}`}>
+    <div className={`${styles["dashboard-pagination"]} ${className ?? ""}`}>
       <button
         type="button"
-        className="pagination-btn prev"
+        className={`${styles["dashboard-pagination-btn"]} ${styles["dashboard-pagination-prev"]}`}
         onClick={() => goTo(currentPage - 1)}
         disabled={currentPage === 1}
         aria-label="Previous page"
@@ -67,14 +69,16 @@ export default function Pagination({
 
       {pages.map((p, idx) =>
         p === DOTS ? (
-          <span key={`dots-${idx}`} className="pagination-dots">
+          <span key={`dots-${idx}`} className={styles["dashboard-pagination-dots"]}>
             {DOTS}
           </span>
         ) : (
           <button
             key={p}
             type="button"
-            className={`pagination-btn page ${p === currentPage ? "active" : ""}`}
+            className={`${styles["dashboard-pagination-btn"]} ${styles["dashboard-pagination-page"]} ${
+              p === currentPage ? styles["dashboard-pagination-active"] : ""
+            }`}
             onClick={() => goTo(Number(p))}
             aria-current={p === currentPage ? "page" : undefined}
           >
@@ -85,7 +89,7 @@ export default function Pagination({
 
       <button
         type="button"
-        className="pagination-btn next"
+        className={`${styles["dashboard-pagination-btn"]} ${styles["dashboard-pagination-next"]}`}
         onClick={() => goTo(currentPage + 1)}
         disabled={currentPage === totalPages}
         aria-label="Next page"

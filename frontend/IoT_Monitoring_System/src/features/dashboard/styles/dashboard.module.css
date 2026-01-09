@@ -61,6 +61,24 @@
   background: var(--color-overlay-white-extra-heavy);
 }
 
+/* Topbar: search + action button row */
+.dashboard-devices-topbar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+.dashboard-search-and-action {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+}
+.dashboard-search-wrapper {
+  flex: 1 1 auto;
+}
+
 /* Table Styles */
 .dashboard-table-container {
   background: var(--color-overlay-white-extra-light);
@@ -72,6 +90,18 @@
 .dashboard-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed; /* important: fixes column widths from <col> or equal distribution */
+}
+
+/* ensure header/data cells truncate with ellipsis instead of expanding layout */
+.dashboard-table th,
+.dashboard-table td {
+  padding: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-inverse);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-table thead {
@@ -93,7 +123,7 @@
 }
 
 .dashboard-table tbody tr:hover {
-  background: var(--color-overlay-white-light);
+  background: var(--color-overlay-white-lightest);
 }
 
 .dashboard-table td {
@@ -181,6 +211,90 @@
   text-align: center;
 }
 
+/* Pagination Styles */
+.dashboard-pagination {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: var(--spacing-md);
+  padding: 0;
+  user-select: none;
+}
+
+.dashboard-pagination-btn {
+  appearance: none;
+  border: 1px solid var(--color-overlay-white-medium);
+  background: transparent;
+  color: var(--text-inverse);
+  padding: var(--spacing-xs) var(--spacing-sm); /* use theme spacing */
+  border-radius: var(--radius-md);
+  min-width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.dashboard-pagination-btn:not(.dashboard-pagination-active):hover:not(:disabled) {
+  background: var(--color-overlay-white-light);
+  transform: translateY(-1px);
+}
+
+.dashboard-pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* page button active state */
+.dashboard-pagination-page.dashboard-pagination-active,
+.dashboard-pagination-btn.dashboard-pagination-active {
+  background: var(--color-primary-500);
+  border-color: var(--color-primary-500);
+  color: var(--text-white);
+  box-shadow: var(--shadow-lg);
+}
+
+.dashboard-pagination-dots {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--spacing-sm);
+  color: var(--color-overlay-white-medium);
+  font-size: var(--font-size-sm);
+  height: 36px;
+}
+
+.dashboard-pagination-btn.dashboard-pagination-prev,
+.dashboard-pagination-btn.dashboard-pagination-next {
+  padding: var(--spacing-xs) var(--spacing-sm); /* use theme spacing */
+  min-width: 32px;
+}
+
+/* compact mode for small screens */
+@media (max-width: 520px) {
+  .dashboard-pagination {
+    justify-content: center;
+    gap: var(--spacing-xs);
+  }
+
+  .dashboard-pagination-btn,
+  .dashboard-pagination-dots {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    min-width: 30px;
+    height: 32px;
+    font-size: var(--font-size-xs);
+    border-radius: 6px;
+  }
+
+  .dashboard-pagination-dots {
+    padding: 0 var(--spacing-xs);
+  }
+}
+
 /* Responsive tweaks */
 @media (max-width: 768px) {
   .dashboard-Content {
@@ -201,4 +315,27 @@
   .dashboard-btn-delete {
     padding: 0.4rem;
   }
+}
+
+/* inner content helper for consistent ellipsis (used by DataTable) */
+.dashboard-cell-content {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* actions column should allow internal layout (buttons) and not be clipped to single-line */
+.dashboard-cell-content-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  white-space: normal;
+  overflow: visible;
+}
+
+/* ensure table container can scroll horizontally if total cols exceed container */
+.dashboard-table-container {
+  overflow: auto;
 }
