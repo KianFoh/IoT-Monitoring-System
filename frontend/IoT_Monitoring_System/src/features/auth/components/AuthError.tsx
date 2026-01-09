@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import styles from "../styles/auth.module.css";
 
 interface Props {
   title: string;
@@ -9,10 +10,10 @@ interface Props {
 
 export const AuthError = ({ title, message, backLink, backLinkText }: Props) => {
   return (
-    <div className="authError">
-      <h2 className="authErrorTitle">{title}</h2>
-      <p className="authErrorMessage">{message}</p>
-      <Link to={backLink} className="authErrorLink">
+    <div className={styles["auth-Error"]}>
+      <h2 className={styles["auth-ErrorTitle"]}>{title}</h2>
+      <p className={styles["auth-ErrorMessage"]}>{message}</p>
+      <Link to={backLink} className={styles["auth-ErrorLink"]}>
         {backLinkText}
       </Link>
     </div>

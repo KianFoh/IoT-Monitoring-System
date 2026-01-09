@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
+import styles from "../styles/auth.module.css";
 
 export interface AuthFormField {
   id: string;
@@ -37,9 +38,9 @@ export const AuthForm = ({
   };
 
   return (
-    <form onSubmit={submit} className="authForm">
-      {error && <div className="authFormError">{error}</div>}
-      {success && <div className="authFormSuccess">{success}</div>}
+    <form onSubmit={submit} className={styles["auth-Form"]}>
+      {error && <div className={styles["auth-FormError"]}>{error}</div>}
+      {success && <div className={styles["auth-FormSuccess"]}>{success}</div>}
 
       {fields.map((field) => (
         <Input

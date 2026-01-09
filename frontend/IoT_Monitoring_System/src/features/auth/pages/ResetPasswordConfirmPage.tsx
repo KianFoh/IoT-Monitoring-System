@@ -9,6 +9,7 @@ import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
 import { LoadingScreen } from "@/components/Loading/LoadingScreen";
+import styles from "@/features/auth/styles/auth.module.css";
 
 export function ResetPasswordConfirmPage() {
   const {
@@ -85,7 +86,7 @@ export function ResetPasswordConfirmPage() {
               buttonText="Reset Password"
             />
             <AuthLinks>
-              <Link to="/send-reset-password" className="authLink">← Request new link</Link>
+              <Link to="/send-reset-password" className={styles["auth-Link"]}>← Request new link</Link>
             </AuthLinks>
           </>
         )}

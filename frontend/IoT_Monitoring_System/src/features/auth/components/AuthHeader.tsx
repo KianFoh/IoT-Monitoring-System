@@ -1,3 +1,5 @@
+import styles from "@/features/auth/styles/auth.module.css";
+
 interface Props {
   title: string;
   subtitle: string;
@@ -5,9 +7,9 @@ interface Props {
 
 export const AuthHeader = ({ title, subtitle }: Props) => {
   return (
-    <div className="authHeader">
-      <h2 className="authHeaderTitle">{title}</h2>
-      <p className="authHeaderSubtitle">{subtitle}</p>
+    <div className={styles["auth-Header"]}>
+      <h2 className={styles["auth-HeaderTitle"]}>{title}</h2>
+      <p className={styles["auth-HeaderSubtitle"]}>{subtitle}</p>
     </div>
   );
 };

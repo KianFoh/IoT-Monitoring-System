@@ -7,6 +7,7 @@ import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
 import { Link } from "react-router-dom";
+import styles from "@/features/auth/styles/auth.module.css";
 
 export function ResetPasswordPage() {
   const { email, setEmail, handleSubmit, loading, error, success } = useResetPassword();
@@ -44,7 +45,7 @@ export function ResetPasswordPage() {
               buttonText="Send Reset Link"
             />
             <AuthLinks>
-              <Link to="/login" className="authLink">← Back to Login</Link>
+              <Link to="/login" className={styles["auth-Link"]}>← Back to Login</Link>
             </AuthLinks>
           </>
         )}

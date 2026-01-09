@@ -1,5 +1,3 @@
-import "./styles/auth.css";
-
 export * from "./context/AuthContext"
 export * from "./pages/LoginPage"
 export * from "./pages/EmailVerificationPage"

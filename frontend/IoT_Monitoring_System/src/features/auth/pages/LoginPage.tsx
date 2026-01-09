@@ -6,6 +6,7 @@ import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/Card/Card";
+import styles from "@/features/auth/styles/auth.module.css";
 
 
 export function LoginPage() {
@@ -44,8 +45,8 @@ export function LoginPage() {
           buttonText="Sign In"
         />
         <AuthLinks>
-          <Link to="/send-reset-password" className="authLink">Forgot Password?</Link>
-          <Link to="/resend-verification" className="authLink">Resend Email Verification</Link>
+          <Link to="/send-reset-password" className={styles["auth-Link"]}>Forgot Password?</Link>
+          <Link to="/resend-verification" className={styles["auth-Link"]}>Resend Email Verification</Link>
         </AuthLinks>
         <AuthFooter>
           <p>IoT Monitoring System &copy; {new Date().getFullYear()}</p>

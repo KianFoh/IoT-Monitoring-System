@@ -24,7 +24,7 @@
   border-radius: 50%;
   border: 6px solid var(--color-overlay-white-bold);
   border-top-color: var(--color-primary-400);
-  animation: loading-spin 0.9s linear infinite;
+  animation: gen-loading-spin 0.9s linear infinite;
 }
 
 .gen-loadingText {
@@ -34,7 +34,7 @@
   text-align: center;
 }
 
-@keyframes loading-spin {
+@keyframes gen-loading-spin {
   from {
     transform: rotate(0deg);
   }

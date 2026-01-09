@@ -7,5 +7,5 @@ interface CardProps {
 }
 
 export const Card = ({ children, className = "" }: CardProps) => {
-  return <div className={`${styles.card} ${className}`}>{children}</div>;
+  return <div className={`${styles["gen-card"]} ${className}`}>{children}</div>;
 };

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import styles from "@/features/auth/styles/auth.module.css";
 
 interface Props {
   title: string;
@@ -9,11 +10,11 @@ interface Props {
 
 export const AuthSuccess = ({ title, message, redirectLink, redirectText }: Props) => {
   return (
-    <div className="authSuccess">
-      <div className="successIcon">✓</div>
-      <h3 className="authHeaderTitle">{title}</h3>
-      <p className="successMessage">{message}</p>
-      <Link to={redirectLink} className="successButton">
+    <div className={styles["auth-Success"]}>
+      <div className={styles["auth-SuccessIcon"]}>✓</div>
+      <h3 className={styles["auth-HeaderTitle"]}>{title}</h3>
+      <p className={styles["auth-SuccessMessage"]}>{message}</p>
+      <Link to={redirectLink} className={styles["auth-SuccessButton"]}>
         {redirectText}
       </Link>
     </div>

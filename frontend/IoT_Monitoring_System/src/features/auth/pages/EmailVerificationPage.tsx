@@ -9,6 +9,7 @@ import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
 import { LoadingScreen } from "@/components/Loading/LoadingScreen";
 import { Card } from "@/components/Card/Card";
+import styles from "@/features/auth/styles/auth.module.css";
 
 export function EmailVerificationPage() {
   const {
@@ -85,7 +86,7 @@ export function EmailVerificationPage() {
               buttonText="Verify Email & Set Password"
             />
             <AuthLinks>
-              <Link to="/resend-verification" className="authLink">← Request new link</Link>
+              <Link to="/resend-verification" className={styles["auth-Link"]}>← Request new link</Link>
             </AuthLinks>
           </>
         )}
