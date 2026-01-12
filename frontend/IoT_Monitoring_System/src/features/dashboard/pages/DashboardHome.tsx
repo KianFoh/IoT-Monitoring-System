@@ -1,6 +1,3 @@
-import { useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import type { DashboardOverviewDevice } from "@/types/dashboard";
 import { StatCard } from "../../..//components/StatCard/StatCard";
 import { useDashboardOverview } from "../hooks/useDashboardOverview";
 import { LoadingScreen } from "../../..//components/Loading/LoadingScreen";
@@ -8,32 +5,12 @@ import { Link } from "react-router-dom";
 import { DataTable } from "../components/DataTable";
 import { FaNetworkWired, FaUserAlt, FaUserCog, FaUsers } from "react-icons/fa";
 import styles from "../styles/dashboard.module.css";
+import useOverviewDeviceColumns from "../hooks/useOverviewDeviceColumns";
 
 export function DashboardHome() {
   const { stats, devices, loading, error } = useDashboardOverview();
 
-  const columns = useMemo<ColumnDef<DashboardOverviewDevice>[]>(
-    () => [
-      {
-        accessorKey: "uid",
-        header: "UID",
-        cell: (info) => <span className={styles["device-id"]}>{info.getValue<string>()}</span>,
-      },
-      { accessorKey: "name", header: "Name" },
-      { accessorKey: "department_name", header: "Department" },
-      { accessorKey: "customer_name", header: "Customer" },
-      {
-        accessorKey: "is_online",
-        header: "Status",
-        cell: (info) => (
-          <span className={`${styles["dashboard-status-badge"]} ${info.getValue<boolean>() ? styles["online"] : styles["offline"]}`}>
-            {info.getValue<boolean>() ? "Online" : "Offline"}
-          </span>
-        ),
-      },
-    ],
-    []
-  );
+  const columns = useOverviewDeviceColumns();
 
   if (loading) return <LoadingScreen />;
 

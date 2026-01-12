@@ -93,17 +93,6 @@
   table-layout: fixed; /* important: fixes column widths from <col> or equal distribution */
 }
 
-/* ensure header/data cells truncate with ellipsis instead of expanding layout */
-.dashboard-table th,
-.dashboard-table td {
-  padding: var(--spacing-md);
-  font-size: var(--font-size-sm);
-  color: var(--text-inverse);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .dashboard-table thead {
   background: var(--color-overlay-white-light);
 }
@@ -201,11 +190,6 @@
 }
 
 /* Table Column Alignment Helpers */
-.dashboard-table thead th:last-child,
-.dashboard-table tbody td:last-child {
-  text-align: center;
-}
-
 /* Pagination Styles */
 .dashboard-pagination {
   display: flex;
@@ -372,16 +356,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* actions column should allow internal layout (buttons) and not be clipped to single-line */
-.dashboard-cell-content-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  white-space: normal;
-  overflow: visible;
 }
 
 /* ensure table container can scroll horizontally if total cols exceed container */
