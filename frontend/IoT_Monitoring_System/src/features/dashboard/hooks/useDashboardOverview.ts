@@ -38,7 +38,7 @@ export const useDashboardOverview = () => {
         console.log("[Dashboard] Fetching API stats...");
         const [{ customers, devices: devicesCount, users, mqttUsers }, devicesData] = await Promise.all([
           dashboardApi.getCounts(),
-          dashboardApi.getRecentDevices(devices_limit), // Fetch 6 recent devices
+          dashboardApi.getRecentDevices(devices_limit),
         ]); 
 
         if (!isMounted) return;

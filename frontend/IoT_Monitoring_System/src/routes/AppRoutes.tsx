@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { LoginPage, EmailVerificationPage, ResendVerificationPage, ResetPasswordPage, ResetPasswordConfirmPage } from "@/features/auth";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { GuestRoute } from "./GuestRoute";
-import { DashboardLayout, DashboardHome, CustomersPage, DevicesPage, MqttUserPage, SettingsPage, UsersPage } from "@/features/dashboard";
+import { DashboardLayout, DashboardHome, CustomersPage, DepartmentPage, DevicesPage, MqttUserPage, SettingsPage, UsersPage } from "@/features/dashboard";
 
 export default function AppRoutes() {
 
@@ -25,6 +25,7 @@ export default function AppRoutes() {
         <Route index element={<DashboardHome />} />
         <Route path="devices" element={<DevicesPage />} />
         <Route path="customers" element={<CustomersPage />} />
+        <Route path="departments" element={<DepartmentPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="mqtt-users" element={<MqttUserPage />} />
         <Route path="settings" element={<SettingsPage />} />

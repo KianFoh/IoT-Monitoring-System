@@ -1,8 +1,4 @@
-import { useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import type { Device } from "@/types/dashboard";
 import { DataTable } from "../components/DataTable";
-import { TableActions } from "../components/TableActions";
 import Pagination from "../components/Pagination";
 import SearchFilter from "../components/SearchFilter";
 import { Button } from "@/components/Button/Button";
@@ -13,6 +9,7 @@ import { FaPlus } from "react-icons/fa";
 import styles from "../styles/dashboard.module.css";
 import { useDevicesTable } from "../hooks/useDevicesTable";
 import { useDeviceActions } from "../hooks/useDeviceActions";
+import { useDeviceColumns } from "../hooks/useDeviceColumns";
 import { Switch } from "@/components/Switch/Switch";
 
 export function DevicesPage() {
@@ -53,74 +50,7 @@ export function DevicesPage() {
 
   
 
-  const columns = useMemo<ColumnDef<Device>[]>(
-    () => [
-      {
-        accessorKey: "uid",
-        header: "UID",
-        meta: { width: 150 },
-        cell: (info) => <>{info.getValue<string>()}</>,
-      },
-      { 
-        accessorKey: "name", 
-        header: "Name", 
-        meta: { width: 200 } },
-      {
-        accessorKey: "department_name",
-        header: "Department",
-        meta: { width: 150 },
-        cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
-      },
-      {
-        accessorKey: "customer_name",
-        header: "Customer",
-        meta: { width: 200 },
-        cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
-      },
-      {
-        accessorKey: "is_online",
-        header: "Status",
-        meta: { width: 100 },
-        cell: (info) => (
-          <span className={`${styles["dashboard-status-badge"]} ${info.getValue<boolean>() ? styles["online"] : styles["offline"]}`}>
-            {info.getValue<boolean>() ? "Online" : "Offline"}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "is_active",
-        header: "Active",
-        meta: { width: 100 },
-        cell: (info) => (
-          <span className={`${styles["dashboard-status-badge"]} ${info.getValue<boolean>() ? styles["active"] : styles["inactive"]}`}>
-            {info.getValue<boolean>() ? "Active" : "Inactive"}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "created_at",
-        header: "Created At",
-        meta: { width: 200 },
-        cell: (info) => {
-          const v = info.getValue<string | null>();
-          return <span>{v ? new Date(v).toLocaleString() : ""}</span>;
-        },
-      },
-      {
-        id: "actions",
-        header: "Actions",
-        meta: { width: 140 },
-        cell: (info) => (
-          <TableActions
-            item={info.row.original}
-            onEdit={openEditModal}
-            onDelete={openDeleteModal}
-          />
-        ),
-      },
-    ],
-    []
-  );
+  const columns = useDeviceColumns(openEditModal, openDeleteModal);
 
   return (
     <div className={styles["devices-container"]}>
