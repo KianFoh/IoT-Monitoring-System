@@ -1,0 +1,59 @@
+.gen-switch-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.gen-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.gen-switch-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.gen-switch {
+  --h: calc(var(--control-height-sm) - 12px);
+  --w: calc(var(--control-height-sm) + 8px);
+  width: var(--w);
+  height: var(--h);
+  background: var(--bg-grey-light);
+  border-radius: var(--radius-full);
+  position: relative;
+  transition: var(--transition-fast);
+}
+
+.gen-switch::after {
+  content: "";
+  position: absolute;
+  top: var(--spacing-xs);
+  left: var(--spacing-xs);
+  width: calc(var(--h) - (var(--spacing-xs) * 2));
+  height: calc(var(--h) - (var(--spacing-xs) * 2));
+  background: var(--text-white);
+  border-radius: 50%;
+  transition: var(--transition-fast);
+}
+
+/* checked: input is before label, target .gen-switch inside the label */
+.gen-switch-input:checked + .gen-switch-toggle .gen-switch {
+  background: var(--color-primary-500);
+}
+
+.gen-switch-input:checked + .gen-switch-toggle .gen-switch::after {
+  transform: translateX(calc(var(--w) - var(--h)));
+}
+
+.gen-switch-text {
+  display: inline-block;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: default;
+}

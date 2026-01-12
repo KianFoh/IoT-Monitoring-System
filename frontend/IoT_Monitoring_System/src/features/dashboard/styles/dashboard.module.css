@@ -455,3 +455,35 @@
   color: var(--text-secondary);
   cursor: not-allowed;
 }
+
+/* Modal + Form helpers */
+.dashboard-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  color: var(--text-primary);
+}
+
+.dashboard-modal-form p {
+  margin: 0;
+  color: var(--color-error-500);
+}
+
+.dashboard-modal-actions {
+  display: flex;
+  margin-top: var(--spacing-md);
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}
+
+.dashboard-modal-error {
+  color: var(--color-error-600);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.dashboard-checkbox-row {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}

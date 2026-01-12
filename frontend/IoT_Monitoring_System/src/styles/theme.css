@@ -80,6 +80,7 @@
   --bg-primary: #ffffff;
   --bg-secondary: #f9fafb;
   --bg-tertiary: #f3f4f6;
+  --bg-grey-light: #7a7a7a;
   --bg-sidebar-start: #1e293b;
   --bg-sidebar-end: #0f172a;
 
@@ -102,6 +103,9 @@
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
   --shadow-sidebar: 2px 0 12px rgba(0, 0, 0, 0.15);
   
+  /* Background Overlay */ 
+  --bg-overlay-dark-light: rgba(0, 0, 0, 0.50);
+
   /* Border Radius */
   --radius-sm: 4px;
   --radius-md: 8px;

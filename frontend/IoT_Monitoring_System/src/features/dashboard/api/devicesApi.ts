@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import type { DeviceListResponse } from "@/types/dashboard";
+import type { Device, DeviceListResponse } from "@/types/dashboard";
 
 type ListParams = {
   page?: number;
@@ -19,5 +19,17 @@ export const devicesApi = {
     }
 
     return api.get<DeviceListResponse>(`/devices/?${params.toString()}`);
+  },
+
+  async create(payload: { name: string; uid: string; department_id?: number | null }) {
+    return api.post<Device>("/devices/", payload);
+  },
+
+  async update(deviceId: number, payload: Partial<{ name: string; department_id: number | null; is_online: boolean; is_active: boolean }>) {
+    return api.patch<Device>(`/devices/${deviceId}`, payload);
+  },
+
+  async remove(deviceId: number) {
+    return api.delete<void>(`/devices/${deviceId}`);
   },
 };

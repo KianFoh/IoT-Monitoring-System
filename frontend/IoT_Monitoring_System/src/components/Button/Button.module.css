@@ -32,3 +32,25 @@
   align-items: center;
   margin-right: var(--spacing-sm);
 }
+
+
+/* Danger (delete) */
+.gen-btn--danger {
+  background: var(--color-error-500);
+  color: var(--text-white);
+}
+
+.gen-btn--danger:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.12);
+}
+
+/* Ghost (cancel/secondary) */
+.gen-btn--cancel {
+  background: var(--bg-white);
+  color: var(--color-primary-500);
+  border: 2px solid var(--color-primary-500);
+}
+
+.gen-btn--cancel:hover:not(:disabled) {
+  box-shadow: var(--shadow-sm);
+}

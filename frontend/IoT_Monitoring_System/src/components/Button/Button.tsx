@@ -5,27 +5,47 @@ interface ButtonProps {
   children?: React.ReactNode;
   isLoading?: boolean;
   disabled?: boolean;
-  icon?: React.ElementType;
-  onClick?: () => void;
+  icon?: React.ElementType | React.ReactNode;
+  onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
+  type?: "button" | "submit" | "reset";
+  variant?: "primary" | "danger" | "cancel";
 }
 
-export const Button = ({ children, isLoading = false, disabled, icon, onClick, className }: ButtonProps) => {
-  const combined = [styles["gen-btn"], className].filter(Boolean).join(" ");
+export const Button: React.FC<ButtonProps> = ({
+  children,
+  isLoading = false,
+  disabled = false,
+  icon,
+  onClick,
+  className = "",
+  type = "button",
+  variant = "primary",
+}) => {
+  const combined = [styles["gen-btn"], styles[`gen-btn--${variant}`], className].filter(Boolean).join(" ");
 
   const renderIcon = () => {
     if (!icon) return null;
-    const IconComp = icon as React.ElementType;
+    if (typeof icon === "function") {
+      const IconComp = icon as React.ElementType;
+      return (
+        <span className={styles["gen-btn-icon"]} aria-hidden>
+          <IconComp />
+        </span>
+      );
+    }
     return (
       <span className={styles["gen-btn-icon"]} aria-hidden>
-        <IconComp />
+        {icon}
       </span>
     );
   };
 
   return (
-    <button className={combined} disabled={disabled || isLoading} onClick={onClick}>
+    <button className={combined} disabled={disabled || isLoading} onClick={onClick} type={type}>
       {isLoading ? "Loading..." : (<>{renderIcon()}{children}</>)}
     </button>
   );
 };
+
+export default Button;
