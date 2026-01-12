@@ -1,6 +1,6 @@
 from pydantic import BaseModel 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class DeviceBase(BaseModel):
     uid: str
@@ -17,13 +17,20 @@ class DeviceUpdate(BaseModel):
 
 class DeviceOut(DeviceBase):
     id: int
-    department_id: Optional[int] = None
     is_online: bool
     is_active: bool
+    department_name: Optional[str] = None
+    customer_name: Optional[str] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+class DeviceListResponse(BaseModel):
+    items: List[DeviceOut]
+    total: int
+    page: int
+    page_size: int
 
 class DeviceRecentOut(DeviceBase):
     id: int

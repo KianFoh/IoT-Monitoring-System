@@ -16,14 +16,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAccessToken(data.access_token);
     wsManager.setTokenGetter(() => data.access_token);
     api.setTokenGetter(() => data.access_token);
+    await wsManager.connectAll();
     setUser(data.user);
     setIsLoggedIn(true);
   };
 
-  const logout = () => {
+  const logout = async () => {
     try {
-      authApi.logout();
+      await authApi.logout();
     } finally {
+      wsManager.disconnectAll();
+      wsManager.setTokenGetter(() => null);
+      api.setTokenGetter(() => null);
       setAccessToken(null);
       setIsLoggedIn(false);
       setUser(null);

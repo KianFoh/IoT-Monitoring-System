@@ -23,27 +23,18 @@ export const useDashboardOverview = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Connect WS first, then fetch API
+  // Fetch data after auth check, then listen for WS updates
   useEffect(() => {
     if (!isAuthChecked || !access_token) return;
 
     let isMounted = true;
+    const unsubscribers: Array<() => void> = [];
 
     const setup = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Step 1: Connect all WS channels (all at once, no delay)
-        console.log("[Dashboard] Connecting WS channels...");
-        await Promise.all([
-        wsManager.connect("customer"),
-        wsManager.connect("device"),
-        wsManager.connect("user"),
-        wsManager.connect("mqtt_user"),
-        ]);
-        
-        // Step 2: Fetch initial stats and devices from API
         console.log("[Dashboard] Fetching API stats...");
         const [{ customers, devices: devicesCount, users, mqttUsers }, devicesData] = await Promise.all([
           dashboardApi.getCounts(),
@@ -59,8 +50,7 @@ export const useDashboardOverview = () => {
           mqttUsers: mqttUsers,
         });
         setDevices(devicesData);
-        // Step 3: Setup WS listeners
-        const unsubscribers: Array<() => void> = [];
+        // Setup WS listeners
 
         unsubscribers.push(
           wsManager.on("customer", (event: WSEvent) => {
@@ -130,10 +120,7 @@ export const useDashboardOverview = () => {
 
     return () => {
       isMounted = false;
-      wsManager.disconnect("customer");
-      wsManager.disconnect("device");
-      wsManager.disconnect("user");
-      wsManager.disconnect("mqtt_user");
+      unsubscribers.forEach((unsub) => unsub());
     };
   }, [isAuthChecked, access_token]);
 

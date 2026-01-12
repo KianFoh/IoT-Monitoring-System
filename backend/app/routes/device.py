@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.crud.postgres import device as device_crud
 from app.crud.postgres import department as department_crud
 from app.crud.mongodb import devices_data as device_data_crud
 from app.models.user import User as UserModel
-from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRecentOut
+from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRecentOut, DeviceListResponse
 from app.models.enum.user_role import UserRole
 from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
@@ -66,22 +66,37 @@ async def create_device(
             )
 
     db_device = device_crud.create_device(db, device)
-    await broadcast_device_event("add", DeviceOut.model_validate(db_device, from_attributes=True))
-    return db_device
+    device_out = device_crud.get_device_with_relations(db, db_device.id) or DeviceOut.model_validate(
+        db_device, from_attributes=True
+    )
+    await broadcast_device_event("add", device_out)
+    return device_out
 
 
 # ==================== Read (List) ====================
-@router.get("/", response_model=List[DeviceOut])
+@router.get("/", response_model=DeviceListResponse)
 def get_devices(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    search: Optional[str] = Query(None, description="Search by UID, device name, department or customer"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all devices with pagination."""
+    """Get devices with pagination and search."""
     require_role(current_user, [UserRole.superuser])
 
-    return device_crud.get_devices(db, skip=skip, limit=limit)
+    items, total = device_crud.get_devices(
+        db,
+        search=search.strip() if search else None,
+        page=page,
+        page_size=page_size,
+    )
+    return DeviceListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 # ==================== Read (Single) ====================
@@ -94,7 +109,7 @@ def get_device(
     """Get device by ID."""
     require_role(current_user, [UserRole.superuser])
 
-    device = device_crud.get_device(db, device_id)
+    device = device_crud.get_device_with_relations(db, device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,8 +146,11 @@ async def update_device(
             )
 
     updated_device = device_crud.update_device(db, existing_device, device_update)
-    await broadcast_device_event("update", DeviceOut.model_validate(updated_device, from_attributes=True))
-    return updated_device
+    device_out = device_crud.get_device_with_relations(db, device_id) or DeviceOut.model_validate(
+        updated_device, from_attributes=True
+    )
+    await broadcast_device_event("update", device_out)
+    return device_out
 
 # ==================== Delete ====================
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)

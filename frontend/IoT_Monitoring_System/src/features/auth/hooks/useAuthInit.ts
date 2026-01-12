@@ -17,11 +17,15 @@ export function useAuthInit() {
         setAccessToken(data.access_token);
         wsManager.setTokenGetter(() => data.access_token);
         api.setTokenGetter(() => data.access_token);
+        await wsManager.connectAll();
         
         setUser(data.user);
         setIsLoggedIn(true);
       } catch {
         setAccessToken(null);
+        wsManager.disconnectAll();
+        wsManager.setTokenGetter(() => null);
+        api.setTokenGetter(() => null);
         setUser(null);
         setIsLoggedIn(false);
       } finally {

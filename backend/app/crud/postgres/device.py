@@ -1,8 +1,11 @@
+from typing import Optional
+
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from app.models.device import Device as DeviceModel
 from app.models.department import Department as DepartmentModel
 from app.models.customer import Customer as CustomerModel
-from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceRecentOut
+from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceRecentOut, DeviceOut
 
 # ==================== Create ====================
 def create_device(db: Session, device: DeviceCreate):
@@ -30,9 +33,64 @@ def get_device_by_uid(db: Session, uid: str):
     """Get device by UID"""
     return db.query(DeviceModel).filter(DeviceModel.uid == uid).first()
 
-def get_devices(db: Session, skip: int = 0, limit: int = 10):
-    """Get all devices with pagination"""
-    return db.query(DeviceModel).offset(skip).limit(limit).all()
+def _base_device_query(db: Session):
+    """Base query joining department and customer for enrichment."""
+    return (
+        db.query(
+            DeviceModel,
+            DepartmentModel.name.label("department_name"),
+            CustomerModel.name.label("customer_name"),
+        )
+        .outerjoin(DepartmentModel, DeviceModel.department_id == DepartmentModel.id)
+        .outerjoin(CustomerModel, DepartmentModel.customer_id == CustomerModel.id)
+    )
+
+def _serialize_device_row(row) -> DeviceOut:
+    device, department_name, customer_name = row
+    return DeviceOut.model_validate(
+        {
+            "id": device.id,
+            "uid": device.uid,
+            "name": device.name,
+            "is_online": device.is_online,
+            "is_active": device.is_active,
+            "department_name": department_name,
+            "customer_name": customer_name,
+            "created_at": device.created_at,
+        }
+    )
+
+def get_devices(db: Session, search: Optional[str] = None, page: int = 1, page_size: int = 10):
+    """Get devices with optional search and pagination, enriched with customer/department names."""
+    query = _base_device_query(db)
+
+    if search:
+        like = f"%{search.lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(DeviceModel.uid).like(like),
+                func.lower(DeviceModel.name).like(like),
+                func.lower(DepartmentModel.name).like(like),
+                func.lower(CustomerModel.name).like(like),
+            )
+        )
+
+    total = query.count()
+    rows = (
+        query.order_by(DeviceModel.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    items = [_serialize_device_row(row) for row in rows]
+    return items, total
+
+def get_device_with_relations(db: Session, device_id: int):
+    """Get a single device enriched with customer/department names."""
+    row = _base_device_query(db).filter(DeviceModel.id == device_id).first()
+    if not row:
+        return None
+    return _serialize_device_row(row)
 
 # ==================== Update ====================
 def update_device(db: Session, db_device: DeviceModel, device_update: DeviceUpdate):

@@ -12,24 +12,6 @@ import styles from "../styles/dashboard.module.css";
 import { useDevicesTable } from "../hooks/useDevicesTable";
 
 export function DevicesPage() {
-
-  const data: Device[] = useMemo(
-    () => [
-      { id: 1, uid: "DEV0012312231232131221312323123", name: "Temperature Sensor", customer_name: "ACME Corp", department_name: "Building Controls", is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 2, uid: "DEV002", name: "Humidity Sensor", customer_name: "Beta Ltd", department_name: "Environmental", is_online: false, is_active: false, created_at: new Date().toISOString() },
-      { id: 3, uid: "DEV003", name: "Pressure Sensor", customer_name: "ACME Corp", department_name: "Process", is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 4, uid: "DEV004", name: "CO2 Sensor", customer_name: "Gamma Inc", department_name: "Air Quality", is_online: false, is_active: true, created_at: new Date().toISOString() },
-      { id: 5, uid: "DEV005", name: "Light Sensor", customer_name: "Beta Ltd", department_name: "Lighting", is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 6, uid: "DEV006", name: "Vibration Sensor", customer_name: "Delta PLC", department_name: "Mechanical", is_online: true, is_active: false, created_at: new Date().toISOString() },
-      { id: 7, uid: "DEV007", name: "Door Sensor", customer_name: "ACME Corp", department_name: "Security", is_online: false, is_active: true, created_at: new Date().toISOString() },
-      { id: 8, uid: "DEV008", name: "Motion Sensor", customer_name: "Gamma Inc", department_name: "Security", is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 9, uid: "DEV009", name: "Smoke Sensor", customer_name: "Beta Ltd", department_name: "Safety", is_online: false, is_active: true, created_at: new Date().toISOString() },
-      { id: 10, uid: "DEV010", name: "Gas Sensor", customer_name: "Delta PLC", department_name: "Safety", is_online: true, is_active: false, created_at: new Date().toISOString() },
-      { id: 11, uid: "DEV011", name: "Water Leak Sensor", customer_name: "ACME Corp", department_name: "Facilities", is_online: true, is_active: true, created_at: new Date().toISOString() },
-      { id: 12, uid: "DEV012", name: "Proximity Sensor", customer_name: "Beta Ltd", department_name: "Access", is_online: false, is_active: true, created_at: new Date().toISOString() },
-    ],
-    []
-  );
   const {
     query,
     setQuery,
@@ -37,9 +19,11 @@ export function DevicesPage() {
     setCurrentPage,
     pageSize,
     setPageSize,
-    pagedData,
+    devices,
     totalPages,
-  } = useDevicesTable(data, 5);
+    loading,
+    error,
+  } = useDevicesTable(5);
 
   const handleEdit = (device: Device) => console.log("Edit device:", device);
   const handleDelete = (device: Device) => console.log("Delete device:", device);
@@ -49,15 +33,24 @@ export function DevicesPage() {
       {
         accessorKey: "uid",
         header: "UID",
-        meta: { width: 250 },
+        meta: { width: 150 },
         cell: (info) => <>{info.getValue<string>()}</>,
       },
-      { accessorKey: "name", header: "Name", meta: { width: 200 } },
+      { 
+        accessorKey: "name", 
+        header: "Name", 
+        meta: { width: 200 } },
+      {
+        accessorKey: "department_name",
+        header: "Department",
+        meta: { width: 150 },
+        cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
+      },
       {
         accessorKey: "customer_name",
         header: "Customer",
-        meta: { width: 220},
-        cell: (info) => <>{info.getValue<string>()}</>,
+        meta: { width: 200 },
+        cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
       },
       {
         accessorKey: "is_online",
@@ -84,7 +77,7 @@ export function DevicesPage() {
         header: "Created At",
         meta: { width: 200 },
         cell: (info) => {
-          const v = info.getValue<string>();
+          const v = info.getValue<string | null>();
           return <span>{v ? new Date(v).toLocaleString() : ""}</span>;
         },
       },
@@ -107,8 +100,8 @@ export function DevicesPage() {
         <div className={styles["dashboard-search-and-action"]}>
           <div className={styles["dashboard-search-wrapper"]}>
             <SearchFilter
-                value={query}
-                onChange={(v) => setQuery(v)}
+              value={query}
+              onChange={(v) => setQuery(v)}
               placeholder="Search devices by UID, Name or Customer Name..."
             />
           </div>
@@ -126,7 +119,13 @@ export function DevicesPage() {
           </div>
         </div>
       </div>
-      <DataTable data={pagedData} columns={columns} tableClassName={styles["dashboard-table"]} emptyMessage="No devices found" />
+      {error && <p>{error}</p>}
+      <DataTable
+        data={devices}
+        columns={columns}
+        tableClassName={styles["dashboard-table"]}
+        emptyMessage={loading ? "Loading devices..." : "No devices found"}
+      />
 
       <div className={styles["dashboard-pagination-row"]}>
         <div className={styles["dashboard-page-size-left"]}>
