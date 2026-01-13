@@ -11,7 +11,7 @@ export type Device = DashboardOverviewDevice;
 export const useDashboardOverview = () => {
 
   const devices_limit = 6;
-  const { access_token, isAuthChecked } = useAuth();
+  const { isLoggedIn, isAuthChecked } = useAuth();
 
   const [stats, setStats] = useState<DashboardStats>({
     totalCustomers: 0,
@@ -25,7 +25,7 @@ export const useDashboardOverview = () => {
 
   // Fetch data after auth check, then listen for WS updates
   useEffect(() => {
-    if (!isAuthChecked || !access_token) return;
+    if (!isAuthChecked || !isLoggedIn) return;
 
     let isMounted = true;
     const unsubscribers: Array<() => void> = [];
@@ -122,7 +122,7 @@ export const useDashboardOverview = () => {
       isMounted = false;
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, [isAuthChecked, access_token]);
+  }, [isAuthChecked, isLoggedIn]);
 
   return { stats, devices, loading, error };
 };
