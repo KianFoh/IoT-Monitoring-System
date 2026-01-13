@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const shouldReconnect = options?.reconnectWs ?? true;
       try {
         if (shouldReconnect) {
-          await wsManager.reconnectAll();
+          await wsManager.reconnectAll(undefined, { manual: true });
         } else {
           await wsManager.connectAll();
         }
@@ -60,6 +60,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       },
     });
     wsManager.setTokenGetter(() => tokenRef.current);
+    wsManager.setAuthHandlers({
+      refreshToken: refreshSession,
+      onAuthFailure: () => {
+        clearSession();
+        setIsAuthChecked(true);
+      },
+    });
   }, [refreshSession, clearSession]);
 
   useEffect(() => {

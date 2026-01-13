@@ -7,14 +7,85 @@ export type Listener<T = any> = (event: WSEvent<T>) => void;
 
 export const ALL_CHANNELS: WSChannel[] = ["customer", "department", "device", "mqtt_user", "user"];
 
+type AuthHandlers = {
+  refreshToken?: () => Promise<string | null>;
+  onAuthFailure?: () => void;
+};
+
 class WebSocketManager {
   private tokenGetter?: () => string | null;
+  private authHandlers?: AuthHandlers;
   private connections = new Map<WSChannel, WebSocket>();
   private listeners = new Map<WSChannel, Set<Listener>>();
   private shouldReconnect = new Map<WSChannel, boolean>();
+  private refreshPromise: Promise<string | null> | null = null;
+  private manualReconnect = false;
+  private readonly RECONNECT_DELAY = 2000;
+  private readonly REFRESH_RETRY_DELAY = 3000;
 
   setTokenGetter(getter: () => string | null) {
     this.tokenGetter = getter;
+  }
+
+  setAuthHandlers(handlers: AuthHandlers) {
+    this.authHandlers = handlers;
+  }
+
+  private wait(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private isAuthClose(event?: CloseEvent) {
+    const code = event?.code;
+    const reason = event?.reason?.toLowerCase?.() ?? "";
+    return code === 4401 || code === 4403 || code === 1008 || reason.includes("auth") || reason.includes("token");
+  }
+
+  private async queueRefresh() {
+    if (!this.authHandlers?.refreshToken) return null;
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.authHandlers
+        .refreshToken()
+        .finally(() => {
+          this.refreshPromise = null;
+        });
+    }
+    return this.refreshPromise;
+  }
+
+  private async refreshWithRetry(channel: WSChannel, event?: CloseEvent) {
+    if (!this.authHandlers?.refreshToken) return true;
+
+    const isAuthRelated = this.isAuthClose(event);
+
+    while (this.shouldReconnect.get(channel)) {
+      try {
+        const token = await this.queueRefresh();
+        if (!token) throw new Error("WS auth refresh returned no token");
+        return true;
+      } catch (err: any) {
+        const status = err?.response?.status ?? err?.status;
+        const authFail = status === 401 || status === 403 || isAuthRelated;
+        if (authFail) {
+          this.authHandlers?.onAuthFailure?.();
+          return false;
+        }
+        await this.wait(this.REFRESH_RETRY_DELAY);
+      }
+    }
+
+    return false;
+  }
+
+  private async handleReconnect(channel: WSChannel, event?: CloseEvent) {
+    if (!this.shouldReconnect.get(channel) || this.manualReconnect) return;
+
+    const refreshed = await this.refreshWithRetry(channel, event);
+    if (!refreshed) return;
+
+    await this.wait(this.RECONNECT_DELAY);
+    if (!this.shouldReconnect.get(channel)) return;
+    this.connect(channel).catch(() => {});
   }
 
   connect(channel: WSChannel): Promise<void> {
@@ -59,13 +130,12 @@ class WebSocketManager {
           console.error(`[WS] Parse error on ${channel}`, err);
         }
       };
-      ws.onclose = (event: CloseEvent) => {
+      ws.onclose = (event) => {
         console.log(
           `[WS] Closed: ${channel} (code ${event.code}, reason: ${event.reason || "n/a"}, clean: ${event.wasClean})`
         );
-        if (event.code === 4401) {
-          console.warn(`[WS] Auth failure for ${channel}: server closed with code 4401 (invalid or missing token)`);
-        }
+        this.connections.delete(channel);
+        this.handleReconnect(channel, event).catch(() => {});
       };
       ws.onerror = (e) => {
         console.error(`[WS] Error on ${channel}`, e);
@@ -76,22 +146,36 @@ class WebSocketManager {
     });
   }
 
-
   disconnect(channel: WSChannel) {
     this.shouldReconnect.set(channel, false);
     this.connections.get(channel)?.close();
     this.connections.delete(channel);
   }
 
-  async connectAll(channels: WSChannel[] = ALL_CHANNELS) {
-    await Promise.all(
-      channels.map((channel) => this.connect(channel).catch(() => {}))
+  async connectAll(channels: WSChannel[] = ALL_CHANNELS, options?: { strict?: boolean }) {
+    const results = await Promise.allSettled(
+      channels.map((channel) => this.connect(channel))
     );
+
+    if (options?.strict) {
+      const rejected = results.find((res) => res.status === "rejected");
+      if (rejected && rejected.status === "rejected") {
+        throw rejected.reason;
+      }
+    }
+
+    return results;
   }
 
-  async reconnectAll(channels: WSChannel[] = ALL_CHANNELS) {
-    this.disconnectAll({ keepListeners: true });
-    await this.connectAll(channels);
+  async reconnectAll(channels: WSChannel[] = ALL_CHANNELS, options?: { strict?: boolean; manual?: boolean }) {
+    const isManual = options?.manual ?? false;
+    if (isManual) this.manualReconnect = true;
+    try {
+      this.disconnectAll({ keepListeners: true });
+      await this.connectAll(channels, options);
+    } finally {
+      if (isManual) this.manualReconnect = false;
+    }
   }
 
   disconnectAll(options?: { keepListeners?: boolean }) {
