@@ -12,6 +12,12 @@ router = APIRouter()
 # Channel -> allowed roles (currently superuser only)
 CHANNEL_ROLES = {channel: {UserRole.superuser} for channel in ALLOWED_CHANNELS}
 
+'''
+ Error codes:
+    WS_INVALID_CHANNEL = 4400
+    WS_UNAUTHORIZED   = 4401
+    WS_FORBIDDEN      = 4403
+'''
 
 async def authenticate_websocket(websocket: WebSocket, channel: str):
     """Validate JWT from Authorization header or ?token= and role per channel."""

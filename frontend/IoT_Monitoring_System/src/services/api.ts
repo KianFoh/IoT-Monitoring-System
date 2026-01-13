@@ -1,19 +1,23 @@
 import axios, { AxiosError } from "axios";
 import type { AxiosInstance, AxiosRequestConfig } from "axios";
 import { config } from "@/config";
-import { authApi } from "../features/auth/api/authApi";
 
 type RetryableRequest = AxiosRequestConfig & { _retry?: boolean };
 
+type AuthHandlers = {
+  getToken?: () => string | null;
+  refreshToken?: () => Promise<string | null>;
+  onRefreshFailure?: () => void;
+};
+
 class ApiClient {
   private client: AxiosInstance;
-  private getToken: (() => string | null) | null = null;
-  private isRefreshing = false;
-  private refreshQueue: Array<() => void> = [];
+  private authHandlers: AuthHandlers | null = null;
+  private refreshPromise: Promise<string | null> | null = null;
 
   private setUpInterceptors(instance: AxiosInstance) {
     instance.interceptors.request.use((config) => {
-      const token = this.getToken?.();
+      const token = this.authHandlers?.getToken?.();
       if (token) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
@@ -25,45 +29,43 @@ class ApiClient {
       (response) => response,
       async (error: AxiosError) => {
         const originalRequest = error.config as RetryableRequest;
-        
+
         // Don't retry if no config, already retried, or is the refresh endpoint itself
-        if (!originalRequest || originalRequest._retry || originalRequest.url?.includes('/auth/refresh')) {
+        if (!originalRequest || originalRequest._retry || originalRequest.url?.includes("/auth/refresh")) {
           return Promise.reject(error);
         }
 
-        if (error.response?.status === 401) {
-          // Avoid multiple refresh calls
-          if (this.isRefreshing) {
-            await new Promise<void>((resolve) => this.refreshQueue.push(resolve));
-          } else {
-            this.isRefreshing = true;
-            try {
-              const data = await authApi.refreshToken();
-              // Update token getter
-              this.setTokenGetter(() => data.access_token);
-            } catch (e) {
-              this.isRefreshing = false;
-              this.refreshQueue = [];
-              // Don't retry, let the error propagate so user gets redirected
-              return Promise.reject(error);
-            }
-            this.isRefreshing = false;
-            this.refreshQueue.forEach((resolve) => resolve());
-            this.refreshQueue = [];
-          }
+        if (error.response?.status === 401 && this.authHandlers?.refreshToken) {
+          try {
+            const refreshedToken = await this.queueRefresh();
+            const token = refreshedToken ?? this.authHandlers.getToken?.();
+            if (!token) throw error;
 
-          originalRequest._retry = true;
-          const token = this.getToken?.();
-          if (token) {
+            originalRequest._retry = true;
             originalRequest.headers = originalRequest.headers ?? {};
             originalRequest.headers.Authorization = `Bearer ${token}`;
             return instance(originalRequest);
+          } catch (refreshError) {
+            this.authHandlers?.onRefreshFailure?.();
+            return Promise.reject(refreshError);
           }
         }
 
         return Promise.reject(error);
       }
     );
+  }
+
+  private async queueRefresh() {
+    if (!this.authHandlers?.refreshToken) return null;
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.authHandlers
+        .refreshToken()
+        .finally(() => {
+          this.refreshPromise = null;
+        });
+    }
+    return this.refreshPromise;
   }
 
   constructor(baseURL: string, timeout: number) {
@@ -99,7 +101,11 @@ class ApiClient {
   }
 
   setTokenGetter(getter: () => string | null) {
-    this.getToken = getter;
+    this.authHandlers = { ...(this.authHandlers ?? {}), getToken: getter };
+  }
+
+  setAuthHandlers(handlers: AuthHandlers) {
+    this.authHandlers = handlers;
   }
 }
 

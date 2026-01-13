@@ -1,4 +1,4 @@
- import type { FormEvent } from "react"; 
+import type { Dispatch, FormEvent, SetStateAction } from "react"; 
 
 export interface LoginFormProps {
   email: string;
@@ -16,15 +16,15 @@ export interface LoginFormData {
 }
 
 export interface User {
-        email: string;
-        department_id: number | null;
-        role: "admin" | "user" | "superuser";
-        id: number;
-        is_verified: boolean;
-        is_active: boolean;
-        last_login: string;
-        created_at: string;
-    }
+  email: string;
+  department_id: number | null;
+  role: "admin" | "user" | "superuser";
+  id: number;
+  is_verified: boolean;
+  is_active: boolean;
+  last_login: string;
+  created_at: string;
+}
 
 export interface AuthContextType {
   isLoggedIn: boolean;
@@ -32,6 +32,6 @@ export interface AuthContextType {
   isAuthChecked: boolean;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  setUser: (user: User | null) => void;
+  logout: () => Promise<void>;
+  setUser: Dispatch<SetStateAction<User | null>>;
 }

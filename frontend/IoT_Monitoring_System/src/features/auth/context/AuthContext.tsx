@@ -1,38 +1,101 @@
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { authApi } from "@/features/auth/api/authApi";
-import { useAuthInit } from "@/features/auth/hooks/useAuthInit";
 import { wsManager } from "@/services/ws";
 import { api } from "@/services/api";
-import type { AuthContextType } from "@/types/auth";
+import type { AuthContextType, User } from "@/types/auth";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { access_token, setAccessToken, user, setUser, isLoggedIn, setIsLoggedIn, isAuthChecked } = useAuthInit();
+  const [access_token, setAccessToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const tokenRef = useRef<string | null>(null);
 
-  const login = async (email: string, password: string) => {
-    const data = await authApi.login(email, password);
-    setAccessToken(data.access_token);
-    wsManager.setTokenGetter(() => data.access_token);
-    api.setTokenGetter(() => data.access_token);
-    await wsManager.connectAll();
-    setUser(data.user);
-    setIsLoggedIn(true);
-  };
+  const syncToken = useCallback((token: string | null) => {
+    tokenRef.current = token;
+  }, []);
 
-  const logout = async () => {
+  const clearSession = useCallback(() => {
+    syncToken(null);
+    setAccessToken(null);
+    setUser(null);
+    wsManager.disconnectAll();
+  }, [syncToken]);
+
+  const establishSession = useCallback(
+    async (token: string, nextUser: User, options?: { reconnectWs?: boolean }) => {
+      syncToken(token);
+      const shouldReconnect = options?.reconnectWs ?? true;
+      try {
+        if (shouldReconnect) {
+          await wsManager.reconnectAll();
+        } else {
+          await wsManager.connectAll();
+        }
+        setAccessToken(token);
+        setUser(nextUser);
+      } catch (err) {
+        syncToken(null);
+        throw err;
+      }
+    },
+    [syncToken]
+  );
+
+  const refreshSession = useCallback(async () => {
+    const data = await authApi.refreshToken();
+    await establishSession(data.access_token, data.user, { reconnectWs: true });
+    return data.access_token;
+  }, [establishSession]);
+
+  useEffect(() => {
+    api.setAuthHandlers({
+      getToken: () => tokenRef.current,
+      refreshToken: refreshSession,
+      onRefreshFailure: () => {
+        clearSession();
+        setIsAuthChecked(true);
+      },
+    });
+    wsManager.setTokenGetter(() => tokenRef.current);
+  }, [refreshSession, clearSession]);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const data = await authApi.refreshToken();
+        await establishSession(data.access_token, data.user, { reconnectWs: false });
+      } catch {
+        clearSession();
+      } finally {
+        setIsAuthChecked(true);
+      }
+    };
+
+    initAuth();
+  }, [establishSession, clearSession]);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const data = await authApi.login(email, password);
+      await establishSession(data.access_token, data.user, { reconnectWs: true });
+      setIsAuthChecked(true);
+    },
+    [establishSession]
+  );
+
+  const logout = useCallback(async () => {
     try {
       await authApi.logout();
     } finally {
-      wsManager.disconnectAll();
-      wsManager.setTokenGetter(() => null);
-      api.setTokenGetter(() => null);
-      setAccessToken(null);
-      setIsLoggedIn(false);
-      setUser(null);
+      clearSession();
+      setIsAuthChecked(true);
     }
-  };
+  }, [clearSession]);
+
+  const isLoggedIn = Boolean(access_token && user);
 
   return (
     <AuthContext.Provider

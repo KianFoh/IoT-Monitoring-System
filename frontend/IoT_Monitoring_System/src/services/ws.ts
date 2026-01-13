@@ -28,6 +28,19 @@ class WebSocketManager {
 
       const existing = this.connections.get(channel);
       if (existing?.readyState === WebSocket.OPEN) return resolve();
+      if (existing?.readyState === WebSocket.CONNECTING) {
+        const onOpen = () => {
+          existing.removeEventListener("error", onError);
+          resolve();
+        };
+        const onError = (err: Event) => {
+          existing.removeEventListener("open", onOpen);
+          reject(err);
+        };
+        existing.addEventListener("open", onOpen, { once: true });
+        existing.addEventListener("error", onError, { once: true });
+        return;
+      }
 
       const url =
         config.api.baseUrl.replace(/^http/, "ws") +
@@ -46,16 +59,12 @@ class WebSocketManager {
           console.error(`[WS] Parse error on ${channel}`, err);
         }
       };
-      ws.onclose = () => {
-        console.log(`[WS] Closed: ${channel}`);
-        this.connections.delete(channel);
-
-        // optional auto-reconnect (skip if manually disconnected)
-        if (this.shouldReconnect.get(channel)) {
-          setTimeout(() => {
-            if (!this.shouldReconnect.get(channel)) return;
-            this.connect(channel).catch(() => {});
-          }, 2000);
+      ws.onclose = (event: CloseEvent) => {
+        console.log(
+          `[WS] Closed: ${channel} (code ${event.code}, reason: ${event.reason || "n/a"}, clean: ${event.wasClean})`
+        );
+        if (event.code === 4401) {
+          console.warn(`[WS] Auth failure for ${channel}: server closed with code 4401 (invalid or missing token)`);
         }
       };
       ws.onerror = (e) => {
@@ -80,11 +89,18 @@ class WebSocketManager {
     );
   }
 
-  disconnectAll() {
+  async reconnectAll(channels: WSChannel[] = ALL_CHANNELS) {
+    this.disconnectAll({ keepListeners: true });
+    await this.connectAll(channels);
+  }
+
+  disconnectAll(options?: { keepListeners?: boolean }) {
     this.shouldReconnect.clear();
     this.connections.forEach((ws) => ws.close());
     this.connections.clear();
-    this.listeners.clear();
+    if (!options?.keepListeners) {
+      this.listeners.clear();
+    }
   }
 
   on<T = any>(channel: WSChannel, listener: Listener<T>): () => void {
