@@ -22,6 +22,7 @@ class WebSocketManager {
   private manualReconnect = false;
   private readonly RECONNECT_DELAY = 2000;
   private readonly REFRESH_RETRY_DELAY = 3000;
+  private readonly CLOSE_TIMEOUT = 1500;
 
   setTokenGetter(getter: () => string | null) {
     this.tokenGetter = getter;
@@ -152,6 +153,16 @@ class WebSocketManager {
     this.connections.delete(channel);
   }
 
+  private waitForClose(ws: WebSocket) {
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(() => resolve(), this.CLOSE_TIMEOUT);
+      ws.addEventListener("close", () => {
+        clearTimeout(timer);
+        resolve();
+      }, { once: true });
+    });
+  }
+
   async connectAll(channels: WSChannel[] = ALL_CHANNELS, options?: { strict?: boolean }) {
     const results = await Promise.allSettled(
       channels.map((channel) => this.connect(channel))
@@ -167,11 +178,20 @@ class WebSocketManager {
     return results;
   }
 
-  async reconnectAll(channels: WSChannel[] = ALL_CHANNELS, options?: { strict?: boolean; manual?: boolean }) {
+  async reconnectAll(channels: WSChannel[] = ALL_CHANNELS, options?: { strict?: boolean; manual?: boolean, keepListeners?: boolean }) {
     const isManual = options?.manual ?? false;
     if (isManual) this.manualReconnect = true;
     try {
-      this.disconnectAll({ keepListeners: true });
+      const sockets = Array.from(this.connections.entries());
+      sockets.forEach(([channel, ws]) => {
+        this.shouldReconnect.set(channel, false);
+        ws.close();
+      });
+      await Promise.all(sockets.map(([, ws]) => this.waitForClose(ws)));
+      this.connections.clear();
+      if (!options?.keepListeners) {
+        this.listeners.clear();
+      }
       await this.connectAll(channels, options);
     } finally {
       if (isManual) this.manualReconnect = false;
