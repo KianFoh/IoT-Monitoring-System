@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { wsManager, type WSEvent } from "../../../services/ws";
 import { dashboardApi } from "../api/dashboardApi";
-import { useAuth } from "../../auth/context/AuthContext";
 import type { DashboardStats } from "@/types/dashboard";
 import type { DashboardOverviewDevice } from "@/types/dashboard";
 
@@ -17,13 +16,11 @@ const DEFAULT_STATS: DashboardStats = {
 
 export const useDashboardOverview = () => {
   const devices_limit = 6;
-  const { isLoggedIn, isAuthChecked } = useAuth();
   const queryClient = useQueryClient();
 
   const { data, isPending, error } = useQuery({
+    refetchOnMount: true,
     queryKey: ["dashboard", "overview"],
-    enabled: isAuthChecked && isLoggedIn,
-    staleTime: 30_000,
     queryFn: async () => {
       const [{ customers, devices: devicesCount, users, mqttUsers }, devicesData] = await Promise.all([
         dashboardApi.getCounts(),
@@ -43,8 +40,6 @@ export const useDashboardOverview = () => {
   });
 
   useEffect(() => {
-    if (!isAuthChecked || !isLoggedIn) return;
-
     const unsubscribers: Array<() => void> = [];
 
     unsubscribers.push(
@@ -123,7 +118,7 @@ export const useDashboardOverview = () => {
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, [isAuthChecked, isLoggedIn, queryClient]);
+  }, [queryClient]);
 
   return {
     stats: data?.stats ?? DEFAULT_STATS,

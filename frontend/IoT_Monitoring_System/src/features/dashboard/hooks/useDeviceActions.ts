@@ -85,6 +85,7 @@ export function useDeviceActions() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => devicesApi.remove(id),
     onSuccess: () => {
+      invalidateData();
       closeDeleteModal();
     },
     onError: (err: any) => {

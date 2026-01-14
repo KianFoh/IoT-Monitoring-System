@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const shouldReconnect = options?.reconnectWs ?? true;
       try {
         if (shouldReconnect) {
-          await wsManager.reconnectAll(undefined, { manual: true });
+          await wsManager.reconnectAll(undefined, { manual: true, keepListeners: true });
         } else {
           await wsManager.connectAll();
         }

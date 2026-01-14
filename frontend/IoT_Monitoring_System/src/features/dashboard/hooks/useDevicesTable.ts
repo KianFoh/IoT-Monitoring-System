@@ -17,6 +17,7 @@ export function useDevicesTable(initialPageSize = 5) {
 
   const { data, isPending, error } = useQuery<DeviceListResponse, Error>({
     queryKey: ["devices", "list", { page: currentPage, pageSize, query: queryValue }],
+    refetchOnMount: true,
     queryFn: async () => {
       return devicesApi.list({
         page: currentPage,
@@ -24,8 +25,6 @@ export function useDevicesTable(initialPageSize = 5) {
         search: queryValue,
       });
     },
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
     placeholderData: (prev) =>
       prev ?? { items: [], total: 0, page: currentPage, page_size: pageSize },
   });
