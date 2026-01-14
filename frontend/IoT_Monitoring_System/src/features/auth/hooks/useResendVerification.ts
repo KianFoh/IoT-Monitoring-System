@@ -1,25 +1,29 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { authApi } from "@/features/auth/api/authApi";
 
 export function useResendVerification() {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    setError("");
-    setSuccess("");
-    try {
-      const response = await authApi.resendVerificationEmail(email);
+  const resendMutation = useMutation({
+    mutationFn: (payload: { email: string }) => authApi.resendVerificationEmail(payload.email),
+    onSuccess: (response) => {
       setSuccess(response.message || "Verification email has been sent");
-    } catch (err) {
+      setError("");
+    },
+    onError: (err: any) => {
+      setSuccess("");
       setError(err instanceof Error ? err.message : "Failed to send verification email.");
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const handleSubmit = async () => {
+    setSuccess("");
+    setError("");
+    await resendMutation.mutateAsync({ email });
   };
 
-  return { email, setEmail, loading, error, success, handleSubmit };
+  return { email, setEmail, loading: resendMutation.isPending, error, success, handleSubmit };
 }

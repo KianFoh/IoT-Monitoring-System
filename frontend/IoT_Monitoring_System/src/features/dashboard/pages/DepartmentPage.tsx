@@ -1,4 +1,3 @@
-import styles from "../styles/dashboard.module.css";
 
 export function DepartmentPage() {
   return (

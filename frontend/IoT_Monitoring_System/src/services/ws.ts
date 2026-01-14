@@ -18,6 +18,9 @@ class WebSocketManager {
   private connections = new Map<WSChannel, WebSocket>();
   private listeners = new Map<WSChannel, Set<Listener>>();
   private shouldReconnect = new Map<WSChannel, boolean>();
+  private hasConnected = new Map<WSChannel, boolean>();
+  private reconnectListeners = new Set<() => void>();
+  private reconnectNotifyScheduled = false;
   private refreshPromise: Promise<string | null> | null = null;
   private manualReconnect = false;
   private readonly RECONNECT_DELAY = 2000;
@@ -30,6 +33,20 @@ class WebSocketManager {
 
   setAuthHandlers(handlers: AuthHandlers) {
     this.authHandlers = handlers;
+  }
+
+  onReconnect(listener: () => void) {
+    this.reconnectListeners.add(listener);
+    return () => this.reconnectListeners.delete(listener);
+  }
+
+  private notifyReconnect() {
+    if (this.reconnectNotifyScheduled) return;
+    this.reconnectNotifyScheduled = true;
+    setTimeout(() => {
+      this.reconnectNotifyScheduled = false;
+      this.reconnectListeners.forEach((fn) => fn());
+    }, 0);
   }
 
   private wait(ms: number) {
@@ -121,6 +138,11 @@ class WebSocketManager {
 
       ws.onopen = () => {
         console.log(`[WS] Connected: ${channel}`);
+        const seen = this.hasConnected.get(channel) ?? false;
+        this.hasConnected.set(channel, true);
+        if (seen) {
+          this.notifyReconnect();
+        }
         resolve();
       };
       ws.onmessage = (e) => {
@@ -178,10 +200,13 @@ class WebSocketManager {
     return results;
   }
 
-  async reconnectAll(channels: WSChannel[] = ALL_CHANNELS, options?: { strict?: boolean; manual?: boolean, keepListeners?: boolean }) {
+  async reconnectAll(channels: WSChannel[] = ALL_CHANNELS, options?: { strict?: boolean; manual?: boolean; keepListeners?: boolean }) {
     const isManual = options?.manual ?? false;
     if (isManual) this.manualReconnect = true;
     try {
+      if (isManual) {
+        this.hasConnected.clear();
+      }
       const sockets = Array.from(this.connections.entries());
       sockets.forEach(([channel, ws]) => {
         this.shouldReconnect.set(channel, false);
@@ -193,6 +218,9 @@ class WebSocketManager {
         this.listeners.clear();
       }
       await this.connectAll(channels, options);
+      if (isManual) {
+        this.notifyReconnect();
+      }
     } finally {
       if (isManual) this.manualReconnect = false;
     }

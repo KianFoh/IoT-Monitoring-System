@@ -1,25 +1,29 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { authApi } from "@/features/auth/api/authApi";
 
 export function useResetPassword() {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    setError("");
-    setSuccess("");
-    try {
-      const res = await authApi.sendResetPassword(email);
+  const resetMutation = useMutation({
+    mutationFn: (payload: { email: string }) => authApi.sendResetPassword(payload.email),
+    onSuccess: (res) => {
       setSuccess(res.message || "Password reset email has been sent.");
-    } catch (err) {
+      setError("");
+    },
+    onError: (err: any) => {
+      setSuccess("");
       setError(err instanceof Error ? err.message : "Failed to send reset email.");
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const handleSubmit = async () => {
+    setSuccess("");
+    setError("");
+    await resetMutation.mutateAsync({ email });
   };
 
-  return { email, setEmail, loading, error, success, handleSubmit };
+  return { email, setEmail, loading: resetMutation.isPending, error, success, handleSubmit };
 }

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { authApi } from "@/features/auth/api/authApi";
 import { api } from "@/services/api";
 
@@ -7,75 +8,79 @@ export function useResetPasswordConfirm() {
   const [searchParams] = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [tokenValid, setTokenValid] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(true);
 
   const token = searchParams.get("token");
+  const hasToken = Boolean(token);
 
-  // Verify token on mount
   useEffect(() => {
-    if (!token) {
+    if (!hasToken) {
       setError("Invalid or missing token");
-      setIsVerifying(false);
+    }
+  }, [hasToken]);
+
+  const verifyQuery = useQuery({
+    queryKey: ["reset-password", "verify-token", token],
+    enabled: hasToken,
+    retry: false,
+    queryFn: async () => {
+      api.setTokenGetter(() => token);
+      await authApi.verifyResetPasswordToken();
+      return true;
+    },
+  });
+
+  useEffect(() => {
+    if (verifyQuery.error) {
+      const err = verifyQuery.error as any;
+      setError(err instanceof Error ? err.message : "Reset link has expired or is invalid");
+      api.setTokenGetter(() => null);
+    } else if (verifyQuery.isSuccess) {
+      setError("");
+    }
+  }, [verifyQuery.error, verifyQuery.isSuccess]);
+
+  const resetMutation = useMutation({
+    mutationFn: (payload: { password: string }) => authApi.resetPasswordConfirm(payload.password),
+    onSuccess: (res) => {
+      setSuccess(res.message || "Password has been reset successfully. You can now log in.");
+      setError("");
+      api.setTokenGetter(() => null);
+      setPassword("");
+      setConfirmPassword("");
+    },
+    onError: (err: any) => {
+      setSuccess("");
+      setError(err instanceof Error ? err.message : "Failed to reset password");
+    },
+  });
+
+  const handleSubmit = async () => {
+    setSuccess("");
+    setError("");
+
+    if (!hasToken) {
+      setError("Invalid or missing token");
       return;
     }
 
-    const verifyToken = async () => {
-      setIsVerifying(true);
-      api.setTokenGetter(() => token);
-      try {
-        await authApi.verifyResetPasswordToken();
-        setTokenValid(true);
-        setError("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Reset link has expired or is invalid");
-        setTokenValid(false);
-        api.setTokenGetter(() => null);
-      } finally {
-        setIsVerifying(false);
-      }
-    };
-
-    verifyToken();
-  }, [token]);
-
-  const handleSubmit = async () => {
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
     if (!password || !confirmPassword) {
       setError("Both password fields are required");
-      setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
-      setLoading(false);
       return;
     }
 
     if (password.length < 5) {
       setError("Password must be at least 5 characters");
-      setLoading(false);
       return;
     }
 
-    try {
-      const res = await authApi.resetPasswordConfirm(password);
-      setSuccess(res.message || "Password has been reset successfully. You can now log in.");
-      api.setTokenGetter(() => null);
-      setPassword("");
-      setConfirmPassword("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset password");
-    } finally {
-      setLoading(false);
-    }
+    await resetMutation.mutateAsync({ password });
   };
 
   return {
@@ -83,11 +88,11 @@ export function useResetPasswordConfirm() {
     setPassword,
     confirmPassword,
     setConfirmPassword,
-    loading,
+    loading: resetMutation.isPending || verifyQuery.isPending,
     error,
     success,
-    tokenValid,
-    isVerifying,
+    tokenValid: verifyQuery.isSuccess,
+    isVerifying: verifyQuery.isPending,
     handleSubmit,
   };
 }

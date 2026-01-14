@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Device } from "@/types/dashboard";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { DeviceListResponse } from "@/types/dashboard";
 import { devicesApi } from "../api/devicesApi";
 import { wsManager, type WSEvent } from "../../../services/ws";
 
@@ -7,61 +8,37 @@ export function useDevicesTable(initialPageSize = 5) {
   const [queryValue, setQueryValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [refreshIndex, setRefreshIndex] = useState(0);
+  const queryClient = useQueryClient();
 
   const setQuery = (value: string) => {
     setCurrentPage(1);
     setQueryValue(value);
   };
 
-  useEffect(() => {
-    let cancelled = false;
+  const { data, isPending, error } = useQuery<DeviceListResponse, Error>({
+    queryKey: ["devices", "list", { page: currentPage, pageSize, query: queryValue }],
+    queryFn: async () => {
+      return devicesApi.list({
+        page: currentPage,
+        page_size: pageSize,
+        search: queryValue,
+      });
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) =>
+      prev ?? { items: [], total: 0, page: currentPage, page_size: pageSize },
+  });
 
-    const fetchDevices = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await devicesApi.list({
-          page: currentPage,
-          page_size: pageSize,
-          search: queryValue,
-        });
-        if (cancelled) return;
-        setDevices(res.items);
-        setTotal(res.total);
-      } catch (err) {
-        if (cancelled) return;
-        const message = err instanceof Error ? err.message : "Failed to load devices";
-        setError(message);
-        setDevices([]);
-        setTotal(0);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchDevices();
-    return () => {
-      cancelled = true;
-    };
-  }, [queryValue, currentPage, pageSize, refreshIndex]);
-
-  // subscribe to device channel for real-time updates
   useEffect(() => {
     const unsub = wsManager.on("device", (_event: WSEvent<any>) => {
-      // any device event triggers a refresh
-      setRefreshIndex((n) => n + 1);
+      queryClient.invalidateQueries({ queryKey: ["devices", "list"] });
     });
+    return () => unsub();
+  }, [queryClient]);
 
-    return () => {
-      unsub();
-    };
-  }, []);
+  const total = data?.total ?? 0;
+  const devices = data?.items ?? [];
 
   const totalPages = useMemo(() => {
     if (!pageSize) return 1;
@@ -85,7 +62,7 @@ export function useDevicesTable(initialPageSize = 5) {
     devices,
     total,
     totalPages,
-    loading,
-    error,
+    loading: isPending,
+    error: error instanceof Error ? error.message : null,
   } as const;
 }

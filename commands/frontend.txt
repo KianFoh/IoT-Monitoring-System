@@ -4,5 +4,13 @@ npm install
 # Start React Sever (development)
 npm run dev
 
-# Start React Sever (production)
+# Production
+
+# Build version
 npm run build
+
+# Install Serve (run once)
+npm install -g serve 
+
+# Start Server
+npm install --save-dev serve

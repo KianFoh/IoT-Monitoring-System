@@ -1,4 +1,6 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Device } from "@/types/dashboard";
 import { devicesApi } from "../api/devicesApi";
 
@@ -9,7 +11,7 @@ export function useDeviceActions() {
 
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const [addForm, setAddForm] = useState({ name: "", uid: "" });
   const [editForm, setEditForm] = useState({ name: "", department_id: "", is_online: false, is_active: false });
@@ -23,7 +25,6 @@ export function useDeviceActions() {
   const closeAddModal = () => {
     setShowAddModal(false);
     setActionError(null);
-    setActionLoading(false);
   };
 
   const openEditModal = (device: Device) => {
@@ -37,7 +38,6 @@ export function useDeviceActions() {
     setShowEditModal(false);
     setSelectedDevice(null);
     setActionError(null);
-    setActionLoading(false);
   };
 
   const openDeleteModal = (device: Device) => {
@@ -50,10 +50,50 @@ export function useDeviceActions() {
     setShowDeleteModal(false);
     setSelectedDevice(null);
     setActionError(null);
-    setActionLoading(false);
   };
 
-  const handleAddSubmit = async (e?: React.FormEvent) => {
+  const invalidateData = () => {
+    queryClient.invalidateQueries({ queryKey: ["devices"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard", "overview"] });
+  };
+
+  const addMutation = useMutation({
+    mutationFn: ({ name, uid }: { name: string; uid: string }) => devicesApi.create({ name, uid }),
+    onSuccess: () => {
+      invalidateData();
+      closeAddModal();
+    },
+    onError: (err: any) => {
+      const message = err instanceof Error ? err.message : "Failed to add device";
+      setActionError(message);
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; department_id?: number | null; is_online: boolean; is_active: boolean } }) =>
+      devicesApi.update(id, payload),
+    onSuccess: () => {
+      invalidateData();
+      closeEditModal();
+    },
+    onError: (err: any) => {
+      const message = err instanceof Error ? err.message : "Failed to update device";
+      setActionError(message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => devicesApi.remove(id),
+    onSuccess: () => {
+      closeDeleteModal();
+    },
+    onError: (err: any) => {
+      const message = err instanceof Error ? err.message : "Failed to delete device";
+      setActionError(message);
+    },
+  });
+
+  const handleAddSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!addForm.name.trim() || !addForm.uid.trim()) {
       setActionError("Name and UID are required.");
@@ -61,17 +101,13 @@ export function useDeviceActions() {
     }
 
     try {
-      setActionLoading(true);
       setActionError(null);
-      await devicesApi.create({ name: addForm.name.trim(), uid: addForm.uid.trim() });
-      closeAddModal();
+      await addMutation.mutateAsync({ name: addForm.name.trim(), uid: addForm.uid.trim() });
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add device";
       setActionError(message);
       return false;
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -88,36 +124,30 @@ export function useDeviceActions() {
     if (editForm.department_id.trim()) payload.department_id = Number(editForm.department_id);
 
     try {
-      setActionLoading(true);
       setActionError(null);
-      await devicesApi.update(selectedDevice.id, payload);
-      closeEditModal();
+      await editMutation.mutateAsync({ id: selectedDevice.id, payload });
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update device";
       setActionError(message);
       return false;
-    } finally {
-      setActionLoading(false);
     }
   };
 
   const handleDelete = async () => {
     if (!selectedDevice) return false;
     try {
-      setActionLoading(true);
       setActionError(null);
-      await devicesApi.remove(selectedDevice.id);
-      closeDeleteModal();
+      await deleteMutation.mutateAsync(selectedDevice.id);
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete device";
       setActionError(message);
       return false;
-    } finally {
-      setActionLoading(false);
     }
   };
+
+  const actionLoading = addMutation.isPending || editMutation.isPending || deleteMutation.isPending;
 
   return {
     showAddModal,
