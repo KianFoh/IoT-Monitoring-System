@@ -10,7 +10,7 @@ class Mqtt_User(Base):
     id = Column(BigInteger, primary_key=True)
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
-    customer_id = Column(BigInteger, ForeignKey("customer.id"), nullable=True)
+    customer_id = Column(BigInteger, ForeignKey("customer.id"), nullable=False)
 
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

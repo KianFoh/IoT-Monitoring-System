@@ -143,11 +143,6 @@ export function DevicesPage() {
           />
           <div className={styles["dashboard-checkbox-row"]}>
             <Switch
-              checked={editForm.is_online}
-              onChange={(v) => setEditForm((prev) => ({ ...prev, is_online: v }))}
-              label="Online"
-            />
-            <Switch
               checked={editForm.is_active}
               onChange={(v) => setEditForm((prev) => ({ ...prev, is_active: v }))}
               label="Active"

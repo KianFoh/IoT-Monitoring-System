@@ -14,7 +14,7 @@ export function useDeviceActions() {
   const queryClient = useQueryClient();
 
   const [addForm, setAddForm] = useState({ name: "", uid: "" });
-  const [editForm, setEditForm] = useState({ name: "", department_id: "", is_online: false, is_active: false });
+  const [editForm, setEditForm] = useState({ name: "", department_id: "", is_active: false });
 
   const openAddModal = () => {
     setAddForm({ name: "", uid: "" });
@@ -29,7 +29,7 @@ export function useDeviceActions() {
 
   const openEditModal = (device: Device) => {
     setSelectedDevice(device);
-    setEditForm({ name: device.name || "", department_id: "", is_online: !!device.is_online, is_active: !!device.is_active });
+    setEditForm({ name: device.name || "", department_id: "", is_active: !!device.is_active });
     setActionError(null);
     setShowEditModal(true);
   };
@@ -70,7 +70,7 @@ export function useDeviceActions() {
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; department_id?: number | null; is_online: boolean; is_active: boolean } }) =>
+    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; department_id?: number | null; is_active: boolean } }) =>
       devicesApi.update(id, payload),
     onSuccess: () => {
       invalidateData();
@@ -116,8 +116,7 @@ export function useDeviceActions() {
     e?.preventDefault();
     if (!selectedDevice) return false;
 
-    const payload: { name?: string; department_id?: number | null; is_online: boolean; is_active: boolean } = {
-      is_online: editForm.is_online,
+    const payload: { name?: string; department_id?: number | null; is_active: boolean } = {
       is_active: editForm.is_active,
     };
 
