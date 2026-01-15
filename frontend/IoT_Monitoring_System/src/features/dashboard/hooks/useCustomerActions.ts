@@ -1,23 +1,23 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Device } from "@/types/device";
-import { devicesApi } from "../api/devicesApi";
+import type { Customer } from "@/types/customer";
+import { customersApi } from "../api/customersApi";
 
-export function useDeviceActions() {
+export function useCustomerActions() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const [addForm, setAddForm] = useState({ name: "", uid: "" });
-  const [editForm, setEditForm] = useState({ name: "", department_id: "", is_active: false });
+  const [addForm, setAddForm] = useState({ name: "", phone_no: "" });
+  const [editForm, setEditForm] = useState({ name: "", phone_no: "", is_active: true });
 
   const openAddModal = () => {
-    setAddForm({ name: "", uid: "" });
+    setAddForm({ name: "", phone_no: "" });
     setActionError(null);
     setShowAddModal(true);
   };
@@ -27,121 +27,123 @@ export function useDeviceActions() {
     setActionError(null);
   };
 
-  const openEditModal = (device: Device) => {
-    setSelectedDevice(device);
-    setEditForm({ name: device.name || "", department_id: "", is_active: !!device.is_active });
+  const openEditModal = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setEditForm({
+      name: customer.name || "",
+      phone_no: customer.phone_no || "",
+      is_active: !!customer.is_active,
+    });
     setActionError(null);
     setShowEditModal(true);
   };
 
   const closeEditModal = () => {
     setShowEditModal(false);
-    setSelectedDevice(null);
+    setSelectedCustomer(null);
     setActionError(null);
   };
 
-  const openDeleteModal = (device: Device) => {
-    setSelectedDevice(device);
+  const openDeleteModal = (customer: Customer) => {
+    setSelectedCustomer(customer);
     setActionError(null);
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
-    setSelectedDevice(null);
+    setSelectedCustomer(null);
     setActionError(null);
   };
 
-  const invalidateData = () => {
-    queryClient.invalidateQueries({ queryKey: ["devices"] });
-    queryClient.invalidateQueries({ queryKey: ["dashboard", "overview"] });
-  };
-
   const addMutation = useMutation({
-    mutationFn: ({ name, uid }: { name: string; uid: string }) => devicesApi.create({ name, uid }),
+    mutationFn: ({ name, phone_no }: { name: string; phone_no?: string | null }) =>
+      customersApi.create({ name, phone_no }),
     onSuccess: () => {
-      invalidateData();
       closeAddModal();
     },
     onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to add device";
+      const message = err instanceof Error ? err.message : "Failed to add customer";
       setActionError(message);
     },
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; department_id?: number | null; is_active: boolean } }) =>
-      devicesApi.update(id, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; phone_no?: string | null; is_active?: boolean } }) =>
+      customersApi.update(id, payload),
     onSuccess: () => {
-      invalidateData();
       closeEditModal();
     },
     onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to update device";
+      const message = err instanceof Error ? err.message : "Failed to update customer";
       setActionError(message);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => devicesApi.remove(id),
+    mutationFn: (id: number) => customersApi.remove(id),
     onSuccess: () => {
-      invalidateData();
       closeDeleteModal();
     },
     onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to delete device";
+      const message = err instanceof Error ? err.message : "Failed to delete customer";
       setActionError(message);
     },
   });
 
   const handleAddSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
-    if (!addForm.name.trim() || !addForm.uid.trim()) {
-      setActionError("Name and UID are required.");
+    if (!addForm.name.trim()) {
+      setActionError("Name is required.");
       return false;
     }
 
+    const phone = addForm.phone_no.trim();
     try {
       setActionError(null);
-      await addMutation.mutateAsync({ name: addForm.name.trim(), uid: addForm.uid.trim() });
+      await addMutation.mutateAsync({
+        name: addForm.name.trim(),
+        phone_no: phone ? phone : null,
+      });
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add device";
+      const message = err instanceof Error ? err.message : "Failed to add customer";
       setActionError(message);
       return false;
     }
   };
 
-  const handleEditSubmit = async (e?: React.FormEvent) => {
+  const handleEditSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
-    if (!selectedDevice) return false;
+    if (!selectedCustomer) return false;
 
-    const payload: { name?: string; department_id?: number | null; is_active: boolean } = {
+    const phone = editForm.phone_no.trim();
+    const payload: { name?: string; phone_no?: string | null; is_active?: boolean } = {
+      phone_no: phone ? phone : null,
       is_active: editForm.is_active,
     };
 
     if (editForm.name.trim()) payload.name = editForm.name.trim();
-    if (editForm.department_id.trim()) payload.department_id = Number(editForm.department_id);
 
     try {
       setActionError(null);
-      await editMutation.mutateAsync({ id: selectedDevice.id, payload });
+      await editMutation.mutateAsync({ id: selectedCustomer.id, payload });
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update device";
+      const message = err instanceof Error ? err.message : "Failed to update customer";
       setActionError(message);
       return false;
     }
   };
 
   const handleDelete = async () => {
-    if (!selectedDevice) return false;
+    if (!selectedCustomer) return false;
     try {
       setActionError(null);
-      await deleteMutation.mutateAsync(selectedDevice.id);
+      await deleteMutation.mutateAsync(selectedCustomer.id);
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete device";
+      const message = err instanceof Error ? err.message : "Failed to delete customer";
       setActionError(message);
       return false;
     }
@@ -153,7 +155,7 @@ export function useDeviceActions() {
     showAddModal,
     showEditModal,
     showDeleteModal,
-    selectedDevice,
+    selectedCustomer,
     actionError,
     actionLoading,
     addForm,

@@ -24,3 +24,9 @@ class CustomerOut(BaseModel):
 
     class Config:
         from_attributes = True
+        
+class CustomerListResponse(BaseModel):
+    items: list[CustomerOut]
+    total: int
+    page: int
+    page_size: int

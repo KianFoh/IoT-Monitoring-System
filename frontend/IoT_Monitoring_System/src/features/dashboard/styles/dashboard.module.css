@@ -133,15 +133,27 @@
 }
 
 .dashboard-status-badge.online {
-  background: var(--statcard-success-100);
-  color: var(--color-success-100);
-  border: 1px solid var(--statcard-success-200);
+  background: var(--statcard-primary-100);
+  color: var(--text-inverse);
+  border: 1px solid var(--statcard-primary-200);
 }
 
 .dashboard-status-badge.offline {
-  background: var(--color-neutral-700);
-  color: var(--color-dark-300);
-  border: 1px solid var(--color-neutral-500);
+  background: var(--statcard-warning-100);
+  color: var(--text-inverse);
+  border: 1px solid var(--statcard-warning-200);
+}
+
+.dashboard-status-badge.active {
+  background: var(--statcard-success-100);
+  color: var(--text-inverse);
+  border: 1px solid var(--statcard-success-200);
+}
+
+.dashboard-status-badge.inactive {
+  background: var(--statcard-error-100);
+  color: var(--text-inverse);
+  border: 1px solid var(--statcard-error-200);
 }
 
 /* Action Buttons (Edit / Delete) */

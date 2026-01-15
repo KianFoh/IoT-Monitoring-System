@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import type { Device, DeviceListResponse } from "@/types/dashboard";
+import type { Device, DeviceListResponse } from "@/types/device";
 
 type ListParams = {
   page?: number;

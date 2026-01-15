@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DeviceListResponse } from "@/types/device";
-import { devicesApi } from "../api/devicesApi";
-import { wsManager, type WSEvent } from "../../../services/ws";
+import type { CustomerListResponse } from "@/types/customer";
+import { customersApi } from "../api/customersApi";
+import { wsManager, type WSEvent } from "@/services/ws";
 
-export function useDevicesTable(initialPageSize = 5) {
+export function useCustomersTable(initialPageSize = 5) {
   const [queryValue, setQueryValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -15,29 +15,28 @@ export function useDevicesTable(initialPageSize = 5) {
     setQueryValue(value);
   };
 
-  const { data, isPending, error } = useQuery<DeviceListResponse, Error>({
-    queryKey: ["devices", "list", { page: currentPage, pageSize, query: queryValue }],
+  const { data, isPending, error } = useQuery<CustomerListResponse, Error>({
+    queryKey: ["customers", "list", { page: currentPage, pageSize, query: queryValue }],
     refetchOnMount: true,
-    queryFn: async () => {
-      return devicesApi.list({
+    queryFn: async () =>
+      customersApi.list({
         page: currentPage,
         page_size: pageSize,
         search: queryValue,
-      });
-    },
+      }),
     placeholderData: (prev) =>
       prev ?? { items: [], total: 0, page: currentPage, page_size: pageSize },
   });
 
   useEffect(() => {
-    const unsub = wsManager.on("device", (_event: WSEvent<any>) => {
-      queryClient.invalidateQueries({ queryKey: ["devices", "list"] });
+    const unsub = wsManager.on("customer", (_event: WSEvent<any>) => {
+      queryClient.invalidateQueries({ queryKey: ["customers", "list"] });
     });
     return () => unsub();
   }, [queryClient]);
 
   const total = data?.total ?? 0;
-  const devices = data?.items ?? [];
+  const customers = data?.items ?? [];
 
   const totalPages = useMemo(() => {
     if (!pageSize) return 1;
@@ -58,7 +57,7 @@ export function useDevicesTable(initialPageSize = 5) {
     setCurrentPage,
     pageSize,
     setPageSize,
-    devices,
+    customers,
     total,
     totalPages,
     loading: isPending,

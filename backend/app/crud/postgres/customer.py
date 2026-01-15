@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.models.customer import Customer as CustomerModel
 from app.schemas.customer import CustomerCreate, CustomerUpdate
 
@@ -7,9 +8,25 @@ def get_customer(db: Session, customer_id: int):
     """Get a customer by ID."""
     return db.get(CustomerModel, customer_id)
 
-def get_customers(db: Session, skip: int = 0, limit: int = 100):
-    """Get a list of customers with pagination."""
-    return db.query(CustomerModel).offset(skip).limit(limit).all()
+def get_customers(db: Session, search: str | None = None, page: int = 1, page_size: int = 10):
+    """Get a list of customers with pagination and optional search (name or phone)."""
+    query = db.query(CustomerModel)
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            or_(
+                CustomerModel.name.ilike(like),
+                CustomerModel.phone_no.ilike(like)
+            )
+        )
+    total = query.count()
+    items = (
+        query.order_by(CustomerModel.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return items, total
 
 def search_customers_by_name(db: Session, name: str, limit: int = 10):
     """Simple autocomplete search by name prefix/contains — return only id and name."""

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { Device } from "@/types/dashboard";
+import type { Device } from "@/types/device";
 import { TableActions } from "../components/TableActions";
 import styles from "../styles/dashboard.module.css";
 

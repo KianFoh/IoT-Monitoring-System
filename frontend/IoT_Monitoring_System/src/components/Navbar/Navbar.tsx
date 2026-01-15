@@ -24,11 +24,11 @@ const Navbar = () => {
 
   const navItems: NavItem[] = [
     { to: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
-    { to: "/dashboard/devices", label: "Devices", icon: <FaNetworkWired /> },
     { to: "/dashboard/customers", label: "Customers", icon: <FaUserAlt  /> },
     { to: "/dashboard/departments", label: "Departments", icon: <FaBuilding /> },
-    { to: "/dashboard/users", label: "Users", icon: <FaUsers /> },
     { to: "/dashboard/mqtt-users", label: "MQTT Users", icon: <FaUserCog  /> },
+    { to: "/dashboard/devices", label: "Devices", icon: <FaNetworkWired /> },
+    { to: "/dashboard/users", label: "Users", icon: <FaUsers /> },
     { to: "/dashboard/settings", label: "Settings", icon: <FaCog /> },
   ];
 

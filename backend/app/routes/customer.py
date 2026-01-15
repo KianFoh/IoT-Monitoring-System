@@ -6,7 +6,7 @@ from app.utils.ws_events import broadcast_customer_event
 from app.crud.postgres import customer as customer_crud
 from app.models.user import User as UserModel
 from app.models.enum.user_role import UserRole
-from app.schemas.customer import CustomerCreate, CustomerSearch, CustomerUpdate, CustomerOut
+from app.schemas.customer import CustomerCreate, CustomerSearch, CustomerUpdate, CustomerOut, CustomerListResponse
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -45,18 +45,29 @@ async def create_customer(
 
 
 # ==================== Read (List) ====================
-@router.get("/", response_model=list[CustomerOut])
+@router.get("/", response_model=CustomerListResponse)
 def list_customers(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    search: str | None = Query(None, description="Search by name"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List all customers with pagination."""
     require_role(current_user, [UserRole.superuser])
 
-    customers = customer_crud.get_customers(db, skip=skip, limit=limit)
-    return customers
+    items, total = customer_crud.get_customers(
+        db,
+        search=search.strip() if search else None,
+        page=page,
+        page_size=page_size,
+    )
+    return CustomerListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 # ==================== Search (Autocomplete) ====================
 @router.get("/search", response_model=list[CustomerSearch])
