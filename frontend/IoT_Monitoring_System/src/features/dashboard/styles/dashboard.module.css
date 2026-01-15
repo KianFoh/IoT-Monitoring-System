@@ -206,11 +206,6 @@
 .dashboard-pagination {
   display: flex;
   gap: var(--spacing-sm);
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: var(--spacing-md);
-  padding: 0;
-  user-select: none;
 }
 
 /* Pagination row: page-size on left, pagination on right */
@@ -218,19 +213,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-md);
-}
-
-.dashboard-page-size-left {
-  display: flex;
-  align-items: center;
-}
-
-.dashboard-page-size-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  min-height: 60px;
 }
 
 .dashboard-page-size-label {
@@ -249,12 +232,7 @@
   color: var(--text-inverse);
 }
 
-.dashboard-pagination-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex: 1 1 auto;
-}
+
 
 .dashboard-page-size-select-input:focus {
   border-color: var(--color-primary-500);
@@ -272,7 +250,6 @@
   border: 1px solid var(--color-overlay-white-medium);
   background: transparent;
   color: var(--text-inverse);
-  padding: var(--spacing-xs) var(--spacing-sm); /* use theme spacing */
   border-radius: var(--radius-md);
   min-width: 36px;
   height: 36px;
