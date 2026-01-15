@@ -19,8 +19,15 @@ class DepartmentOut(BaseModel):
     id: int
     name: str
     customer_id: int
+    customer_name: Optional[str] = None
     is_active: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+class DepartmentListResponse(BaseModel):
+    items: list[DepartmentOut]
+    total: int
+    page: int
+    page_size: int

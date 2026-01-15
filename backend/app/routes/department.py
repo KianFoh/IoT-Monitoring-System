@@ -7,7 +7,7 @@ from app.core.security import get_current_user, require_role
 from app.crud.postgres import department as department_crud
 from app.crud.postgres import customer as customer_crud
 from app.models.user import User as UserModel
-from app.schemas.department import DepartmentCreate, DepartmentSearch, DepartmentUpdate, DepartmentOut
+from app.schemas.department import DepartmentCreate, DepartmentSearch, DepartmentUpdate, DepartmentOut, DepartmentListResponse
 from app.models.enum.user_role import UserRole
 from app.utils.ws_events import broadcast_department_event
 
@@ -49,22 +49,37 @@ async def create_department(
         )
     
     db_department = department_crud.create_department(db, department)
-    await broadcast_department_event("add", DepartmentOut.model_validate(db_department, from_attributes=True))
-    return db_department
+    department_out = department_crud.get_department_with_customer(db, db_department.id) or DepartmentOut.model_validate(
+        db_department, from_attributes=True
+    )
+    await broadcast_department_event("add", department_out)
+    return department_out
 
 
 # ==================== Read (List) ====================
-@router.get("/", response_model=List[DepartmentOut])
-def get_departments(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+@router.get("/", response_model=DepartmentListResponse)
+def list_departments(
+    search: str | None = Query(None, description="Search by department or customer name"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all departments with pagination."""
     require_role(current_user, [UserRole.superuser])
 
-    return department_crud.get_departments(db, skip=skip, limit=limit)
+    items, total = department_crud.get_departments(
+        db,
+        search=search.strip() if search else None,
+        page=page,
+        page_size=page_size,
+    )
+    return DepartmentListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 # ==================== Search (Autocomplete) ====================
 @router.get("/search", response_model=List[DepartmentSearch])
@@ -91,7 +106,7 @@ def get_department(
     """Get department by ID."""
     require_role(current_user, [UserRole.superuser])
 
-    department = department_crud.get_department(db, department_id)
+    department = department_crud.get_department_with_customer(db, department_id)
     if not department:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -118,25 +133,25 @@ async def update_department(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Department not found"
         )
-    # Check if new name already exists
-    if department_update.name:
-        unique_department = department_crud.check_department_name_unique(db, existing_department.customer_id, department_update.name, existing_department.id)
+    if department_update.name is not None:
+        unique_department = department_crud.check_department_name_unique(
+            db,
+            existing_department.customer_id,
+            department_update.name,
+            existing_department.id,
+        )
         if not unique_department:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Department with this name already exists for the customer"
             )
-    if department_update.customer_id:
-        customer = customer_crud.get_customer(db, department_update.customer_id)
-        if not customer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Customer not found"
-            )
     
     updated_department = department_crud.update_department(db, department_id, department_update)
-    await broadcast_department_event("update", DepartmentOut.model_validate(updated_department, from_attributes=True))
-    return updated_department
+    department_out = department_crud.get_department_with_customer(db, department_id) or DepartmentOut.model_validate(
+        updated_department, from_attributes=True
+    )
+    await broadcast_department_event("update", department_out)
+    return department_out
 
 
 # ==================== Delete ====================

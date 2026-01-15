@@ -12,3 +12,8 @@ export interface CustomerListResponse {
   page: number;
   page_size: number;
 }
+
+export interface CustomerSearch {
+  id: number;
+  name: string;
+}

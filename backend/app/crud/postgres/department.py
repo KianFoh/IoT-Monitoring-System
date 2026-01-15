@@ -1,7 +1,9 @@
 from typing import Optional
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from app.models.department import Department as DepartmentModel
-from app.schemas.department import DepartmentCreate, DepartmentUpdate
+from app.models.customer import Customer as CustomerModel
+from app.schemas.department import DepartmentCreate, DepartmentUpdate, DepartmentOut
 
 # ==================== Create ====================
 def create_department(db: Session, department: DepartmentCreate):
@@ -25,9 +27,56 @@ def get_department_by_name(db: Session, name: str):
     return db.query(DepartmentModel).filter(DepartmentModel.name == name).first()
 
 
-def get_departments(db: Session, skip: int = 0, limit: int = 10):
-    """Get all departments with pagination"""
-    return db.query(DepartmentModel).offset(skip).limit(limit).all()
+def _base_department_query(db: Session):
+    """Base query joining customers for enrichment."""
+    return (
+        db.query(
+            DepartmentModel,
+            CustomerModel.name.label("customer_name"),
+        )
+        .join(CustomerModel, DepartmentModel.customer_id == CustomerModel.id)
+    )
+
+def _serialize_department_row(row) -> DepartmentOut:
+    department, customer_name = row
+    return DepartmentOut.model_validate(
+        {
+            "id": department.id,
+            "name": department.name,
+            "customer_id": department.customer_id,
+            "customer_name": customer_name,
+            "is_active": department.is_active,
+            "created_at": department.created_at,
+        }
+    )
+
+def get_departments(db: Session, search: Optional[str] = None, page: int = 1, page_size: int = 10):
+    """Get all departments with pagination and optional search."""
+    query = _base_department_query(db)
+    if search:
+        like = f"%{search.lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(DepartmentModel.name).like(like),
+                func.lower(CustomerModel.name).like(like),
+            )
+        )
+    total = query.count()
+    rows = (
+        query.order_by(DepartmentModel.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    items = [_serialize_department_row(row) for row in rows]
+    return items, total
+
+def get_department_with_customer(db: Session, department_id: int):
+    """Get a single department enriched with customer name."""
+    row = _base_department_query(db).filter(DepartmentModel.id == department_id).first()
+    if not row:
+        return None
+    return _serialize_department_row(row)
 
 def search_departments_by_name(db: Session, name: str, limit: int = 10, customer_id: Optional[int] = None):
     """Simple autocomplete search by name, optionally scoped by customer."""
