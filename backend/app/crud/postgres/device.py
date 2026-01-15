@@ -13,7 +13,10 @@ def create_device(db: Session, device: DeviceCreate):
     db_device = DeviceModel(
         uid=device.uid,
         name=device.name,
-        department_id=device.department_id
+        department_id=device.department_id,
+        data_interval=device.data_interval,
+        dashboard_config=getattr(device, "dashboard_config", None),
+        is_active=getattr(device, "is_active", False),
     )
     db.add(db_device)
     db.commit()
@@ -47,11 +50,15 @@ def _base_device_query(db: Session):
 
 def _serialize_device_row(row) -> DeviceOut:
     device, department_name, customer_name = row
+    department_name = department_name or ""
+    customer_name = customer_name or ""
     return DeviceOut.model_validate(
         {
             "id": device.id,
             "uid": device.uid,
             "name": device.name,
+            "data_interval": device.data_interval,
+            "dashboard_config": device.dashboard_config,
             "is_online": device.is_online,
             "is_active": device.is_active,
             "department_name": department_name,
@@ -150,8 +157,8 @@ def get_recent_devices(db: Session, limit: int = 5):
                     "uid": device.uid,
                     "name": device.name,
                     "is_online": device.is_online,
-                    "department_name": department_name,
-                    "customer_name": customer_name,
+                    "department_name": department_name or "",
+                    "customer_name": customer_name or "",
                 }
             )
         )

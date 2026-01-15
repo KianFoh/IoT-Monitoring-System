@@ -6,7 +6,7 @@ from app.utils.ws_events import broadcast_customer_event
 from app.crud.postgres import customer as customer_crud
 from app.models.user import User as UserModel
 from app.models.enum.user_role import UserRole
-from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerOut
+from app.schemas.customer import CustomerCreate, CustomerSearch, CustomerUpdate, CustomerOut
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -57,6 +57,18 @@ def list_customers(
 
     customers = customer_crud.get_customers(db, skip=skip, limit=limit)
     return customers
+
+# ==================== Search (Autocomplete) ====================
+@router.get("/search", response_model=list[CustomerSearch])
+def search_customers(
+    name: str = Query(..., min_length=1, description="Partial customer name"),
+    limit: int = Query(10, ge=1, le=100),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Search customers by name (for autocomplete)."""
+    require_role(current_user, [UserRole.superuser])
+    return customer_crud.search_customers_by_name(db, name, limit=limit)
 
 
 # ==================== Read (Single) ====================

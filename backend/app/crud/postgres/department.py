@@ -29,6 +29,20 @@ def get_departments(db: Session, skip: int = 0, limit: int = 10):
     """Get all departments with pagination"""
     return db.query(DepartmentModel).offset(skip).limit(limit).all()
 
+def search_departments_by_name(db: Session, name: str, limit: int = 10, customer_id: Optional[int] = None):
+    """Simple autocomplete search by name, optionally scoped by customer."""
+    pattern = f"%{name}%"
+    query = db.query(DepartmentModel.id, DepartmentModel.name).filter(DepartmentModel.name.ilike(pattern))
+    if customer_id is not None:
+        query = query.filter(DepartmentModel.customer_id == customer_id)
+    rows = (
+        query
+        .order_by(DepartmentModel.name.asc())
+        .limit(limit)
+        .all()
+    )   
+    return [{"id": r[0], "name": r[1]} for r in rows]
+
 # ==================== Update ====================
 def update_department(db: Session, department_id: int, department_update: DepartmentUpdate):
     """Update department."""

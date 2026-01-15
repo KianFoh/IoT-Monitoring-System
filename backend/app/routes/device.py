@@ -57,13 +57,12 @@ async def create_device(
             detail="Device with this UID already exists"
         )
     
-    if device.department_id:
-        department = department_crud.get_department(db, device.department_id)
-        if not department:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Department not found"
-            )
+    department = department_crud.get_department(db, device.department_id)
+    if not department:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Department not found"
+        )
 
     db_device = device_crud.create_device(db, device)
     device_out = device_crud.get_device_with_relations(db, db_device.id) or DeviceOut.model_validate(

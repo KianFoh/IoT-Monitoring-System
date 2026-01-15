@@ -41,13 +41,12 @@ async def create_mqtt_user(
             status_code=status.HTTP_409_CONFLICT,
             detail="MQTT user with this username already exists"
         )
-    if mqtt_user.customer_id:
-        customer = customer_crud.get_customer(db, mqtt_user.customer_id)
-        if not customer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Customer not found"
-            )
+    customer = customer_crud.get_customer(db, mqtt_user.customer_id)
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer not found"
+        )
         
     db_mqtt_user = mqtt_user_crud.create_mqtt_user(db, mqtt_user)
     await broadcast_mqtt_user_event("add", MqttUserOut.model_validate(db_mqtt_user, from_attributes=True))

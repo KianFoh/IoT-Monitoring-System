@@ -11,6 +11,18 @@ def get_customers(db: Session, skip: int = 0, limit: int = 100):
     """Get a list of customers with pagination."""
     return db.query(CustomerModel).offset(skip).limit(limit).all()
 
+def search_customers_by_name(db: Session, name: str, limit: int = 10):
+    """Simple autocomplete search by name prefix/contains — return only id and name."""
+    pattern = f"%{name}%"
+    rows = (
+        db.query(CustomerModel.id, CustomerModel.name)
+        .filter(CustomerModel.name.ilike(pattern))
+        .order_by(CustomerModel.name.asc())
+        .limit(limit)
+        .all()
+    )
+    return [{"id": r[0], "name": r[1]} for r in rows]
+
 def get_customer_by_name(db: Session, name: str):
     """Get a customer by name."""
     return db.query(CustomerModel).filter(CustomerModel.name == name).first()

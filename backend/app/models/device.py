@@ -8,10 +8,10 @@ class Device(Base):
     __tablename__ = "device"
 
     id = Column(BigInteger, primary_key=True)
-    department_id = Column(BigInteger, ForeignKey("department.id", ondelete="SET NULL"), nullable=False)
-    is_online = Column(Boolean, default=False, nullable=False)
     uid = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
+    department_id = Column(BigInteger, ForeignKey("department.id", ondelete="SET NULL"), nullable=False)
+    is_online = Column(Boolean, default=False, nullable=False)
     machine = Column(String, nullable=True)
     data_interval = Column(Integer, default=60, nullable=False) # in seconds
     dashboard_config = Column(JSON, nullable=True, default=dict) # JSON field for dashboard configuration

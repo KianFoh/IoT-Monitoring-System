@@ -2,26 +2,22 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-
-class MqttUserBase(BaseModel):
-    username: str = Field(..., min_length=5)
-    customer_id: Optional[int] = None
-
-
-class MqttUserCreate(MqttUserBase):
-    password: str = Field(..., min_length=5)
-
+class MqttUserCreate(BaseModel):
+    username: str 
+    password: str
+    customer_id: int
 
 class MqttUserUpdate(BaseModel):
-    username: Optional[str] = Field(None, min_length=5)
-    password: Optional[str] = Field(None, min_length=5)
+    username: Optional[str] = None
+    password: Optional[str] = None
     customer_id: Optional[int] = None
     is_active: Optional[bool] = None
 
-
-class MqttUserOut(MqttUserBase):
+class MqttUserOut(BaseModel):
     id: int
+    username: str
     password: str
+    customer_name: str
     is_active: bool
     created_at: datetime
 

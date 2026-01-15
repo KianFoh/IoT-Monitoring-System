@@ -1,27 +1,34 @@
 from pydantic import BaseModel 
 from datetime import datetime
 from typing import Optional, List
-
-class DeviceBase(BaseModel):
+    
+class DeviceCreate(BaseModel):
     uid: str
     name: str
-    
-class DeviceCreate(DeviceBase):
-    department_id: Optional[int] = None
+    department_id: int
+    data_interval: int
 
 class DeviceUpdate(BaseModel):
     name: Optional[str] = None
     department_id: Optional[int] = None
+    data_interval: Optional[int] = None
+    dashboard_config: Optional[dict] = None
     is_online: Optional[bool] = None
     is_active: Optional[bool] = None
 
-class DeviceOut(DeviceBase):
+
+class DeviceOut(BaseModel):
     id: int
+    uid: str
+    name: str
+    data_interval: int
+    dashboard_config: Optional[dict] = None
+    department_name: str
+    customer_name: str
+    created_at: datetime
     is_online: bool
     is_active: bool
-    department_name: Optional[str] = None
-    customer_name: Optional[str] = None
-    created_at: datetime
+
 
     class Config:
         from_attributes = True
@@ -32,10 +39,12 @@ class DeviceListResponse(BaseModel):
     page: int
     page_size: int
 
-class DeviceRecentOut(DeviceBase):
+class DeviceRecentOut(BaseModel):
     id: int
-    department_name: Optional[str] = None 
-    customer_name: Optional[str] = None
+    uid: str
+    name: str
+    department_name: str
+    customer_name: str
     is_online: bool
 
     class Config:

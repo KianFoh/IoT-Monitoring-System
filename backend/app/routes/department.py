@@ -7,7 +7,7 @@ from app.core.security import get_current_user, require_role
 from app.crud.postgres import department as department_crud
 from app.crud.postgres import customer as customer_crud
 from app.models.user import User as UserModel
-from app.schemas.department import DepartmentCreate, DepartmentUpdate, DepartmentOut
+from app.schemas.department import DepartmentCreate, DepartmentSearch, DepartmentUpdate, DepartmentOut
 from app.models.enum.user_role import UserRole
 from app.utils.ws_events import broadcast_department_event
 
@@ -66,6 +66,20 @@ def get_departments(
 
     return department_crud.get_departments(db, skip=skip, limit=limit)
 
+# ==================== Search (Autocomplete) ====================
+@router.get("/search", response_model=List[DepartmentSearch])
+def search_departments(
+    name: str = Query("", min_length=0, description="Partial department name"),
+    customer_id: int | None = Query(None, description="Filter by customer id"),
+    limit: int = Query(10, ge=1, le=100),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Search departments by name (for autocomplete)."""
+    require_role(current_user, [UserRole.superuser])
+    if not name or not name.strip():
+        return []
+    return department_crud.search_departments_by_name(db, name.strip(), limit=limit, customer_id=customer_id)
 
 # ==================== Read (Single) ====================
 @router.get("/{department_id}", response_model=DepartmentOut)
