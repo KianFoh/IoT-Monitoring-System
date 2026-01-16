@@ -3,26 +3,22 @@ from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
 from app.models.enum.user_role import UserRole
 
-
-class UserBase(BaseModel):
+class UserCreate(BaseModel):
     email: EmailStr
-    department_id: Optional[int] = None
+    department_id: int
     role: UserRole
-    
-class UserCreate(UserBase):
-    role: Optional[UserRole] = None
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
-    password: Optional[str] = Field(None, min_length=5)
+    password: Optional[str] = None
     department_id: Optional[int] = None
     role: Optional[UserRole] = None
     is_verified: Optional[bool] = None
     is_active: bool = None
 
-
-class UserOut(UserBase):
+class UserOut(BaseModel):
     id: int
+    email: EmailStr
     role: UserRole
     is_verified: bool
     is_active: bool
