@@ -5,10 +5,13 @@ import styles from "./Input.module.css";
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   icon?: React.ReactNode | React.ElementType;
+  rightIcon?: React.ReactNode | React.ElementType;
+  onRightIconClick?: () => void;
+  rightIconLabel?: string;
   error?: string;
 }
 
-export const Input = ({ label, icon, error, id, ...props }: InputProps) => {
+export const Input = ({ label, icon, rightIcon, onRightIconClick, rightIconLabel, error, id, ...props }: InputProps) => {
   const renderIcon = () => {
     if (!icon) return null;
     if (React.isValidElement(icon)) return icon;
@@ -17,6 +20,16 @@ export const Input = ({ label, icon, error, id, ...props }: InputProps) => {
       return <IconComp />;
     }
     return icon;
+  };
+
+  const renderRightIcon = () => {
+    if (!rightIcon) return null;
+    if (React.isValidElement(rightIcon)) return rightIcon;
+    if (typeof rightIcon === "function" || typeof rightIcon === "object") {
+      const IconComp = rightIcon as React.ElementType;
+      return <IconComp />;
+    }
+    return rightIcon;
   };
 
   return (
@@ -28,9 +41,24 @@ export const Input = ({ label, icon, error, id, ...props }: InputProps) => {
       )}
       <div className={styles["gen-inputContainer"]}>
         {icon && <span className={styles["gen-inputIconLeft"]}>{renderIcon()}</span>}
+        {rightIcon && (
+          onRightIconClick ? (
+            <button
+              type="button"
+              className={styles["gen-inputIconButton"]}
+              onClick={onRightIconClick}
+              aria-label={rightIconLabel || "Toggle input"}
+              disabled={props.disabled}
+            >
+              <span className={styles["gen-inputIconRight"]}>{renderRightIcon()}</span>
+            </button>
+          ) : (
+            <span className={styles["gen-inputIconRight"]}>{renderRightIcon()}</span>
+          )
+        )}
         <input
           id={id}
-          className={`${styles["gen-inputField"]} ${icon ? styles.withIcon : ""} ${error ? styles.inputError : ""}`}
+          className={`${styles["gen-inputField"]} ${icon ? styles.withIcon : ""} ${rightIcon ? styles.withRightIcon : ""} ${error ? styles.inputError : ""}`}
           {...props}
         />
       </div>

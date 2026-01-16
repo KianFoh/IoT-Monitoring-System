@@ -1,7 +1,9 @@
 from typing import Optional
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from app.models.mqtt_user import Mqtt_User as MqttUserModel
-from app.schemas.mqtt_user import MqttUserCreate, MqttUserUpdate
+from app.models.customer import Customer as CustomerModel
+from app.schemas.mqtt_user import MqttUserCreate, MqttUserUpdate, MqttUserOut
 from app.core.security import encrypt_password
 
 # ==================== Create ====================
@@ -29,9 +31,57 @@ def get_mqtt_user_by_username(db: Session, username: str):
     """Get MQTT user by username"""
     return db.query(MqttUserModel).filter(MqttUserModel.username == username).first()
 
-def get_mqtt_users(db: Session, skip: int = 0, limit: int = 10):
-    """Get all MQTT users with pagination"""
-    return db.query(MqttUserModel).offset(skip).limit(limit).all()
+def _base_mqtt_user_query(db: Session):
+    """Base query joining customers for enrichment."""
+    return (
+        db.query(
+            MqttUserModel,
+            CustomerModel.name.label("customer_name"),
+        )
+        .join(CustomerModel, MqttUserModel.customer_id == CustomerModel.id)
+    )
+
+def serialize_mqtt_user_row(row, password: Optional[str] = None) -> MqttUserOut:
+    mqtt_user, customer_name = row
+    return MqttUserOut.model_validate(
+        {
+            "id": mqtt_user.id,
+            "username": mqtt_user.username,
+            "password": password,
+            "customer_id": mqtt_user.customer_id,
+            "customer_name": customer_name,
+            "is_active": mqtt_user.is_active,
+            "created_at": mqtt_user.created_at,
+        }
+    )
+
+def get_mqtt_users(db: Session, search: Optional[str] = None, page: int = 1, page_size: int = 10):
+    """Get all MQTT users with pagination and optional search."""
+    query = _base_mqtt_user_query(db)
+    if search:
+        like = f"%{search.lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(MqttUserModel.username).like(like),
+                func.lower(CustomerModel.name).like(like),
+            )
+        )
+    total = query.count()
+    rows = (
+        query.order_by(MqttUserModel.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    items = [serialize_mqtt_user_row(row) for row in rows]
+    return items, total
+
+def get_mqtt_user_with_customer(db: Session, mqtt_user_id: int):
+    """Get a single MQTT user enriched with customer name."""
+    row = _base_mqtt_user_query(db).filter(MqttUserModel.id == mqtt_user_id).first()
+    if not row:
+        return None
+    return row
 
 # ==================== Update ====================
 def update_mqtt_user(db: Session, db_mqtt_user: MqttUserModel, mqtt_user_update: MqttUserUpdate):

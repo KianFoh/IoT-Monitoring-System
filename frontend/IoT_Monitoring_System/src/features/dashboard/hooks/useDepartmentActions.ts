@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import type { Department } from "@/types/department";
 import { departmentsApi } from "../api/departmentsApi";
 
@@ -11,7 +11,6 @@ export function useDepartmentActions() {
 
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const [addForm, setAddForm] = useState({ name: "", customer_name: "", customer_id: null as number | null });
   const [editForm, setEditForm] = useState({ name: "", is_active: true });
@@ -55,15 +54,10 @@ export function useDepartmentActions() {
     setActionError(null);
   };
 
-  const invalidateData = () => {
-    queryClient.invalidateQueries({ queryKey: ["departments"] });
-  };
-
   const addMutation = useMutation({
     mutationFn: ({ name, customer_id }: { name: string; customer_id: number }) =>
       departmentsApi.create({ name, customer_id }),
     onSuccess: () => {
-      invalidateData();
       closeAddModal();
     },
     onError: (err: any) => {
@@ -76,7 +70,6 @@ export function useDepartmentActions() {
     mutationFn: ({ id, payload }: { id: number; payload: { name?: string; is_active?: boolean } }) =>
       departmentsApi.update(id, payload),
     onSuccess: () => {
-      invalidateData();
       closeEditModal();
     },
     onError: (err: any) => {
@@ -88,7 +81,6 @@ export function useDepartmentActions() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => departmentsApi.remove(id),
     onSuccess: () => {
-      invalidateData();
       closeDeleteModal();
     },
     onError: (err: any) => {
@@ -104,7 +96,7 @@ export function useDepartmentActions() {
       return false;
     }
     if (!addForm.customer_id) {
-      setActionError("Customer is required.");
+      setActionError("Invalid customer.");
       return false;
     }
 

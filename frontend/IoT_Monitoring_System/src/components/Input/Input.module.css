@@ -24,6 +24,31 @@
   pointer-events: none;
 }
 
+.gen-inputIconRight {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-lg);
+  
+  pointer-events: none;
+}
+
+.gen-inputIconButton {
+  position: absolute;
+  right: var(--spacing-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.gen-inputIconButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .gen-inputField {
   width: 100%;
   padding: var(--spacing-md);
@@ -39,6 +64,10 @@
 
 .gen-inputField.withIcon {
   padding-left: 44px;
+}
+
+.gen-inputField.withRightIcon {
+  padding-right: 44px;
 }
 
 .gen-inputField:focus {

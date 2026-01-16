@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import type { Customer } from "@/types/customer";
 import { customersApi } from "../api/customersApi";
 
@@ -11,7 +11,6 @@ export function useCustomerActions() {
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const [addForm, setAddForm] = useState({ name: "", phone_no: "" });
   const [editForm, setEditForm] = useState({ name: "", phone_no: "", is_active: true });

@@ -240,12 +240,6 @@ export function DepartmentPage() {
             value={editForm.name}
             onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
           />
-          <Input
-            id="edit-department-customer"
-            label="Customer"
-            value={selectedDepartment?.customer_name || ""}
-            disabled
-          />
           <div className={styles["dashboard-checkbox-row"]}>
             <Switch
               checked={editForm.is_active}

@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
-
 from app.core.database import get_db
 from app.core.security import decrypt_password, get_current_user, require_role
 from app.crud.postgres import mqtt_user as mqtt_user_crud
 from app.crud.postgres import customer as customer_crud
 from app.models.user import User as UserModel
-from app.schemas.mqtt_user import MqttUserCreate, MqttUserUpdate, MqttUserOut
+from app.schemas.mqtt_user import MqttUserCreate, MqttUserUpdate, MqttUserOut, MqttUserListResponse
 from app.models.enum.user_role import UserRole
 from app.utils.ws_events import broadcast_mqtt_user_event
 
@@ -49,22 +47,46 @@ async def create_mqtt_user(
         )
         
     db_mqtt_user = mqtt_user_crud.create_mqtt_user(db, mqtt_user)
-    await broadcast_mqtt_user_event("add", MqttUserOut.model_validate(db_mqtt_user, from_attributes=True))
-    return db_mqtt_user
+    row = mqtt_user_crud.get_mqtt_user_with_customer(db, db_mqtt_user.id)
+    mqtt_user_out = mqtt_user_crud.serialize_mqtt_user_row(row) if row else MqttUserOut.model_validate(
+        {
+            "id": db_mqtt_user.id,
+            "username": db_mqtt_user.username,
+            "password": None,
+            "customer_id": db_mqtt_user.customer_id,
+            "customer_name": None,
+            "is_active": db_mqtt_user.is_active,
+            "created_at": db_mqtt_user.created_at,
+        }
+    )
+    await broadcast_mqtt_user_event("add", mqtt_user_out)
+    return mqtt_user_out
 
 
 # ==================== Read (List) ====================
-@router.get("/", response_model=List[MqttUserOut])
-def get_mqtt_users(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+@router.get("/", response_model=MqttUserListResponse)
+def list_mqtt_users(
+    search: str | None = Query(None, description="Search by username or customer name"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all MQTT users with pagination."""
     require_role(current_user, [UserRole.superuser])
 
-    return mqtt_user_crud.get_mqtt_users(db, skip=skip, limit=limit)
+    items, total = mqtt_user_crud.get_mqtt_users(
+        db,
+        search=search.strip() if search else None,
+        page=page,
+        page_size=page_size,
+    )
+    return MqttUserListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 # ==================== Read (Single) ====================
@@ -77,21 +99,22 @@ def get_mqtt_user(
     """Get MQTT user by ID."""
     require_role(current_user, [UserRole.superuser])
 
-    mqtt_user = mqtt_user_crud.get_mqtt_user(db, mqtt_user_id)
-    if not mqtt_user:
+    row = mqtt_user_crud.get_mqtt_user_with_customer(db, mqtt_user_id)
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="MQTT user not found"
         )
-    mqtt_user = MqttUserOut(
-            id= mqtt_user.id,
-            username= mqtt_user.username,
-            password= decrypt_password(mqtt_user.password),
-            customer_id= mqtt_user.customer_id,
-            is_active= mqtt_user.is_active,
-            created_at= mqtt_user.created_at
-        )
-    return mqtt_user
+    mqtt_user, customer_name = row
+    return MqttUserOut(
+        id=mqtt_user.id,
+        username=mqtt_user.username,
+        password=decrypt_password(mqtt_user.password),
+        customer_id=mqtt_user.customer_id,
+        customer_name=customer_name,
+        is_active=mqtt_user.is_active,
+        created_at=mqtt_user.created_at,
+    )
 
 
 # ==================== Update ====================
@@ -120,17 +143,21 @@ async def update_mqtt_user(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="MQTT user with this name already exists"
             )
-    if mqtt_user_update.customer_id:
-        customer = customer_crud.get_customer(db, mqtt_user_update.customer_id)
-        if not customer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Customer not found"
-            )
-    
     updated_mqtt_user = mqtt_user_crud.update_mqtt_user(db, existing_mqtt_user, mqtt_user_update)
-    await broadcast_mqtt_user_event("update", MqttUserOut.model_validate(updated_mqtt_user, from_attributes=True))
-    return updated_mqtt_user
+    row = mqtt_user_crud.get_mqtt_user_with_customer(db, mqtt_user_id)
+    mqtt_user_out = mqtt_user_crud.serialize_mqtt_user_row(row) if row else MqttUserOut.model_validate(
+        {
+            "id": updated_mqtt_user.id,
+            "username": updated_mqtt_user.username,
+            "password": None,
+            "customer_id": updated_mqtt_user.customer_id,
+            "customer_name": None,
+            "is_active": updated_mqtt_user.is_active,
+            "created_at": updated_mqtt_user.created_at,
+        }
+    )
+    await broadcast_mqtt_user_event("update", mqtt_user_out)
+    return mqtt_user_out
 
 
 # ==================== Delete ====================

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import type { Device } from "@/types/device";
 import { devicesApi } from "../api/devicesApi";
 
@@ -11,7 +11,6 @@ export function useDeviceActions() {
 
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const [addForm, setAddForm] = useState({ name: "", uid: "" });
   const [editForm, setEditForm] = useState({ name: "", department_id: "", is_active: false });
@@ -52,15 +51,9 @@ export function useDeviceActions() {
     setActionError(null);
   };
 
-  const invalidateData = () => {
-    queryClient.invalidateQueries({ queryKey: ["devices"] });
-    queryClient.invalidateQueries({ queryKey: ["dashboard", "overview"] });
-  };
-
   const addMutation = useMutation({
     mutationFn: ({ name, uid }: { name: string; uid: string }) => devicesApi.create({ name, uid }),
     onSuccess: () => {
-      invalidateData();
       closeAddModal();
     },
     onError: (err: any) => {
@@ -73,7 +66,6 @@ export function useDeviceActions() {
     mutationFn: ({ id, payload }: { id: number; payload: { name?: string; department_id?: number | null; is_active: boolean } }) =>
       devicesApi.update(id, payload),
     onSuccess: () => {
-      invalidateData();
       closeEditModal();
     },
     onError: (err: any) => {
@@ -85,7 +77,6 @@ export function useDeviceActions() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => devicesApi.remove(id),
     onSuccess: () => {
-      invalidateData();
       closeDeleteModal();
     },
     onError: (err: any) => {

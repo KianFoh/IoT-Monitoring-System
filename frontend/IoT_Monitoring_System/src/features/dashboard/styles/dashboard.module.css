@@ -165,7 +165,8 @@
 }
 
 .dashboard-btn-edit,
-.dashboard-btn-delete {
+.dashboard-btn-delete,
+.dashboard-btn-view {
   padding: var(--spacing-sm);
   border: none;
   border-radius: var(--radius-sm);
@@ -195,8 +196,18 @@
   background: var(--statcard-error-100);
 }
 
+.dashboard-btn-view {
+  color: var(--color-info-500);
+}
+
+.dashboard-btn-view:hover {
+  color: var(--color-info-600);
+  background: var(--statcard-info-100);
+}
+
 .dashboard-btn-edit svg,
-.dashboard-btn-delete svg {
+.dashboard-btn-delete svg,
+.dashboard-btn-view svg {
   width: 16px;
   height: 16px;
 }
@@ -334,7 +345,8 @@
   }
 
   .dashboard-btn-edit,
-  .dashboard-btn-delete {
+  .dashboard-btn-delete,
+  .dashboard-btn-view {
     padding: 0.4rem;
   }
 }
