@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import type { Department, DepartmentListResponse } from "@/types/department";
+import type { Department, DepartmentListResponse, DepartmentSearch } from "@/types/department";
 
 type ListParams = {
   page?: number;
@@ -19,6 +19,17 @@ export const departmentsApi = {
 
   async create(payload: { name: string; customer_id: number }) {
     return api.post<Department>("/departments/", payload);
+  },
+
+  async search({ name, customer_id, limit = 10 }: { name: string; customer_id?: number | null; limit?: number }) {
+    const trimmed = name.trim();
+    if (!trimmed) return [];
+    const params = new URLSearchParams({
+      name: trimmed,
+      limit: String(limit),
+    });
+    if (customer_id) params.set("customer_id", String(customer_id));
+    return api.get<DepartmentSearch[]>(`/departments/search?${params.toString()}`);
   },
 
   async update(id: number, payload: { name?: string; is_active?: boolean }) {

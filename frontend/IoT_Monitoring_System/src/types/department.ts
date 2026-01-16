@@ -13,3 +13,8 @@ export interface DepartmentListResponse {
   page: number;
   page_size: number;
 }
+
+export interface DepartmentSearch {
+  id: number;
+  name: string;
+}

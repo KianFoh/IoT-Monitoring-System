@@ -8,7 +8,7 @@ from app.core.security import create_one_time_token_by_email, get_current_user, 
 from app.crud.postgres import user as user_crud
 from app.crud.postgres import department as department_crud
 from app.models.user import User as UserModel
-from app.schemas.user import UserCreate, UserUpdate, UserOut
+from app.schemas.user import UserCreate, UserUpdate, UserOut, UserListResponse
 from app.models.enum.user_role import UserRole
 from app.services.send_email import send_verification_email
 from app.utils.ws_events import broadcast_user_event
@@ -52,14 +52,18 @@ async def create_user(
         send_verification_email(db_user.email, token)
     except Exception as e:
         logging.error(f"Failed to send verification email: {e}")
-    await broadcast_user_event("add", UserOut.model_validate(db_user, from_attributes=True))
-    return db_user
+    user_out = user_crud.get_user_with_relations(db, db_user.id) or UserOut.model_validate(
+        db_user, from_attributes=True
+    )
+    await broadcast_user_event("add", UserOut.model_validate(user_out))
+    return user_out
 
 # ==================== Read (List) ====================
-@router.get("/", response_model=list[UserOut])
+@router.get("/", response_model=UserListResponse)
 def list_users(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    search: str | None = Query(None, description="Search by email"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     department_id: Optional[int] = Query(None),
     role: Optional[str] = Query(None),
     current_user: UserModel = Depends(get_current_user),
@@ -68,14 +72,20 @@ def list_users(
     """List all users with optional filters"""
     require_role(current_user, [UserRole.superuser])
     
-    users = user_crud.get_users(
-        db, 
-        skip=skip, 
-        limit=limit, 
+    items, total = user_crud.get_users(
+        db,
+        search=search.strip() if search else None,
+        page=page,
+        page_size=page_size,
         department_id=department_id,
         role=role
     )
-    return users
+    return UserListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size
+    )
 
 # ==================== Read (Single) ====================
 @router.get("/{user_id}", response_model=UserOut)
@@ -88,7 +98,7 @@ def get_user(
     if current_user.id != user_id:
         require_role(current_user, [UserRole.superuser])
     
-    user = user_crud.get_user(db, user_id)
+    user = user_crud.get_user_with_relations(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -144,8 +154,12 @@ async def update_user(
                 send_verification_email(db_user.email, token)
         except Exception as e:
             logging.error(f"Failed to send verification email: {e}")
-    await broadcast_user_event("update", UserOut.model_validate(db_user, from_attributes=True))
-    return db_user
+
+    user_out = user_crud.get_user_with_relations(db, db_user.id) or UserOut.model_validate(
+        db_user, from_attributes=True
+    )
+    await broadcast_user_event("update", UserOut.model_validate(user_out))
+    return user_out
 
 # ==================== Delete ====================
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
