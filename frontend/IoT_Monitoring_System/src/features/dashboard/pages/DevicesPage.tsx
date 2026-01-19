@@ -1,3 +1,5 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "../components/DataTable";
 import Pagination from "../components/Pagination";
 import SearchFilter from "../components/SearchFilter";
@@ -11,6 +13,24 @@ import { useDevicesTable } from "../hooks/useDevicesTable";
 import { useDeviceActions } from "../hooks/useDeviceActions";
 import { useDeviceColumns } from "../hooks/useDeviceColumns";
 import { Switch } from "@/components/Switch/Switch";
+import { customersApi } from "../api/customersApi";
+import { departmentsApi } from "../api/departmentsApi";
+import type { CustomerSearch } from "@/types/customer";
+import type { DepartmentSearch } from "@/types/department";
+
+const findCustomerId = (name: string, options: CustomerSearch[]) => {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return null;
+  const match = options.find((customer) => customer.name.toLowerCase() === normalized);
+  return match ? match.id : null;
+};
+
+const findDepartmentId = (name: string, options: DepartmentSearch[]) => {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return null;
+  const match = options.find((department) => department.name.toLowerCase() === normalized);
+  return match ? match.id : null;
+};
 
 export function DevicesPage() {
   const {
@@ -48,9 +68,193 @@ export function DevicesPage() {
     handleDelete,
   } = useDeviceActions();
 
-  
-
   const columns = useDeviceColumns(openEditModal, openDeleteModal);
+
+  const [addStep, setAddStep] = useState<"customer" | "department" | "details">("customer");
+  const [addStepError, setAddStepError] = useState<string | null>(null);
+
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [debouncedCustomerQuery, setDebouncedCustomerQuery] = useState("");
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+
+  const [departmentQuery, setDepartmentQuery] = useState("");
+  const [debouncedDepartmentQuery, setDebouncedDepartmentQuery] = useState("");
+  const [departmentDropdownOpen, setDepartmentDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!showAddModal) {
+      setAddStep("customer");
+      setAddStepError(null);
+      setCustomerQuery("");
+      setDepartmentQuery("");
+      setCustomerDropdownOpen(false);
+      setDepartmentDropdownOpen(false);
+    } else {
+      setAddStep("customer");
+      setAddStepError(null);
+    }
+  }, [showAddModal]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCustomerQuery(customerQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [customerQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedDepartmentQuery(departmentQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [departmentQuery]);
+
+  const { data: customerSuggestions = [], isFetching: isCustomerFetching } = useQuery<CustomerSearch[]>({
+    queryKey: ["customers", "search", debouncedCustomerQuery],
+    queryFn: () => customersApi.search({ name: debouncedCustomerQuery }),
+    enabled: !!debouncedCustomerQuery.trim(),
+    placeholderData: (prev) => prev ?? [],
+  });
+
+  const { data: departmentSuggestions = [], isFetching: isDepartmentFetching } = useQuery<DepartmentSearch[]>({
+    queryKey: ["departments", "search", debouncedDepartmentQuery, addForm.customer_id],
+    queryFn: () =>
+      departmentsApi.search({
+        name: debouncedDepartmentQuery,
+        customer_id: addForm.customer_id ?? undefined,
+      }),
+    enabled: !!debouncedDepartmentQuery.trim() && !!addForm.customer_id,
+    placeholderData: (prev) => prev ?? [],
+  });
+
+  useEffect(() => {
+    const name = addForm.customer_name;
+    const trimmedName = name.trim();
+    const customer_id = findCustomerId(name, customerSuggestions);
+    if (!trimmedName) {
+      setAddForm((prev) => (prev.customer_id === null ? prev : { ...prev, customer_id: null }));
+      return;
+    }
+    if (customer_id === null) return;
+    setAddForm((prev) => (prev.customer_id === customer_id ? prev : { ...prev, customer_id }));
+  }, [addForm.customer_name, customerSuggestions, setAddForm]);
+
+  useEffect(() => {
+    const name = addForm.department_name;
+    const trimmedName = name.trim();
+    const department_id = findDepartmentId(name, departmentSuggestions);
+    if (!trimmedName) {
+      setAddForm((prev) => (prev.department_id === null ? prev : { ...prev, department_id: null }));
+      return;
+    }
+    if (department_id === null) return;
+    setAddForm((prev) => (prev.department_id === department_id ? prev : { ...prev, department_id }));
+  }, [addForm.department_name, departmentSuggestions, setAddForm]);
+
+  const handleCustomerNameChange = (value: string) => {
+    setCustomerQuery(value);
+    setCustomerDropdownOpen(true);
+    setAddStepError(null);
+    const customer_id = findCustomerId(value, customerSuggestions);
+    const resetDepartment = addForm.customer_id !== customer_id;
+    if (resetDepartment) {
+      setDepartmentQuery("");
+      setDepartmentDropdownOpen(false);
+    }
+    setAddForm((prev) => ({
+      ...prev,
+      customer_name: value,
+      customer_id,
+      department_name: resetDepartment ? "" : prev.department_name,
+      department_id: resetDepartment ? null : prev.department_id,
+    }));
+  };
+
+  const handleCustomerFocus = () => {
+    setCustomerQuery(addForm.customer_name);
+    setCustomerDropdownOpen(true);
+  };
+
+  const handleCustomerBlur = () => {
+    setTimeout(() => setCustomerDropdownOpen(false), 120);
+  };
+
+  const handleCustomerPick = (customer: CustomerSearch) => {
+    handleCustomerNameChange(customer.name);
+    setCustomerDropdownOpen(false);
+  };
+
+  const handleDepartmentNameChange = (value: string) => {
+    setDepartmentQuery(value);
+    setDepartmentDropdownOpen(true);
+    setAddStepError(null);
+    const department_id = findDepartmentId(value, departmentSuggestions);
+    setAddForm((prev) => ({ ...prev, department_name: value, department_id }));
+  };
+
+  const handleDepartmentFocus = () => {
+    setDepartmentQuery(addForm.department_name);
+    setDepartmentDropdownOpen(true);
+  };
+
+  const handleDepartmentBlur = () => {
+    setTimeout(() => setDepartmentDropdownOpen(false), 120);
+  };
+
+  const handleDepartmentPick = (department: DepartmentSearch) => {
+    handleDepartmentNameChange(department.name);
+    setDepartmentDropdownOpen(false);
+  };
+
+  const hasCustomerQuery = customerQuery.trim().length > 0;
+  const showCustomerSuggestions = showAddModal && addStep === "customer" && customerDropdownOpen && hasCustomerQuery;
+
+  const hasDepartmentQuery = departmentQuery.trim().length > 0;
+  const showDepartmentSuggestions =
+    showAddModal && addStep === "department" && departmentDropdownOpen && hasDepartmentQuery;
+
+  const handleCustomerNext = () => {
+    if (!addForm.customer_id) {
+      setAddStepError("Invalid customer");
+      return;
+    }
+    setAddStepError(null);
+    setCustomerDropdownOpen(false);
+    setAddStep("department");
+  };
+
+  const handleDepartmentNext = () => {
+    if (!addForm.department_id) {
+      setAddStepError("Invalid department");
+      return;
+    }
+    setAddStepError(null);
+    setDepartmentDropdownOpen(false);
+    setAddStep("details");
+  };
+
+  const handleAddBack = () => {
+    setAddStepError(null);
+    if (addStep === "details") {
+      setAddStep("department");
+    } else if (addStep === "department") {
+      setAddStep("customer");
+    }
+  };
+
+  const handleAddFormSubmit = (e?: FormEvent) => {
+    if (addStep === "customer") {
+      e?.preventDefault();
+      handleCustomerNext();
+      return;
+    }
+    if (addStep === "department") {
+      e?.preventDefault();
+      handleDepartmentNext();
+      return;
+    }
+    handleAddSubmit(e);
+  };
 
   return (
     <div className={styles["devices-container"]}>
@@ -97,30 +301,151 @@ export function DevicesPage() {
 
 
       <Modal isOpen={showAddModal} onClose={closeAddModal} title="Add Device">
-        <form className={styles["dashboard-modal-form"]} onSubmit={handleAddSubmit}>
-          <Input
-            id="add-device-uid"
-            label="Device UID"
-            placeholder="Enter unique device UID"
-            value={addForm.uid}
-            onChange={(e) => setAddForm((prev) => ({ ...prev, uid: e.target.value }))}
-          />
-          <Input
-            id="add-device-name"
-            label="Device Name"
-            placeholder="Enter device name"
-            value={addForm.name}
-            onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
-          />
-          {actionError && <p className={styles["dashboard-modal-error"]}>{actionError}</p>}
-          <div className={styles["dashboard-modal-actions"]}>
-            <Button onClick={closeAddModal} type="button" variant="cancel" disabled={actionLoading}>
-              Cancel
-            </Button>
-              <Button type="submit" isLoading={actionLoading}>
-              Create Device
-            </Button>
-          </div>
+        <form className={styles["dashboard-modal-form"]} onSubmit={handleAddFormSubmit}>
+          {addStep === "customer" ? (
+            <>
+              <div className={styles["dashboard-autocomplete"]}>
+                <Input
+                  id="add-device-customer"
+                  label="Customer"
+                  placeholder="Search customer by name"
+                  value={addForm.customer_name}
+                  onChange={(e) => handleCustomerNameChange(e.target.value)}
+                  autoComplete="off"
+                  onFocus={handleCustomerFocus}
+                  onBlur={handleCustomerBlur}
+                  aria-autocomplete="list"
+                  aria-expanded={showCustomerSuggestions}
+                  aria-controls="add-device-customer-list"
+                />
+                {showCustomerSuggestions && (
+                  <div
+                    id="add-device-customer-list"
+                    className={styles["dashboard-autocomplete-list"]}
+                    role="listbox"
+                  >
+                    {isCustomerFetching ? (
+                      <div className={styles["dashboard-autocomplete-empty"]}>Searching...</div>
+                    ) : customerSuggestions.length === 0 ? (
+                      <div className={styles["dashboard-autocomplete-empty"]}>No matches</div>
+                    ) : (
+                      customerSuggestions.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          className={styles["dashboard-autocomplete-item"]}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleCustomerPick(customer);
+                          }}
+                          role="option"
+                        >
+                          {customer.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              {addStepError && <p className={styles["dashboard-modal-error"]}>{addStepError}</p>}
+              <div className={styles["dashboard-modal-actions"]}>
+                <Button onClick={closeAddModal} type="button" variant="cancel" disabled={actionLoading}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleCustomerNext}>
+                  Next
+                </Button>
+              </div>
+            </>
+          ) : addStep === "department" ? (
+            <>
+              <div className={styles["dashboard-autocomplete"]}>
+                <Input
+                  id="add-device-department"
+                  label="Department"
+                  placeholder="Search department by name"
+                  value={addForm.department_name}
+                  onChange={(e) => handleDepartmentNameChange(e.target.value)}
+                  autoComplete="off"
+                  onFocus={handleDepartmentFocus}
+                  onBlur={handleDepartmentBlur}
+                  aria-autocomplete="list"
+                  aria-expanded={showDepartmentSuggestions}
+                  aria-controls="add-device-department-list"
+                />
+                {showDepartmentSuggestions && (
+                  <div
+                    id="add-device-department-list"
+                    className={styles["dashboard-autocomplete-list"]}
+                    role="listbox"
+                  >
+                    {isDepartmentFetching ? (
+                      <div className={styles["dashboard-autocomplete-empty"]}>Searching...</div>
+                    ) : departmentSuggestions.length === 0 ? (
+                      <div className={styles["dashboard-autocomplete-empty"]}>No matches</div>
+                    ) : (
+                      departmentSuggestions.map((department) => (
+                        <button
+                          key={department.id}
+                          type="button"
+                          className={styles["dashboard-autocomplete-item"]}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleDepartmentPick(department);
+                          }}
+                          role="option"
+                        >
+                          {department.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              {addStepError && <p className={styles["dashboard-modal-error"]}>{addStepError}</p>}
+              <div className={styles["dashboard-modal-actions"]}>
+                <Button type="button" variant="cancel" onClick={handleAddBack} disabled={actionLoading}>
+                  Back
+                </Button>
+                <Button type="button" onClick={handleDepartmentNext}>
+                  Next
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Input
+                id="add-device-uid"
+                label="Device UID"
+                placeholder="Enter unique device UID"
+                value={addForm.uid}
+                onChange={(e) => setAddForm((prev) => ({ ...prev, uid: e.target.value }))}
+              />
+              <Input
+                id="add-device-name"
+                label="Device Name"
+                placeholder="Enter device name"
+                value={addForm.name}
+                onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <Input
+                id="add-device-machine"
+                label="Machine (optional)"
+                placeholder="Enter machine name"
+                value={addForm.machine}
+                onChange={(e) => setAddForm((prev) => ({ ...prev, machine: e.target.value }))}
+              />
+              {actionError && <p className={styles["dashboard-modal-error"]}>{actionError}</p>}
+              <div className={styles["dashboard-modal-actions"]}>
+                <Button type="button" variant="cancel" onClick={handleAddBack} disabled={actionLoading}>
+                  Back
+                </Button>
+                <Button type="submit" isLoading={actionLoading}>
+                  Create Device
+                </Button>
+              </div>
+            </>
+          )}
         </form>
       </Modal>
 
@@ -134,12 +459,11 @@ export function DevicesPage() {
             onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
           />
           <Input
-            id="edit-device-dept"
-            label="Department ID"
-            placeholder="Optional department id"
-            type="number"
-            value={editForm.department_id}
-            onChange={(e) => setEditForm((prev) => ({ ...prev, department_id: e.target.value }))}
+            id="edit-device-machine"
+            label="Machine (optional)"
+            placeholder="Enter machine name"
+            value={editForm.machine}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, machine: e.target.value }))}
           />
           <div className={styles["dashboard-checkbox-row"]}>
             <Switch

@@ -4,6 +4,8 @@ import { useMutation } from "@tanstack/react-query";
 import type { Device } from "@/types/device";
 import { devicesApi } from "../api/devicesApi";
 
+const DEFAULT_DATA_INTERVAL = 60;
+
 export function useDeviceActions() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -12,11 +14,27 @@ export function useDeviceActions() {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const [addForm, setAddForm] = useState({ name: "", uid: "" });
-  const [editForm, setEditForm] = useState({ name: "", department_id: "", is_active: false });
+  const [addForm, setAddForm] = useState({
+    customer_name: "",
+    customer_id: null as number | null,
+    department_name: "",
+    department_id: null as number | null,
+    uid: "",
+    name: "",
+    machine: "",
+  });
+  const [editForm, setEditForm] = useState({ name: "", machine: "", is_active: false });
 
   const openAddModal = () => {
-    setAddForm({ name: "", uid: "" });
+    setAddForm({
+      customer_name: "",
+      customer_id: null,
+      department_name: "",
+      department_id: null,
+      uid: "",
+      name: "",
+      machine: "",
+    });
     setActionError(null);
     setShowAddModal(true);
   };
@@ -28,7 +46,11 @@ export function useDeviceActions() {
 
   const openEditModal = (device: Device) => {
     setSelectedDevice(device);
-    setEditForm({ name: device.name || "", department_id: "", is_active: !!device.is_active });
+    setEditForm({
+      name: device.name || "",
+      machine: device.machine || "",
+      is_active: !!device.is_active,
+    });
     setActionError(null);
     setShowEditModal(true);
   };
@@ -52,7 +74,24 @@ export function useDeviceActions() {
   };
 
   const addMutation = useMutation({
-    mutationFn: ({ name, uid }: { name: string; uid: string }) => devicesApi.create({ name, uid }),
+    mutationFn: ({
+      name,
+      uid,
+      department_id,
+      machine,
+    }: {
+      name: string;
+      uid: string;
+      department_id: number;
+      machine?: string | null;
+    }) =>
+      devicesApi.create({
+        name,
+        uid,
+        department_id,
+        machine,
+        data_interval: DEFAULT_DATA_INTERVAL,
+      }),
     onSuccess: () => {
       closeAddModal();
     },
@@ -63,7 +102,13 @@ export function useDeviceActions() {
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; department_id?: number | null; is_active: boolean } }) =>
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: { name?: string; machine?: string | null; is_active: boolean };
+    }) =>
       devicesApi.update(id, payload),
     onSuccess: () => {
       closeEditModal();
@@ -87,14 +132,32 @@ export function useDeviceActions() {
 
   const handleAddSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
-    if (!addForm.name.trim() || !addForm.uid.trim()) {
-      setActionError("Name and UID are required.");
+    if (!addForm.uid.trim()) {
+      setActionError("UID is required.");
+      return false;
+    }
+    if (!addForm.name.trim()) {
+      setActionError("Name is required.");
+      return false;
+    }
+    if (!addForm.customer_id) {
+      setActionError("Customer is required.");
+      return false;
+    }
+    if (!addForm.department_id) {
+      setActionError("Department is required.");
       return false;
     }
 
     try {
       setActionError(null);
-      await addMutation.mutateAsync({ name: addForm.name.trim(), uid: addForm.uid.trim() });
+      const machine = addForm.machine.trim();
+      await addMutation.mutateAsync({
+        name: addForm.name.trim(),
+        uid: addForm.uid.trim(),
+        department_id: addForm.department_id,
+        machine: machine ? machine : null,
+      });
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add device";
@@ -103,16 +166,16 @@ export function useDeviceActions() {
     }
   };
 
-  const handleEditSubmit = async (e?: React.FormEvent) => {
+  const handleEditSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!selectedDevice) return false;
 
-    const payload: { name?: string; department_id?: number | null; is_active: boolean } = {
+    const payload: { name?: string; machine?: string | null; is_active: boolean } = {
       is_active: editForm.is_active,
     };
 
     if (editForm.name.trim()) payload.name = editForm.name.trim();
-    if (editForm.department_id.trim()) payload.department_id = Number(editForm.department_id);
+    payload.machine = editForm.machine.trim() ? editForm.machine.trim() : null;
 
     try {
       setActionError(null);

@@ -7,6 +7,7 @@ class DeviceCreate(BaseModel):
     name: str
     department_id: int
     data_interval: int
+    machine: Optional[str] = None
 
 class DeviceUpdate(BaseModel):
     name: Optional[str] = None

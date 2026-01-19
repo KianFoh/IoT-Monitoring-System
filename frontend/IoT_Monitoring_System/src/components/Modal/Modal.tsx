@@ -1,4 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
+import { useRef } from "react";
 import styles from "./Modal.module.css";
 
 type ModalProps = PropsWithChildren<{
@@ -9,7 +10,21 @@ type ModalProps = PropsWithChildren<{
 }>;
 
 export function Modal({ isOpen, onClose, title, footer, children }: ModalProps) {
+  const mouseDownOnOverlay = useRef(false);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownOnOverlay.current = e.target === e.currentTarget;
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (mouseDownOnOverlay.current && e.target === e.currentTarget) {
+      onClose();
+    }
+    mouseDownOnOverlay.current = false;
+  };
+
   if (!isOpen) return null;
+  
 
   const handleOverlayClick = () => {
     onClose();
@@ -20,7 +35,7 @@ export function Modal({ isOpen, onClose, title, footer, children }: ModalProps) 
   };
 
   return (
-    <div className={styles["gen-modal-overlay"]} role="dialog" aria-modal="true" onClick={handleOverlayClick}>
+    <div className={styles["gen-modal-overlay"]} role="dialog" aria-modal="true" onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}>
       <div className={styles["gen-modal"]} onClick={stopPropagation}>
         <div className={styles["gen-modal-header"]}>
           {title && <h3 className={styles["gen-modal-title"]}>{title}</h3>}

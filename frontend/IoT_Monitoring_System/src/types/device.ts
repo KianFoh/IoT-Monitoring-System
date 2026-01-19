@@ -2,6 +2,7 @@ export interface Device {
   id: number;
   name: string;
   uid: string;
+  machine?: string | null;
   is_online: boolean;
   department_name?: string | null;
   customer_name?: string | null;

@@ -15,6 +15,7 @@ def create_device(db: Session, device: DeviceCreate):
         name=device.name,
         department_id=device.department_id,
         data_interval=device.data_interval,
+        machine=device.machine,
         dashboard_config=getattr(device, "dashboard_config", None),
         is_active=getattr(device, "is_active", False),
     )

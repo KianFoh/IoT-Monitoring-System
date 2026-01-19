@@ -48,14 +48,6 @@ export function useDeviceColumns(
         ),
       },
       {
-        accessorKey: "created_at",
-        header: "Created At",
-        cell: (info) => {
-          const v = info.getValue<string | null>();
-          return <span>{v ? new Date(v).toLocaleString() : ""}</span>;
-        },
-      },
-      {
         id: "actions",
         header: "Actions",
         meta: { align: "center" },
