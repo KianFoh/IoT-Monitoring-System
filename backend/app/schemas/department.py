@@ -22,6 +22,7 @@ class DepartmentOut(BaseModel):
     customer_name: Optional[str] = None
     is_active: bool
     created_at: datetime
+    is_deletable: bool
 
     class Config:
         from_attributes = True

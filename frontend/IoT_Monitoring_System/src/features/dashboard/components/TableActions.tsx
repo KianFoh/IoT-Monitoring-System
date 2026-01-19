@@ -7,8 +7,10 @@ type TableActionsProps<TData> = {
   onDelete?: (item: TData) => void;
   editTitle?: string;
   deleteTitle?: string;
+  deleteDisabledReason?: string;
   showEdit?: boolean;
   showDelete?: boolean;
+  disableDelete?: boolean;
 };
 
 export function TableActions<TData>({
@@ -17,9 +19,12 @@ export function TableActions<TData>({
   onDelete,
   editTitle = "Edit",
   deleteTitle = "Delete",
+  deleteDisabledReason,
   showEdit = true,
   showDelete = true,
+  disableDelete = false,
 }: TableActionsProps<TData>) {
+  const resolvedDeleteTitle = disableDelete && deleteDisabledReason ? deleteDisabledReason : deleteTitle;
   return (
     <div className={styles["dashboard-action-buttons"]}>
       {showEdit && onEdit && (
@@ -35,7 +40,8 @@ export function TableActions<TData>({
         <button
           className={styles["dashboard-btn-delete"]}
           onClick={() => onDelete(item)}
-          title={deleteTitle}
+          title={resolvedDeleteTitle}
+          disabled={disableDelete}
         >
           <FaTrashAlt />
         </button>

@@ -3,6 +3,8 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from app.models.department import Department as DepartmentModel
 from app.models.customer import Customer as CustomerModel
+from app.models.device import Device as DeviceModel
+from app.models.user import User as UserModel
 from app.schemas.department import DepartmentCreate, DepartmentUpdate, DepartmentOut
 
 # ==================== Create ====================
@@ -29,16 +31,29 @@ def get_department_by_name(db: Session, name: str):
 
 def _base_department_query(db: Session):
     """Base query joining customers for enrichment."""
+    has_devices = (
+        db.query(DeviceModel.id)
+        .filter(DeviceModel.department_id == DepartmentModel.id)
+        .exists()
+    )
+    has_users = (
+        db.query(UserModel.id)
+        .filter(UserModel.department_id == DepartmentModel.id)
+        .exists()
+    )
     return (
         db.query(
             DepartmentModel,
             CustomerModel.name.label("customer_name"),
+            has_devices.label("has_devices"),
+            has_users.label("has_users"),
         )
         .join(CustomerModel, DepartmentModel.customer_id == CustomerModel.id)
     )
 
 def _serialize_department_row(row) -> DepartmentOut:
-    department, customer_name = row
+    department, customer_name, has_devices, has_users = row
+    is_deletable = not (has_devices or has_users)
     return DepartmentOut.model_validate(
         {
             "id": department.id,
@@ -47,6 +62,7 @@ def _serialize_department_row(row) -> DepartmentOut:
             "customer_name": customer_name,
             "is_active": department.is_active,
             "created_at": department.created_at,
+            "is_deletable": is_deletable,
         }
     )
 
@@ -77,6 +93,24 @@ def get_department_with_customer(db: Session, department_id: int):
     if not row:
         return None
     return _serialize_department_row(row)
+
+def department_has_references(db: Session, department_id: int) -> bool:
+    """Return True if the department is referenced by other tables."""
+    has_device = (
+        db.query(DeviceModel.id)
+        .filter(DeviceModel.department_id == department_id)
+        .first()
+        is not None
+    )
+    if has_device:
+        return True
+    has_user = (
+        db.query(UserModel.id)
+        .filter(UserModel.department_id == department_id)
+        .first()
+        is not None
+    )
+    return has_user
 
 def search_departments_by_name(db: Session, name: str, limit: int = 10, customer_id: Optional[int] = None):
     """Simple autocomplete search by name, optionally scoped by customer."""

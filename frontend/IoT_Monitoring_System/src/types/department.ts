@@ -5,6 +5,7 @@ export interface Department {
   customer_name?: string | null;
   is_active: boolean;
   created_at: string;
+  is_deletable: boolean;
 }
 
 export interface DepartmentListResponse {

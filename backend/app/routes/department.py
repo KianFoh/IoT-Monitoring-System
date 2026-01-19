@@ -50,7 +50,15 @@ async def create_department(
     
     db_department = department_crud.create_department(db, department)
     department_out = department_crud.get_department_with_customer(db, db_department.id) or DepartmentOut.model_validate(
-        db_department, from_attributes=True
+        {
+            "id": db_department.id,
+            "name": db_department.name,
+            "customer_id": db_department.customer_id,
+            "customer_name": None,
+            "is_active": db_department.is_active,
+            "created_at": db_department.created_at,
+            "is_deletable": True,
+        }
     )
     await broadcast_department_event("add", department_out)
     return department_out
@@ -148,7 +156,15 @@ async def update_department(
     
     updated_department = department_crud.update_department(db, department_id, department_update)
     department_out = department_crud.get_department_with_customer(db, department_id) or DepartmentOut.model_validate(
-        updated_department, from_attributes=True
+        {
+            "id": updated_department.id,
+            "name": updated_department.name,
+            "customer_id": updated_department.customer_id,
+            "customer_name": None,
+            "is_active": updated_department.is_active,
+            "created_at": updated_department.created_at,
+            "is_deletable": True,
+        }
     )
     await broadcast_department_event("update", department_out)
     return department_out
@@ -170,6 +186,12 @@ async def delete_department(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Department not found"
+        )
+
+    if department_crud.department_has_references(db, department_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Department is referenced by other records",
         )
     
     department_crud.delete_department(db, department_id)

@@ -53,6 +53,8 @@ export function useCustomerColumns(
             item={info.row.original}
             onEdit={onEdit}
             onDelete={onDelete}
+            disableDelete={!info.row.original.is_deletable}
+            deleteDisabledReason="Customer is referenced by other records"
           />
         ),
       },

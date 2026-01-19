@@ -53,6 +53,8 @@ export function useDepartmentColumns(
             item={info.row.original}
             onEdit={onEdit}
             onDelete={onDelete}
+            disableDelete={!info.row.original.is_deletable}
+            deleteDisabledReason="Department is referenced by other records"
           />
         ),
       },

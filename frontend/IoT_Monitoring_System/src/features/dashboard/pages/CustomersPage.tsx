@@ -49,6 +49,7 @@ export function CustomersPage() {
   } = useCustomerActions();
 
   const columns = useCustomerColumns(openEditModal, openDeleteModal);
+  const deleteDisabled = !!selectedCustomer && !selectedCustomer.is_deletable;
 
   return (
     <div className={styles["devices-container"]}>
@@ -159,12 +160,21 @@ export function CustomersPage() {
       <Modal isOpen={showDeleteModal} onClose={closeDeleteModal} title="Delete Customer">
         <div className={styles["dashboard-modal-form"]}>
           <p>Are you sure you want to delete <strong>{selectedCustomer?.name || "this customer"}</strong>? This action cannot be undone.</p>
+          {deleteDisabled && (
+            <p className={styles["dashboard-modal-error"]}>Customer is referenced by other records.</p>
+          )}
           {actionError && <p className={styles["dashboard-modal-error"]}>{actionError}</p>}
           <div className={styles["dashboard-modal-actions"]}>
             <Button onClick={closeDeleteModal} type="button" variant="cancel" disabled={actionLoading}>
               Cancel
             </Button>
-            <Button onClick={handleDelete} type="button" variant="danger" isLoading={actionLoading} disabled={!selectedCustomer}>
+            <Button
+              onClick={handleDelete}
+              type="button"
+              variant="danger"
+              isLoading={actionLoading}
+              disabled={!selectedCustomer || deleteDisabled}
+            >
               Delete
             </Button>
           </div>

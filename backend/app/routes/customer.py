@@ -40,8 +40,18 @@ async def create_customer(
         )
     
     db_customer = customer_crud.create_customer(db, customer)
-    await broadcast_customer_event("add", CustomerOut.model_validate(db_customer, from_attributes=True))
-    return db_customer
+    customer_out = customer_crud.get_customer_with_references(db, db_customer.id) or CustomerOut.model_validate(
+        {
+            "id": db_customer.id,
+            "name": db_customer.name,
+            "phone_no": db_customer.phone_no,
+            "is_active": db_customer.is_active,
+            "created_at": db_customer.created_at,
+            "is_deletable": True,
+        }
+    )
+    await broadcast_customer_event("add", customer_out)
+    return customer_out
 
 
 # ==================== Read (List) ====================
@@ -92,7 +102,7 @@ def get_customer(
     """Get customer by ID."""
     require_role(current_user, [UserRole.superuser])
 
-    customer = customer_crud.get_customer(db, customer_id)
+    customer = customer_crud.get_customer_with_references(db, customer_id)
     if not customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,8 +141,18 @@ async def update_customer(
             )
     
     db_customer = customer_crud.update_customer(db, customer_id, customer_update)
-    await broadcast_customer_event("update", CustomerOut.model_validate(db_customer, from_attributes=True))
-    return db_customer
+    customer_out = customer_crud.get_customer_with_references(db, customer_id) or CustomerOut.model_validate(
+        {
+            "id": db_customer.id,
+            "name": db_customer.name,
+            "phone_no": db_customer.phone_no,
+            "is_active": db_customer.is_active,
+            "created_at": db_customer.created_at,
+            "is_deletable": True,
+        }
+    )
+    await broadcast_customer_event("update", customer_out)
+    return customer_out
 
 
 # ==================== Delete ====================
@@ -145,6 +165,16 @@ async def delete_customer(
     """Delete customer."""
     require_role(current_user, [UserRole.superuser])
     
+    db_customer = customer_crud.get_customer(db, customer_id)
+    if not db_customer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+
+    if customer_crud.customer_has_references(db, customer_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Customer is referenced by other records",
+        )
+
     success = customer_crud.delete_customer(db, customer_id)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")

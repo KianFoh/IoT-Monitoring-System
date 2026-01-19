@@ -137,6 +137,10 @@ export function useCustomerActions() {
 
   const handleDelete = async () => {
     if (!selectedCustomer) return false;
+    if (!selectedCustomer.is_deletable) {
+      setActionError("Customer is referenced by other records.");
+      return false;
+    }
     try {
       setActionError(null);
       await deleteMutation.mutateAsync(selectedCustomer.id);

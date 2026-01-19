@@ -137,6 +137,10 @@ export function useDepartmentActions() {
 
   const handleDelete = async () => {
     if (!selectedDepartment) return false;
+    if (!selectedDepartment.is_deletable) {
+      setActionError("Department is referenced by other records.");
+      return false;
+    }
     try {
       setActionError(null);
       await deleteMutation.mutateAsync(selectedDepartment.id);

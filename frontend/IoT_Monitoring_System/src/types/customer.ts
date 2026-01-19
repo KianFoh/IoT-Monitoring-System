@@ -4,6 +4,7 @@ export interface Customer {
   phone_no: string | null;
   is_active: boolean;
   created_at: string;
+  is_deletable: boolean;
 }
 
 export interface CustomerListResponse {

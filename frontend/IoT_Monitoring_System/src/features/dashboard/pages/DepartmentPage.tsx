@@ -60,6 +60,7 @@ export function DepartmentPage() {
   } = useDepartmentActions();
 
   const columns = useDepartmentColumns(openEditModal, openDeleteModal);
+  const deleteDisabled = !!selectedDepartment && !selectedDepartment.is_deletable;
 
   const [customerQuery, setCustomerQuery] = useState("");
   const [debouncedCustomerQuery, setDebouncedCustomerQuery] = useState("");
@@ -262,12 +263,21 @@ export function DepartmentPage() {
       <Modal isOpen={showDeleteModal} onClose={closeDeleteModal} title="Delete Department">
         <div className={styles["dashboard-modal-form"]}>
           <p>Are you sure you want to delete <strong>{selectedDepartment?.name || "this department"}</strong>? This action cannot be undone.</p>
+          {deleteDisabled && (
+            <p className={styles["dashboard-modal-error"]}>Department is referenced by other records.</p>
+          )}
           {actionError && <p className={styles["dashboard-modal-error"]}>{actionError}</p>}
           <div className={styles["dashboard-modal-actions"]}>
             <Button onClick={closeDeleteModal} type="button" variant="cancel" disabled={actionLoading}>
               Cancel
             </Button>
-            <Button onClick={handleDelete} type="button" variant="danger" isLoading={actionLoading} disabled={!selectedDepartment}>
+            <Button
+              onClick={handleDelete}
+              type="button"
+              variant="danger"
+              isLoading={actionLoading}
+              disabled={!selectedDepartment || deleteDisabled}
+            >
               Delete
             </Button>
           </div>

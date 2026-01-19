@@ -196,6 +196,21 @@
   background: var(--statcard-error-100);
 }
 
+.dashboard-btn-edit:disabled,
+.dashboard-btn-delete:disabled,
+.dashboard-btn-view:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+}
+
+.dashboard-btn-edit:disabled:hover,
+.dashboard-btn-delete:disabled:hover,
+.dashboard-btn-view:disabled:hover {
+  color: inherit;
+  background: transparent;
+}
+
 .dashboard-btn-view {
   color: var(--color-info-500);
 }
