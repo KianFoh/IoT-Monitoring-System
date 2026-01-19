@@ -429,6 +429,14 @@ export function DevicesPage() {
                 onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
               />
               <Input
+                id="add-device-interval"
+                label="Data Interval (Sec)"
+                placeholder="Enter data interval in seconds"
+                type="number"
+                value={addForm.data_interval}
+                onChange={(e) => setAddForm((prev) => ({ ...prev, data_interval: e.target.value }))}
+              />
+              <Input
                 id="add-device-machine"
                 label="Machine (optional)"
                 placeholder="Enter machine name"
@@ -457,6 +465,14 @@ export function DevicesPage() {
             placeholder="Update device name"
             value={editForm.name}
             onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+          />
+          <Input
+            id="edit-device-interval"
+            label="Data Interval (Sec)"
+            placeholder="Enter data interval in seconds"
+            type="number"
+            value={editForm.data_interval}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, data_interval: e.target.value }))}
           />
           <Input
             id="edit-device-machine"

@@ -21,13 +21,20 @@ export const devicesApi = {
     return api.get<DeviceListResponse>(`/devices/?${params.toString()}`);
   },
 
-  async create(payload: { name: string; uid: string; department_id: number; machine?: string | null; data_interval?: number }) {
+  async create(payload: { name: string; uid: string; department_id: number; machine?: string | null; data_interval: number }) {
     return api.post<Device>("/devices/", payload);
   },
 
   async update(
     deviceId: number,
-    payload: Partial<{ name: string; machine: string | null; department_id: number | null; is_online: boolean; is_active: boolean }>
+    payload: Partial<{
+      name: string;
+      machine: string | null;
+      data_interval: number;
+      department_id: number | null;
+      is_online: boolean;
+      is_active: boolean;
+    }>
   ) {
     return api.patch<Device>(`/devices/${deviceId}`, payload);
   },

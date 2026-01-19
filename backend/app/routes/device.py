@@ -85,6 +85,7 @@ async def create_device(
             "uid": device_out.uid,
             "event_type": "add",
             "customer_name": device_out.customer_name,
+            "data_interval": device_out.data_interval,
         },
     )
     return device_out
@@ -162,8 +163,6 @@ async def update_device(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Department not found"
             )
-
-    previous_active = existing_device.is_active
     updated_device = device_crud.update_device(db, existing_device, device_update)
     device_out = device_crud.get_device_with_relations(db, device_id) or DeviceOut.model_validate(
         updated_device, from_attributes=True
@@ -176,7 +175,7 @@ async def update_device(
             "uid": device_out.uid,
             "event_type": "update",
             "customer_name": device_out.customer_name,
-            "active_changed": previous_active != device_out.is_active,
+            "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
         },
     )
@@ -213,6 +212,7 @@ async def delete_device(
             "uid": uid,
             "event_type": "delete",
             "customer_name": customer_name,
+            "data_interval": device_out.data_interval,
         },
     )
 

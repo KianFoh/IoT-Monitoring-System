@@ -22,8 +22,14 @@ export function useDeviceActions() {
     uid: "",
     name: "",
     machine: "",
+    data_interval: String(DEFAULT_DATA_INTERVAL),
   });
-  const [editForm, setEditForm] = useState({ name: "", machine: "", is_active: false });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    machine: "",
+    data_interval: String(DEFAULT_DATA_INTERVAL),
+    is_active: false,
+  });
 
   const openAddModal = () => {
     setAddForm({
@@ -34,6 +40,7 @@ export function useDeviceActions() {
       uid: "",
       name: "",
       machine: "",
+      data_interval: String(DEFAULT_DATA_INTERVAL),
     });
     setActionError(null);
     setShowAddModal(true);
@@ -49,6 +56,7 @@ export function useDeviceActions() {
     setEditForm({
       name: device.name || "",
       machine: device.machine || "",
+      data_interval: String(device.data_interval ?? DEFAULT_DATA_INTERVAL),
       is_active: !!device.is_active,
     });
     setActionError(null);
@@ -79,18 +87,20 @@ export function useDeviceActions() {
       uid,
       department_id,
       machine,
+      data_interval,
     }: {
       name: string;
       uid: string;
       department_id: number;
       machine?: string | null;
+      data_interval: number;
     }) =>
       devicesApi.create({
         name,
         uid,
         department_id,
         machine,
-        data_interval: DEFAULT_DATA_INTERVAL,
+        data_interval,
       }),
     onSuccess: () => {
       closeAddModal();
@@ -107,7 +117,7 @@ export function useDeviceActions() {
       payload,
     }: {
       id: number;
-      payload: { name?: string; machine?: string | null; is_active: boolean };
+      payload: { name?: string; machine?: string | null; data_interval: number; is_active: boolean };
     }) =>
       devicesApi.update(id, payload),
     onSuccess: () => {
@@ -148,6 +158,11 @@ export function useDeviceActions() {
       setActionError("Department is required.");
       return false;
     }
+    const intervalValue = Number(addForm.data_interval);
+    if (!Number.isFinite(intervalValue) || intervalValue <= 0) {
+      setActionError("Data interval must be a positive number.");
+      return false;
+    }
 
     try {
       setActionError(null);
@@ -157,6 +172,7 @@ export function useDeviceActions() {
         uid: addForm.uid.trim(),
         department_id: addForm.department_id,
         machine: machine ? machine : null,
+        data_interval: intervalValue,
       });
       return true;
     } catch (err) {
@@ -170,12 +186,18 @@ export function useDeviceActions() {
     e?.preventDefault();
     if (!selectedDevice) return false;
 
-    const payload: { name?: string; machine?: string | null; is_active: boolean } = {
+    const payload: { name?: string; machine?: string | null; data_interval: number; is_active: boolean } = {
       is_active: editForm.is_active,
     };
 
     if (editForm.name.trim()) payload.name = editForm.name.trim();
     payload.machine = editForm.machine.trim() ? editForm.machine.trim() : null;
+    const intervalValue = Number(editForm.data_interval);
+    if (!Number.isFinite(intervalValue) || intervalValue <= 0) {
+      setActionError("Data interval must be a positive number.");
+      return false;
+    }
+    payload.data_interval = intervalValue;
 
     try {
       setActionError(null);
