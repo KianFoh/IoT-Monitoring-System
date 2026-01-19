@@ -11,7 +11,6 @@ export function useUserActions() {
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const [addForm, setAddForm] = useState({
     customer_name: "",

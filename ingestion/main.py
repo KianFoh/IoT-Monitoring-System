@@ -3,16 +3,19 @@ import sys
 from app.core.config import settings
 from app.core.mongo import test_mongo_connection
 from app.core.mqtt_client import MQTTClient
-from app.handlers.message_handler import MessageHandler
 from app.utils.logger import logger
+from app.services.device_pipeline_manager import DevicePipelineManager
 
 # Global MQTT client
 mqtt_client = None
+pipeline_manager = None
 
 
 def signal_handler(sig, frame):
     """Handle Ctrl+C for graceful shutdown"""
     logger.info("\nShutting down...")
+    if pipeline_manager:
+        pipeline_manager.stop()
     if mqtt_client:
         mqtt_client.stop()
     sys.exit(0)
@@ -20,7 +23,7 @@ def signal_handler(sig, frame):
 
 def main():
     """Main entry point"""
-    global mqtt_client
+    global mqtt_client, pipeline_manager
 
     # 1. Test MongoDB connection
     logger.info("Testing MongoDB connection...")
@@ -30,16 +33,16 @@ def main():
 
     # 2. Show MQTT configuration
     logger.info(f"MQTT Broker: {settings.MQTT_BROKER_HOST}:{settings.MQTT_BROKER_PORT}")
-    logger.info(f"Topic Pattern: {settings.MQTT_TOPIC_PATTERN}")
+    logger.info(f"Topic for raw device data: {settings.MQTT_DEVICE_RAW_DATA_TOPIC}")
+    logger.info(f"Topic for processed device data: {settings.MQTT_DEVICE_PROCESSED_DATA_TOPIC}")
+    logger.info(f"Topic for device events: {settings.MQTT_DEVICE_EVENT_TOPIC}")
+    logger.info(f"Topic for device status: {settings.MQTT_DEVICE_STATUS_TOPIC}")
 
-    # 3. Initialize message handler
-    logger.info("Initializing message handler...")
-    message_handler = MessageHandler()
-
-    # 4. Initialize MQTT client
+    # 3. Initialize MQTT client
     logger.info("Initializing MQTT client...")
     mqtt_client = MQTTClient()
-    mqtt_client.set_message_handler(message_handler.handle_message)
+    pipeline_manager = DevicePipelineManager(mqtt_client)
+    mqtt_client.set_on_connect_handler(pipeline_manager.handle_mqtt_connect)
 
     # 5. Register signal handler (Ctrl+C)
     signal.signal(signal.SIGINT, signal_handler)
@@ -54,6 +57,7 @@ def main():
         logger.info("   Press Ctrl+C to stop")
         logger.info("=" * 60)
         mqtt_client.start_loop()
+        
     else:
         logger.error("Failed to start MQTT client")
         sys.exit(1)

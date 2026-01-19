@@ -1,14 +1,15 @@
+from datetime import timedelta
 from typing import Optional
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, UTC
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from app.models.user import User as UserModel
 from app.core.database import get_db
 from app.core.config import get_settings
 from cryptography.fernet import Fernet
+from app.utils.time import utc_now
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -56,9 +57,9 @@ def create_token(data: dict, expires_delta: timedelta = None) -> str:
     to_encode = data.copy()
     
     if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
+        expire = utc_now() + expires_delta
     else:
-        expire = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = utc_now() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire})
     

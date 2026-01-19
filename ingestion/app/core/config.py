@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     MQTT_PASSWORD: str
     MONGO_AUTH_SOURCE: str = "admin"
     MQTT_KEEPALIVE: int = 60
-    MQTT_TOPIC_PATTERN: str = "#"
+    MQTT_DEVICE_RAW_DATA_TOPIC: str = "{customer_name}/json/send/{device_uid}/"
+    MQTT_DEVICE_PROCESSED_DATA_TOPIC: str = "internal/devices/processed/{customer_name}/{device_uid}/"
+    MQTT_DEVICE_EVENT_TOPIC: str = "internal/devices/events/{customer_name}/{device_uid}/"
+    MQTT_DEVICE_STATUS_TOPIC: str = "internal/devices/status/{customer_name}/{device_uid}/"
 
     # Monitoring / logging
     LOG_LEVEL: str = "INFO"

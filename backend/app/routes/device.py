@@ -13,14 +13,14 @@ from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
-DEVICE_EVENT_TOPIC = "internal/devices/event/"
+DEVICE_EVENT_TOPIC = "internal/devices/events/{customer_name}/{device_uid}/"
 
 
 def _publish_device_event(request: Request, customer_name: str, payload: dict) -> None:
     mqtt_client = getattr(request.app.state, "mqtt_client", None)
     if not mqtt_client:
         return
-    mqtt_client.publish(DEVICE_EVENT_TOPIC, payload)
+    mqtt_client.publish(DEVICE_EVENT_TOPIC.format(customer_name=customer_name, device_uid=payload.get("uid")), payload)
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)

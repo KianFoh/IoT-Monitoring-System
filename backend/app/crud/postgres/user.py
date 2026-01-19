@@ -7,7 +7,7 @@ from app.models.customer import Customer as CustomerModel
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash
 from passlib.context import CryptContext
-from datetime import datetime, UTC
+from app.utils.time import utc_now
 
 # ==================== Password Hashing Context ====================
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -141,7 +141,7 @@ def update_last_login(db: Session, user_id: int):
     """Update user's last login timestamp"""
     db_user = get_user(db, user_id)
     if db_user:
-        db_user.last_login = datetime.now(UTC)
+        db_user.last_login = utc_now()
         db.commit()
         db.refresh(db_user)
     return db_user
