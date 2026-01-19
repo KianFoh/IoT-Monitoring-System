@@ -57,6 +57,7 @@ def _serialize_device_row(row) -> DeviceOut:
             "id": device.id,
             "uid": device.uid,
             "name": device.name,
+            "machine": device.machine,
             "data_interval": device.data_interval,
             "dashboard_config": device.dashboard_config,
             "is_online": device.is_online,

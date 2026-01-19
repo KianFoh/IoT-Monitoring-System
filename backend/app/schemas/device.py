@@ -10,6 +10,7 @@ class DeviceCreate(BaseModel):
 
 class DeviceUpdate(BaseModel):
     name: Optional[str] = None
+    machine: Optional[str] = None
     department_id: Optional[int] = None
     data_interval: Optional[int] = None
     dashboard_config: Optional[dict] = None
@@ -21,6 +22,7 @@ class DeviceOut(BaseModel):
     id: int
     uid: str
     name: str
+    machine: Optional[str] = None
     data_interval: int
     dashboard_config: Optional[dict] = None
     department_name: str
