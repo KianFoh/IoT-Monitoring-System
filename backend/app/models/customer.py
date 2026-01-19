@@ -14,5 +14,5 @@ class Customer(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    departments = relationship("Department", back_populates="customer", cascade="all, delete-orphan")
+    departments = relationship("Department", back_populates="customer")
     mqtt_user = relationship("Mqtt_User", back_populates="customer", uselist=False)

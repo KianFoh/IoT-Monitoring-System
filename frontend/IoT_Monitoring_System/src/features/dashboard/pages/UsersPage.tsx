@@ -5,6 +5,7 @@ import { DataTable } from "../components/DataTable";
 import Pagination from "../components/Pagination";
 import SearchFilter from "../components/SearchFilter";
 import PageSizeSelect from "../components/PageSizeSelect";
+import DropdownSelect from "../components/DropdownSelect";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { Modal } from "@/components/Modal/Modal";
@@ -429,23 +430,13 @@ export function UsersPage() {
                 value={addForm.email}
                 onChange={(e) => setAddForm((prev) => ({ ...prev, email: e.target.value }))}
               />
-              <div className={styles["dashboard-select-group"]}>
-                <label htmlFor="add-user-role" className={styles["dashboard-select-label"]}>
-                  Role
-                </label>
-                <select
-                  id="add-user-role"
-                  className={styles["dashboard-select-input"]}
-                  value={addForm.role}
-                  onChange={(e) => setAddForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}
-                >
-                  {ROLE_OPTIONS.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DropdownSelect
+                id="add-user-role"
+                label="Role"
+                value={addForm.role}
+                options={ROLE_OPTIONS}
+                onChange={(value) => setAddForm((prev) => ({ ...prev, role: value }))}
+              />
               {actionError && <p className={styles["dashboard-modal-error"]}>{actionError}</p>}
               <div className={styles["dashboard-modal-actions"]}>
                 <Button type="button" variant="cancel" onClick={handleAddBack} disabled={actionLoading}>
@@ -469,23 +460,13 @@ export function UsersPage() {
             value={editForm.email}
             onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
           />
-          <div className={styles["dashboard-select-group"]}>
-            <label htmlFor="edit-user-role" className={styles["dashboard-select-label"]}>
-              Role
-            </label>
-            <select
-              id="edit-user-role"
-              className={styles["dashboard-select-input"]}
-              value={editForm.role}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}
-            >
-              {ROLE_OPTIONS.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <DropdownSelect
+            id="edit-user-role"
+            label="Role"
+            value={editForm.role}
+            options={ROLE_OPTIONS}
+            onChange={(value) => setEditForm((prev) => ({ ...prev, role: value }))}
+          />
           <div className={styles["dashboard-checkbox-row"]}>
             <Switch
               checked={editForm.is_verified}

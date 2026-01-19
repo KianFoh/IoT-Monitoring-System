@@ -77,15 +77,10 @@ export function useUserActions() {
     setActionError(null);
   };
 
-  const invalidateData = () => {
-    queryClient.invalidateQueries({ queryKey: ["users", "list"] });
-  };
-
   const addMutation = useMutation({
     mutationFn: ({ email, department_id, role }: { email: string; department_id: number; role: UserRole }) =>
       usersApi.create({ email, department_id, role }),
     onSuccess: () => {
-      invalidateData();
       closeAddModal();
     },
     onError: (err: any) => {
@@ -103,7 +98,6 @@ export function useUserActions() {
       payload: { email?: string; role?: UserRole; is_verified?: boolean; is_active?: boolean };
     }) => usersApi.update(id, payload),
     onSuccess: () => {
-      invalidateData();
       closeEditModal();
     },
     onError: (err: any) => {
@@ -115,7 +109,6 @@ export function useUserActions() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => usersApi.remove(id),
     onSuccess: () => {
-      invalidateData();
       closeDeleteModal();
     },
     onError: (err: any) => {
