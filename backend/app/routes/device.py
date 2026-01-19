@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.core.database import get_db
@@ -13,6 +13,14 @@ from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+DEVICE_EVENT_TOPIC = "internal/devices/event/"
+
+
+def _publish_device_event(request: Request, customer_name: str, payload: dict) -> None:
+    mqtt_client = getattr(request.app.state, "mqtt_client", None)
+    if not mqtt_client:
+        return
+    mqtt_client.publish(DEVICE_EVENT_TOPIC, payload)
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)
@@ -43,6 +51,7 @@ def get_recent_devices(
 @router.post("/", response_model=DeviceOut, status_code=status.HTTP_201_CREATED)
 async def create_device(
     device: DeviceCreate,
+    request: Request,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -69,6 +78,15 @@ async def create_device(
         db_device, from_attributes=True
     )
     await broadcast_device_event("add", device_out)
+    _publish_device_event(
+        request,
+        device_out.customer_name,
+        {
+            "uid": device_out.uid,
+            "event_type": "add",
+            "customer_name": device_out.customer_name,
+        },
+    )
     return device_out
 
 
@@ -121,6 +139,7 @@ def get_device(
 async def update_device(
     device_id: int,
     device_update: DeviceUpdate,
+    request: Request,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -144,17 +163,30 @@ async def update_device(
                 detail="Department not found"
             )
 
+    previous_active = existing_device.is_active
     updated_device = device_crud.update_device(db, existing_device, device_update)
     device_out = device_crud.get_device_with_relations(db, device_id) or DeviceOut.model_validate(
         updated_device, from_attributes=True
     )
     await broadcast_device_event("update", device_out)
+    _publish_device_event(
+        request,
+        device_out.customer_name,
+        {
+            "uid": device_out.uid,
+            "event_type": "update",
+            "customer_name": device_out.customer_name,
+            "active_changed": previous_active != device_out.is_active,
+            "is_active": device_out.is_active,
+        },
+    )
     return device_out
 
 # ==================== Delete ====================
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_device(
     device_id: int,
+    request: Request,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -169,8 +201,20 @@ async def delete_device(
             detail="Device not found"
         )
     
+    device_out = device_crud.get_device_with_relations(db, device_id)
     device_crud.delete_device(db, device_id)
     await broadcast_device_event("delete", {"id": device_id})
+    customer_name = device_out.customer_name if device_out else ""
+    uid = device_out.uid if device_out else device.uid
+    _publish_device_event(
+        request,
+        customer_name,
+        {
+            "uid": uid,
+            "event_type": "delete",
+            "customer_name": customer_name,
+        },
+    )
 
 # ==================== Fetch Device Data =====================
 @router.get("/data/{device_uid}")

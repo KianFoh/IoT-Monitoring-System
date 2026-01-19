@@ -1,3 +1,4 @@
+import json
 import logging
 
 import paho.mqtt.client as mqtt
@@ -40,6 +41,18 @@ class MQTTClient:
             return True
         except Exception as exc:
             logging.error("Failed to connect to MQTT broker: %s", exc)
+            return False
+
+    def publish(self, topic: str, payload: dict) -> bool:
+        try:
+            payload_json = json.dumps(payload, default=str)
+            result = self.client.publish(topic, payload_json)
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                logging.error("MQTT publish failed with code: %s", result.rc)
+                return False
+            return True
+        except Exception as exc:
+            logging.error("Failed to publish MQTT message: %s", exc)
             return False
 
     def start(self):

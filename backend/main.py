@@ -21,6 +21,7 @@ _mqtt_client: MQTTClient | None = None
 async def lifespan(app: FastAPI):
     global _mqtt_client
     _mqtt_client = MQTTClient()
+    app.state.mqtt_client = _mqtt_client
     if _mqtt_client.connect():
         _mqtt_client.start()
     else:
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
     yield
     if _mqtt_client:
         _mqtt_client.stop()
+    app.state.mqtt_client = None
 
 # Initialize FastAPI app
 app = FastAPI(
