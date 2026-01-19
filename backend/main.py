@@ -1,18 +1,40 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, status, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import get_settings
+from app.core.mqtt_client import MQTTClient
 from app.routes import health, user, auth, customer, department, device, mqtt_user, ws
 
 # Get settings
 settings = get_settings()
 
+# Ensure root logger prints INFO+ messages so MQTT client logs are visible
+logging.basicConfig(level=logging.INFO)
+_mqtt_client: MQTTClient | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _mqtt_client
+    _mqtt_client = MQTTClient()
+    if _mqtt_client.connect():
+        _mqtt_client.start()
+    else:
+        logging.error("MQTT connection failed; backend will continue without broker connection.")
+    yield
+    if _mqtt_client:
+        _mqtt_client.stop()
+
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="1.0.0",
-    debug=settings.DEBUG
+    debug=settings.DEBUG,
+    lifespan=lifespan,
 )
 
 # ==================== Exception Handlers ====================
@@ -43,6 +65,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 
 # Include routers
 app.include_router(auth.router)

@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     MONGO_AUTH_SOURCE: str = Field(default=None)
     DEVICES_DATA_COLLECTION_NAME: str = Field(default="devices_data")
 
+    # ==================== MQTT ====================
+    MQTT_BROKER_HOST: str = Field(default="localhost")
+    MQTT_BROKER_PORT: int = Field(default=1883)
+    MQTT_USERNAME: str = Field(default=None)
+    MQTT_PASSWORD: str = Field(default=None)
+    MQTT_KEEPALIVE: int = Field(default=60)
+
     # ==================== JWT Security ====================
     JWT_SECRET_KEY: str = Field(default="JWT_SECRET_KEY")
     JWT_ALGORITHM: str = "HS256"
