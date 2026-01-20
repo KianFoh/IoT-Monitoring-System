@@ -18,6 +18,10 @@ class Device(Base):
     # Example config:
     '''
     {
+        "data_panel": {
+            "temperature": {"unit": "°C"},
+            "humidity": {"unit": "%"}
+        },
         "fields": {
             "temperature": {
                 "unit": "°C",

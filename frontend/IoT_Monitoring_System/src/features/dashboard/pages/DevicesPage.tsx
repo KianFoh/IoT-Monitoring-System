@@ -273,7 +273,7 @@ export function DevicesPage() {
             <SearchFilter
               value={query}
               onChange={(v) => setQuery(v)}
-              placeholder="Search devices by UID, Name or Customer Name..."
+              placeholder="Search devices by UID, name or customer..."
             />
           </div>
 

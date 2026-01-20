@@ -4,6 +4,7 @@ import logging
 from typing import Optional, Tuple
 
 from app.core.mqtt_client import MQTTClient
+from app.services.device_stream_manager import DeviceStreamManager
 from app.utils.ws_events import broadcast_device_status_event
 
 STATUS_TOPIC_PREFIX = "internal/devices/status"
@@ -33,9 +34,15 @@ def _parse_status_payload(payload: bytes) -> str:
 
 
 class DeviceStatusBridge:
-    def __init__(self, mqtt_client: MQTTClient, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(
+        self,
+        mqtt_client: MQTTClient,
+        loop: asyncio.AbstractEventLoop,
+        stream_manager: DeviceStreamManager | None = None,
+    ) -> None:
         self._mqtt_client = mqtt_client
         self._loop = loop
+        self._stream_manager = stream_manager
 
     def start(self) -> None:
         self._mqtt_client.add_message_handler(self._handle_message)
@@ -43,8 +50,8 @@ class DeviceStatusBridge:
         logging.info("Subscribed to device status topic: %s", STATUS_TOPIC_WILDCARD)
 
     def _handle_message(self, topic: str, payload: bytes) -> None:
-        _, device_uid = _parse_status_topic(topic)
-        if not device_uid:
+        customer_name, device_uid = _parse_status_topic(topic)
+        if not customer_name or not device_uid:
             return
         status = _parse_status_payload(payload)
         message = {
@@ -59,6 +66,14 @@ class DeviceStatusBridge:
             self._loop,
         )
         future.add_done_callback(self._log_broadcast_failure)
+        if self._stream_manager:
+            device_key = f"{customer_name}/{device_uid}"
+            if self._stream_manager.has_connections(device_key):
+                future = asyncio.run_coroutine_threadsafe(
+                    self._stream_manager.broadcast(device_key, message),
+                    self._loop,
+                )
+                future.add_done_callback(self._log_broadcast_failure)
 
     @staticmethod
     def _log_broadcast_failure(future: "asyncio.Future[None]") -> None:
