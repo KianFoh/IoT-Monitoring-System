@@ -40,6 +40,13 @@ async def broadcast_device_event(event_type: str, device: DeviceOut):
     )
 
 
+async def broadcast_device_status_event(event_type: str, payload: dict):
+    await manager.broadcast(
+        "device_status",
+        {"type": event_type, "data": _serialize(payload)},
+    )
+
+
 async def broadcast_mqtt_user_event(event_type: str, mqtt_user: MqttUserOut):
     await manager.broadcast(
         "mqtt_user",

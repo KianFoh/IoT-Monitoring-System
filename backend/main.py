@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -7,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.mqtt_client import MQTTClient
+from app.services.device_status_bridge import DeviceStatusBridge
 from app.routes import health, user, auth, customer, department, device, mqtt_user, ws
 
 # Get settings
@@ -20,9 +22,12 @@ _mqtt_client: MQTTClient | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _mqtt_client
+    loop = asyncio.get_running_loop()
     _mqtt_client = MQTTClient()
     app.state.mqtt_client = _mqtt_client
+    app.state.device_status_bridge = DeviceStatusBridge(_mqtt_client, loop)
     if _mqtt_client.connect():
+        app.state.device_status_bridge.start()
         _mqtt_client.start()
     else:
         logging.error("MQTT connection failed; backend will continue without broker connection.")
@@ -30,6 +35,7 @@ async def lifespan(app: FastAPI):
     if _mqtt_client:
         _mqtt_client.stop()
     app.state.mqtt_client = None
+    app.state.device_status_bridge = None
 
 # Initialize FastAPI app
 app = FastAPI(

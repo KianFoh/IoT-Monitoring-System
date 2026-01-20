@@ -2,7 +2,7 @@ from typing import Dict, Set
 from fastapi import WebSocket
 
 
-ALLOWED_CHANNELS = {"customer", "department", "device", "mqtt_user", "user"}
+ALLOWED_CHANNELS = {"customer", "department", "device", "device_status", "mqtt_user", "user"}
 
 
 class ConnectionManager:

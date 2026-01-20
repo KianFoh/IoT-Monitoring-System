@@ -115,6 +115,27 @@ export const useDashboardOverview = () => {
       })
     );
 
+    unsubscribers.push(
+      wsManager.on("device_status", (event: WSEvent<{ type: string; data: { uid: string; status: string } }>) => {
+        // Expecting payload like: { type: "status", data: { uid: "...", status: "online" } }
+        const evtType = (event as any).type || (event as any).eventType || (event as any).payload?.type;
+        const data = (event as any).data ?? (event as any).payload?.data ?? (event as any).payload ?? (event as any);
+        if (evtType !== "status" || !data) return;
+        const uid = data.uid;
+        const status = typeof data.status === "string" ? data.status.toLowerCase() : null;
+        if (!uid || (status !== "online" && status !== "offline")) return;
+
+        queryClient.setQueryData<{ stats: DashboardStats; devices: Device[] } | undefined>(
+          ["dashboard", "overview"],
+          (current) => {
+            const base = current ?? { stats: DEFAULT_STATS, devices: [] };
+            const devices = base.devices.map((d) => (d.uid === uid ? { ...d, is_online: status === "online" } : d));
+            return { ...base, devices };
+          }
+        );
+      })
+    );
+
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };

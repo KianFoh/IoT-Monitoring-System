@@ -36,6 +36,33 @@ export function useDevicesTable(initialPageSize = 5) {
     return () => unsub();
   }, [queryClient]);
 
+  // Apply device_status updates to cached device lists (update in-place if present)
+  useEffect(() => {
+    const unsub = wsManager.on("device_status", (event: WSEvent<any>) => {
+      const evtType = (event as any).type || (event as any).eventType || (event as any).payload?.type;
+      const data = (event as any).data ?? (event as any).payload?.data ?? (event as any).payload ?? (event as any);
+      if (evtType !== "status" || !data) return;
+      const uid = data.uid;
+      const status = typeof data.status === "string" ? data.status.toLowerCase() : null;
+      if (!uid || (status !== "online" && status !== "offline")) return;
+      const isOnline = status === "online";
+
+      // update all cached "devices","list" queries (different pages / filters)
+      const cached = queryClient.getQueriesData({ queryKey: ["devices", "list"] });
+
+      cached.forEach(([queryKey, _value]) => {
+        queryClient.setQueryData(queryKey, (current: any) => {
+          if (!current || !Array.isArray(current.items)) return current;
+          return {
+            ...current,
+            items: current.items.map((d: any) => (d.uid === uid ? { ...d, is_online: isOnline } : d)),
+          };
+        });
+      });
+    });
+    return () => unsub();
+  }, [queryClient]);
+
   const total = data?.total ?? 0;
   const devices = data?.items ?? [];
 
