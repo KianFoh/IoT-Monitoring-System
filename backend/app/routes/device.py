@@ -86,6 +86,7 @@ async def create_device(
             "event_type": "add",
             "customer_name": device_out.customer_name,
             "data_interval": device_out.data_interval,
+            "is_active": device_out.is_active,
         },
     )
     return device_out
@@ -213,6 +214,7 @@ async def delete_device(
             "event_type": "delete",
             "customer_name": customer_name,
             "data_interval": device_out.data_interval,
+            "is_active": device_out.is_active,
         },
     )
 

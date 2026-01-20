@@ -44,9 +44,15 @@ class DevicePipeline:
         self._start_watchdog()
         return True
 
-    def stop(self):
+    def stop(self, update_status: bool = True):
         self.running = False
         self.mqtt.unsubscribe(self.device_topic)
+        try:
+            self.mqtt.message_callback_remove(self.device_topic)
+        except Exception:
+            pass
+        if update_status:
+            self._set_status("offline", force=True)
 
     def resubscribe(self):
         if not self.running:
@@ -93,20 +99,27 @@ class DevicePipeline:
                     else:
                         new_status = "online"
 
+                if not self.running:
+                    break
                 if new_status != self.status:
-                    self.status = new_status
-                    self.mqtt.publish(
-                        settings.MQTT_DEVICE_STATUS_TOPIC.format(
-                            customer_name=self.device.customer_name,
-                            device_uid=self.device.uid
-                        ),
-                        new_status
-                    )
-                    self._update_device_status(new_status == "online")
+                    self._set_status(new_status)
 
                 time.sleep(1)
 
         Thread(target=loop, daemon=True).start()
+
+    def _set_status(self, new_status: str, force: bool = False):
+        if not force and new_status == self.status:
+            return
+        self.status = new_status
+        self.mqtt.publish(
+            settings.MQTT_DEVICE_STATUS_TOPIC.format(
+                customer_name=self.device.customer_name,
+                device_uid=self.device.uid,
+            ),
+            new_status,
+        )
+        self._update_device_status(new_status == "online")
 
     def _update_device_status(self, is_online: bool):
         session = SessionLocal()

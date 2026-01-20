@@ -1,9 +1,11 @@
+import json
 from typing import Dict, List, Optional
 
 from app.core.postgresql import SessionLocal
 from app.models.customer import Customer
 from app.models.department import Department
 from app.models.device import Device
+from app.core.config import settings
 from app.services.device_pipeline import DeviceInfo, DevicePipeline
 from app.utils.logger import logger
 
@@ -48,6 +50,10 @@ class DevicePipelineManager:
         self._mqtt_client = mqtt_client
         self._repository = repository or DeviceRepository()
         self._pipelines: Dict[str, DevicePipeline] = {}
+        self._event_topic = settings.MQTT_DEVICE_EVENT_TOPIC.format(
+            customer_name="+",
+            device_uid="+",
+        )
 
     def load_existing_devices(self):
         devices = self._repository.fetch_devices()
@@ -78,11 +84,106 @@ class DevicePipelineManager:
             count += 1
         return count
 
+    def stop_pipeline(self, device_uid: str, update_status: bool = True) -> bool:
+        pipeline = self._pipelines.pop(device_uid, None)
+        if not pipeline:
+            return False
+        pipeline.stop(update_status=update_status)
+        return True
+
+    def restart_pipeline(self, device_info: DeviceInfo) -> bool:
+        self.stop_pipeline(device_info.uid)
+        return self.start_pipeline(device_info)
+
+    def _subscribe_event_topic(self):
+        self._mqtt_client.message_callback_add(self._event_topic, self.handle_event_message)
+        self._mqtt_client.subscribe(self._event_topic)
+        logger.info(f"Subscribed to device events: {self._event_topic}")
+
     def handle_mqtt_connect(self, *_args, **_kwargs):
+        self._subscribe_event_topic()
         resubscribed = self.resubscribe_all()
         if resubscribed:
             logger.info(f"Resubscribed {resubscribed} existing pipelines")
         self.load_existing_devices()
+
+    def handle_event_message(self, _client, _userdata, msg):
+        try:
+            data = json.loads(msg.payload.decode("utf-8"))
+        except json.JSONDecodeError:
+            logger.warning("Invalid JSON in device event payload")
+            return
+
+        if not isinstance(data, dict):
+            logger.warning("Device event payload is not a JSON object")
+            return
+
+        event_type = str(data.get("event_type", "")).lower()
+        device_uid = data.get("uid")
+        customer_name = data.get("customer_name")
+        if not event_type or not device_uid or not customer_name:
+            logger.warning("Device event missing required fields")
+            return
+
+        data_interval = data.get("data_interval")
+        if data_interval is not None:
+            try:
+                data_interval = int(data_interval)
+            except (TypeError, ValueError):
+                logger.warning("Invalid data_interval in device event payload")
+                data_interval = None
+        if data_interval is None:
+            existing = self._pipelines.get(device_uid)
+            data_interval = existing.device.data_interval if existing else 60
+
+        is_active = data.get("is_active")
+        if isinstance(is_active, str):
+            is_active = is_active.strip().lower() in {"1", "true", "yes", "y"}
+        elif is_active is None:
+            is_active = False
+
+        device_info = DeviceInfo(
+            uid=device_uid,
+            customer_name=customer_name,
+            data_interval=data_interval,
+            is_active=bool(is_active),
+        )
+
+        if event_type == "add":
+            if device_info.is_active:
+                started = self.start_pipeline(device_info)
+                if started:
+                    logger.info(f"Device event add: started pipeline for {device_uid}")
+                else:
+                    logger.info(f"Device event add: pipeline already running for {device_uid}")
+            else:
+                logger.info(f"Device event add: device inactive; pipeline not started for {device_uid}")
+            return
+
+        if event_type == "update":
+            if device_info.is_active:
+                restarted = self.restart_pipeline(device_info)
+                if restarted:
+                    logger.info(f"Device event update: restarted pipeline for {device_uid}")
+                else:
+                    logger.warning(f"Device event update: failed to restart pipeline for {device_uid}")
+            else:
+                stopped = self.stop_pipeline(device_uid)
+                if stopped:
+                    logger.info(f"Device event update: stopped pipeline for {device_uid}")
+                else:
+                    logger.info(f"Device event update: no pipeline to stop for {device_uid}")
+            return
+
+        if event_type == "delete":
+            destroyed = self.stop_pipeline(device_uid, update_status=False)
+            if destroyed:
+                logger.info(f"Device event delete: destroyed pipeline for {device_uid}")
+            else:
+                logger.info(f"Device event delete: no pipeline to destroy for {device_uid}")
+            return
+
+        logger.warning(f"Unknown device event type: {event_type}")
 
     def stop(self):
         for pipeline in list(self._pipelines.values()):
