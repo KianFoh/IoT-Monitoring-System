@@ -12,6 +12,7 @@ from app.utils.time import utc_now
 class DeviceInfo:
     uid: str
     customer_name: str
+    department_name: str
     data_interval: int
     is_active: bool
 
@@ -26,11 +27,18 @@ class DevicePipeline:
         
     @property
     def device_topic(self):
-        return settings.MQTT_DEVICE_RAW_DATA_TOPIC.format(customer_name=self.device.customer_name, device_uid=self.device.uid)
+        return settings.MQTT_DEVICE_RAW_DATA_TOPIC.format(
+            customer_name=self._normalize_topic_value(self.device.customer_name),
+            device_uid=self.device.uid,
+        )
 
     @property
     def processed_topic(self):
-        return settings.MQTT_DEVICE_PROCESSED_DATA_TOPIC.format(customer_name=self.device.customer_name, device_uid=self.device.uid)
+        return settings.MQTT_DEVICE_PROCESSED_DATA_TOPIC.format(
+            customer_name=self._normalize_topic_value(self.device.customer_name),
+            department_name=self._normalize_topic_value(self.device.department_name),
+            device_uid=self.device.uid,
+        )
     
     def start(self):
         if not self.device.is_active:
@@ -86,7 +94,7 @@ class DevicePipeline:
 
     def _start_watchdog(self):
         from threading import Thread
-        import time
+        import time  
 
         def loop():
             while self.running:
@@ -114,12 +122,17 @@ class DevicePipeline:
         self.status = new_status
         self.mqtt.publish(
             settings.MQTT_DEVICE_STATUS_TOPIC.format(
-                customer_name=self.device.customer_name,
+                customer_name=self._normalize_topic_value(self.device.customer_name),
+                department_name=self._normalize_topic_value(self.device.department_name),
                 device_uid=self.device.uid,
             ),
             new_status,
         )
         self._update_device_status(new_status == "online")
+
+    @staticmethod
+    def _normalize_topic_value(value: str) -> str:
+        return str(value or "").strip().lower()
 
     def _update_device_status(self, is_online: bool):
         session = SessionLocal()

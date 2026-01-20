@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "../components/DataTable";
 import Pagination from "../components/Pagination";
@@ -17,6 +18,7 @@ import { customersApi } from "../api/customersApi";
 import { departmentsApi } from "../api/departmentsApi";
 import type { CustomerSearch } from "@/types/customer";
 import type { DepartmentSearch } from "@/types/department";
+import type { Device } from "@/types/device";
 
 const findCustomerId = (name: string, options: CustomerSearch[]) => {
   const normalized = name.trim().toLowerCase();
@@ -33,6 +35,7 @@ const findDepartmentId = (name: string, options: DepartmentSearch[]) => {
 };
 
 export function DevicesPage() {
+  const navigate = useNavigate();
   const {
     query,
     setQuery,
@@ -68,7 +71,10 @@ export function DevicesPage() {
     handleDelete,
   } = useDeviceActions();
 
-  const columns = useDeviceColumns(openEditModal, openDeleteModal);
+  const handleViewDashboard = (device: Device) => {
+    navigate(`/dashboard/devices/${device.uid}`);
+  };
+  const columns = useDeviceColumns(openEditModal, openDeleteModal, handleViewDashboard);
 
   const [addStep, setAddStep] = useState<"customer" | "department" | "details">("customer");
   const [addStepError, setAddStepError] = useState<string | null>(null);

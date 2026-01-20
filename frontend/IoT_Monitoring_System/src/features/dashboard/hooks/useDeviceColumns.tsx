@@ -6,7 +6,8 @@ import styles from "../styles/dashboard.module.css";
 
 export function useDeviceColumns(
   onEdit: (d: Device) => void,
-  onDelete: (d: Device) => void
+  onDelete: (d: Device) => void,
+  onView?: (d: Device) => void
 ) {
   const columns = useMemo<ColumnDef<Device>[]>(
     () => [
@@ -56,11 +57,12 @@ export function useDeviceColumns(
             item={info.row.original}
             onEdit={onEdit}
             onDelete={onDelete}
+            onView={onView}
           />
         ),
       },
     ],
-    [onEdit, onDelete]
+    [onEdit, onDelete, onView]
   );
 
   return columns;

@@ -13,14 +13,30 @@ from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
-DEVICE_EVENT_TOPIC = "internal/devices/events/{customer_name}/{device_uid}/"
+DEVICE_EVENT_TOPIC = "internal/devices/events/{customer_name}/{department_name}/{device_uid}/"
 
 
-def _publish_device_event(request: Request, customer_name: str, payload: dict) -> None:
+def _normalize_topic_name(value: str) -> str:
+    return (value or "").strip().lower()
+
+
+def _publish_device_event(request: Request, customer_name: str, department_name: str, payload: dict) -> None:
     mqtt_client = getattr(request.app.state, "mqtt_client", None)
     if not mqtt_client:
         return
-    mqtt_client.publish(DEVICE_EVENT_TOPIC.format(customer_name=customer_name, device_uid=payload.get("uid")), payload)
+    normalized_customer = _normalize_topic_name(customer_name)
+    normalized_department = _normalize_topic_name(department_name)
+    payload_to_send = dict(payload)
+    payload_to_send["customer_name"] = normalized_customer
+    payload_to_send["department_name"] = normalized_department
+    mqtt_client.publish(
+        DEVICE_EVENT_TOPIC.format(
+            customer_name=normalized_customer,
+            department_name=normalized_department,
+            device_uid=payload_to_send.get("uid"),
+        ),
+        payload_to_send,
+    )
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)
@@ -81,10 +97,12 @@ async def create_device(
     _publish_device_event(
         request,
         device_out.customer_name,
+        device_out.department_name,
         {
             "uid": device_out.uid,
             "event_type": "add",
             "customer_name": device_out.customer_name,
+            "department_name": device_out.department_name,
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
         },
@@ -172,10 +190,12 @@ async def update_device(
     _publish_device_event(
         request,
         device_out.customer_name,
+        device_out.department_name,
         {
             "uid": device_out.uid,
             "event_type": "update",
             "customer_name": device_out.customer_name,
+            "department_name": device_out.department_name,
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
         },
@@ -205,16 +225,19 @@ async def delete_device(
     device_crud.delete_device(db, device_id)
     await broadcast_device_event("delete", {"id": device_id})
     customer_name = device_out.customer_name if device_out else ""
+    department_name = device_out.department_name if device_out else ""
     uid = device_out.uid if device_out else device.uid
     _publish_device_event(
         request,
         customer_name,
+        department_name,
         {
             "uid": uid,
             "event_type": "delete",
             "customer_name": customer_name,
-            "data_interval": device_out.data_interval,
-            "is_active": device_out.is_active,
+            "department_name": department_name,
+            "data_interval": device_out.data_interval if device_out else None,
+            "is_active": device_out.is_active if device_out else None,
         },
     )
 

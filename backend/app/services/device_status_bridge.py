@@ -7,7 +7,7 @@ from app.core.mqtt_client import MQTTClient
 from app.utils.ws_events import broadcast_device_status_event
 
 STATUS_TOPIC_PREFIX = "internal/devices/status"
-STATUS_TOPIC_WILDCARD = f"{STATUS_TOPIC_PREFIX}/+/+/"
+STATUS_TOPIC_WILDCARD = f"{STATUS_TOPIC_PREFIX}/#"
 
 
 def _parse_status_topic(topic: str) -> Tuple[Optional[str], Optional[str]]:
@@ -16,7 +16,7 @@ def _parse_status_topic(topic: str) -> Tuple[Optional[str], Optional[str]]:
         return None, None
     if parts[0] != "internal" or parts[1] != "devices" or parts[2] != "status":
         return None, None
-    return parts[3], parts[4]
+    return parts[3], parts[-1]
 
 
 def _parse_status_payload(payload: bytes) -> str:

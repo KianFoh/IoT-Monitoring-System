@@ -19,6 +19,7 @@ class DeviceRepository:
                     Device.uid,
                     Device.data_interval,
                     Device.is_active,
+                    Department.name,
                     Customer.name,
                 )
                 .join(Department, Device.department_id == Department.id)
@@ -29,15 +30,16 @@ class DeviceRepository:
             session.close()
 
         devices: List[DeviceInfo] = []
-        for uid, data_interval, is_active, customer_name in rows:
-            if not customer_name:
-                logger.warning(f"Device {uid} has no customer; skipping")
+        for uid, data_interval, is_active, department_name, customer_name in rows:
+            if not customer_name or not department_name:
+                logger.warning(f"Device {uid} missing customer or department; skipping")
                 continue
             interval_value = data_interval if data_interval is not None else 60
             devices.append(
                 DeviceInfo(
                     uid=uid,
                     customer_name=customer_name,
+                    department_name=department_name,
                     data_interval=interval_value,
                     is_active=is_active,
                 )
@@ -52,6 +54,7 @@ class DevicePipelineManager:
         self._pipelines: Dict[str, DevicePipeline] = {}
         self._event_topic = settings.MQTT_DEVICE_EVENT_TOPIC.format(
             customer_name="+",
+            department_name="+",
             device_uid="+",
         )
 
@@ -121,7 +124,8 @@ class DevicePipelineManager:
         event_type = str(data.get("event_type", "")).lower()
         device_uid = data.get("uid")
         customer_name = data.get("customer_name")
-        if not event_type or not device_uid or not customer_name:
+        department_name = data.get("department_name")
+        if not event_type or not device_uid or not customer_name or not department_name:
             logger.warning("Device event missing required fields")
             return
 
@@ -145,6 +149,7 @@ class DevicePipelineManager:
         device_info = DeviceInfo(
             uid=device_uid,
             customer_name=customer_name,
+            department_name=department_name,
             data_interval=data_interval,
             is_active=bool(is_active),
         )
