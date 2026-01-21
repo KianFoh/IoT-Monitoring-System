@@ -34,9 +34,17 @@ export const devicesApi = {
       department_id: number | null;
       is_online: boolean;
       is_active: boolean;
+      dashboard_config: {
+        data_panel_fields?: string[];
+        data_panel_config?: Record<string, { label?: string; unit?: string }>;
+      } | null;
     }>
   ) {
     return api.patch<Device>(`/devices/${deviceId}`, payload);
+  },
+
+  async latestData(deviceUid: string) {
+    return api.get<Record<string, unknown> | null>(`/devices/data/${deviceUid}/latest`);
   },
 
   async remove(deviceId: number) {

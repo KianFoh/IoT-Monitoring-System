@@ -174,6 +174,12 @@ async def update_device(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
+
+    restart_pipeline = False
+    if device_update.data_interval is not None and device_update.data_interval != existing_device.data_interval:
+        restart_pipeline = True
+    if device_update.is_active is not None and device_update.is_active != existing_device.is_active:
+        restart_pipeline = True
     
     # If department_id is being updated, check if the new department exists
     if device_update.department_id:
@@ -199,6 +205,7 @@ async def update_device(
             "department_name": device_out.department_name,
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
+            "restart_pipeline": restart_pipeline,
         },
     )
     return device_out

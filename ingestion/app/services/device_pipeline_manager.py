@@ -146,6 +146,8 @@ class DevicePipelineManager:
         elif is_active is None:
             is_active = False
 
+        restart_requested = data.get("restart_pipeline")
+
         device_info = DeviceInfo(
             uid=device_uid,
             customer_name=customer_name,
@@ -166,6 +168,8 @@ class DevicePipelineManager:
             return
 
         if event_type == "update":
+            if not restart_requested:
+                return
             if device_info.is_active:
                 restarted = self.restart_pipeline(device_info)
                 if restarted:
