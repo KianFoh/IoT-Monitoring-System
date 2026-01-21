@@ -73,3 +73,14 @@ def get_by_uid(
 
     cursor = devices_data_collection.aggregate(pipeline)
     return list(cursor)
+
+
+def get_latest_by_uid(uid: str):
+    cursor = (
+        devices_data_collection
+        .find({"device_id": uid})
+        .sort("timestamp", -1)
+        .limit(1)
+    )
+    items = list(cursor)
+    return items[0] if items else None

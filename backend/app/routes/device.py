@@ -243,6 +243,34 @@ async def delete_device(
     )
 
 # ==================== Fetch Device Data =====================
+@router.get("/data/{device_uid}/latest", response_model=Optional[dict])
+def fetch_device_latest_data(
+    device_uid: str,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Fetch the latest data for a specific device by UID."""
+    require_role(current_user, [UserRole.superuser, UserRole.user])
+
+    device = device_crud.get_device_by_uid(db, device_uid)
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Device not found"
+        )
+    if current_user == UserRole.user:
+        if device.department_id != current_user.department_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this device's data"
+            )
+
+    data = device_data_crud.get_latest_by_uid(device_uid)
+    if not data:
+        return None
+    return serialize_document(data)
+
+
 @router.get("/data/{device_uid}")
 def fetch_device_data(
     device_uid: str,
