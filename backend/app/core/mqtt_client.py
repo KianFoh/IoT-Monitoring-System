@@ -64,6 +64,8 @@ class MQTTClient:
 
     def subscribe(self, topic: str) -> None:
         self._subscriptions.add(topic)
+        if not self.client.is_connected():
+            return
         try:
             result = self.client.subscribe(topic)
             if result[0] != mqtt.MQTT_ERR_SUCCESS:

@@ -37,3 +37,7 @@ def get_mongo_db():
     db = mongo_client[settings.MONGO_DB_NAME]
     return db
 
+def get_collection(collection_name: str):
+    """Get a specific MongoDB collection by name"""
+    db = get_mongo_db()
+    return db[collection_name]

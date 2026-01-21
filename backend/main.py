@@ -40,9 +40,10 @@ async def lifespan(app: FastAPI):
         app.state.device_stream_manager,
     )
     if _mqtt_client.connect():
+        _mqtt_client.start()
         app.state.device_status_bridge.start()
         app.state.device_processed_bridge.start()
-        _mqtt_client.start()
+        
     else:
         logging.error("MQTT connection failed; backend will continue without broker connection.")
     yield

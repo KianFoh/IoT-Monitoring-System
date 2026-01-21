@@ -4,6 +4,7 @@ export type WSChannel = "customer" | "department" | "device" | "mqtt_user" | "us
 export type WSEventType = "add" | "update" | "delete";
 export interface WSEvent<T = any> { type: WSEventType; data: T }
 export type Listener<T = any> = (event: WSEvent<T>) => void;
+export type StreamListener<T = unknown> = (data: T) => void;
 
 export const ALL_CHANNELS: WSChannel[] = ["customer", "department", "device", "mqtt_user", "user", "device_status"];
 
@@ -19,6 +20,10 @@ class WebSocketManager {
   private listeners = new Map<WSChannel, Set<Listener>>();
   private shouldReconnect = new Map<WSChannel, boolean>();
   private hasConnected = new Map<WSChannel, boolean>();
+  private streamConnections = new Map<string, WebSocket>();
+  private streamListeners = new Map<string, Set<StreamListener>>();
+  private streamShouldReconnect = new Map<string, boolean>();
+  private streamPaths = new Map<string, string>();
   private reconnectListeners = new Set<() => void>();
   private reconnectNotifyScheduled = false;
   private refreshPromise: Promise<string | null> | null = null;
@@ -95,6 +100,33 @@ class WebSocketManager {
     return false;
   }
 
+  private async refreshWithRetryStream(key: string, event?: CloseEvent) {
+    if (!this.authHandlers?.refreshToken) return true;
+
+    const isAuthRelated = this.isAuthClose(event);
+
+    while (this.streamShouldReconnect.get(key)) {
+      try {
+        const token = await this.queueRefresh();
+        if (!token) throw new Error("WS auth refresh returned no token");
+        return true;
+      } catch (err: unknown) {
+        const details = err && typeof err === "object"
+          ? (err as { response?: { status?: number }; status?: number })
+          : undefined;
+        const status = details?.response?.status ?? details?.status;
+        const authFail = status === 401 || status === 403 || isAuthRelated;
+        if (authFail) {
+          this.authHandlers?.onAuthFailure?.();
+          return false;
+        }
+        await this.wait(this.REFRESH_RETRY_DELAY);
+      }
+    }
+
+    return false;
+  }
+
   private async handleReconnect(channel: WSChannel, event?: CloseEvent) {
     if (!this.shouldReconnect.get(channel) || this.manualReconnect) return;
 
@@ -104,6 +136,26 @@ class WebSocketManager {
     await this.wait(this.RECONNECT_DELAY);
     if (!this.shouldReconnect.get(channel)) return;
     this.connect(channel).catch(() => {});
+  }
+
+  private async handleStreamReconnect(key: string, event?: CloseEvent) {
+    if (!this.streamShouldReconnect.get(key)) return;
+
+    const refreshed = await this.refreshWithRetryStream(key, event);
+    if (!refreshed) return;
+
+    await this.wait(this.RECONNECT_DELAY);
+    if (!this.streamShouldReconnect.get(key)) return;
+    const path = this.streamPaths.get(key);
+    if (!path) return;
+    this.connectStream(key, path).catch(() => {});
+  }
+
+  private buildStreamUrl(path: string, token: string) {
+    const base = config.api.baseUrl.replace(/^http/, "ws");
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const separator = normalizedPath.includes("?") ? "&" : "?";
+    return `${base}${normalizedPath}${separator}token=${encodeURIComponent(token)}`;
   }
 
   connect(channel: WSChannel): Promise<void> {
@@ -169,10 +221,77 @@ class WebSocketManager {
     });
   }
 
+  connectStream(key: string, path: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.streamShouldReconnect.set(key, true);
+      this.streamPaths.set(key, path);
+      const token = this.tokenGetter?.();
+      if (!token) {
+        console.warn(`[WS] No token, skip stream connect for ${key}`);
+        return reject("No token");
+      }
+
+      const existing = this.streamConnections.get(key);
+      if (existing?.readyState === WebSocket.OPEN) return resolve();
+      if (existing?.readyState === WebSocket.CONNECTING) {
+        const onOpen = () => {
+          existing.removeEventListener("error", onError);
+          resolve();
+        };
+        const onError = (err: Event) => {
+          existing.removeEventListener("open", onOpen);
+          reject(err);
+        };
+        existing.addEventListener("open", onOpen, { once: true });
+        existing.addEventListener("error", onError, { once: true });
+        return;
+      }
+
+      const url = this.buildStreamUrl(path, token);
+      const ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        console.log(`[WS] Connected stream: ${key}`);
+        resolve();
+      };
+      ws.onmessage = (e) => {
+        let payload: unknown = e.data;
+        if (typeof e.data === "string") {
+          try {
+            payload = JSON.parse(e.data) as unknown;
+          } catch {
+            payload = e.data;
+          }
+        }
+        this.streamListeners.get(key)?.forEach((fn) => fn(payload));
+      };
+      ws.onclose = (event) => {
+        console.log(
+          `[WS] Closed stream: ${key} (code ${event.code}, reason: ${event.reason || "n/a"}, clean: ${event.wasClean})`
+        );
+        this.streamConnections.delete(key);
+        this.handleStreamReconnect(key, event).catch(() => {});
+      };
+      ws.onerror = (e) => {
+        console.error(`[WS] Error on stream ${key}`, e);
+        reject(e);
+      };
+
+      this.streamConnections.set(key, ws);
+    });
+  }
+
   disconnect(channel: WSChannel) {
     this.shouldReconnect.set(channel, false);
     this.connections.get(channel)?.close();
     this.connections.delete(channel);
+  }
+
+  disconnectStream(key: string) {
+    this.streamShouldReconnect.set(key, false);
+    this.streamConnections.get(key)?.close();
+    this.streamConnections.delete(key);
+    this.streamPaths.delete(key);
   }
 
   private waitForClose(ws: WebSocket) {
@@ -230,8 +349,13 @@ class WebSocketManager {
     this.shouldReconnect.clear();
     this.connections.forEach((ws) => ws.close());
     this.connections.clear();
+    this.streamShouldReconnect.clear();
+    this.streamConnections.forEach((ws) => ws.close());
+    this.streamConnections.clear();
+    this.streamPaths.clear();
     if (!options?.keepListeners) {
       this.listeners.clear();
+      this.streamListeners.clear();
     }
   }
 
@@ -239,6 +363,12 @@ class WebSocketManager {
     if (!this.listeners.has(channel)) this.listeners.set(channel, new Set());
     this.listeners.get(channel)!.add(listener as Listener);
     return () => this.listeners.get(channel)?.delete(listener as Listener);
+  }
+
+  onStream<T = any>(key: string, listener: StreamListener<T>): () => void {
+    if (!this.streamListeners.has(key)) this.streamListeners.set(key, new Set());
+    this.streamListeners.get(key)!.add(listener as StreamListener);
+    return () => this.streamListeners.get(key)?.delete(listener as StreamListener);
   }
 }
 

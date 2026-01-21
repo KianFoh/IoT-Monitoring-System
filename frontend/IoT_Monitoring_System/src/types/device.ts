@@ -4,6 +4,10 @@ export interface Device {
   uid: string;
   machine?: string | null;
   data_interval: number;
+  dashboard_config?: {
+    data_panel_fields?: string[];
+    data_panel_config?: Record<string, { label?: string; unit?: string }>;
+  } | null;
   is_online: boolean;
   department_name?: string | null;
   customer_name?: string | null;
