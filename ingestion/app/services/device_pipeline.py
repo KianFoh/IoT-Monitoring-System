@@ -74,23 +74,38 @@ class DevicePipeline:
 
     def on_message(self, client, userdata, msg):
         import json
-        payload = json.loads(msg.payload.decode())
 
-        payload["timestamp"] = utc_now().isoformat()
-        payload["topic"] = msg.topic
-        payload["device_uid"] = self.device.uid
-        payload["customer_name"] = self.device.customer_name
+        raw = json.loads(msg.payload.decode())
+        device_id = raw.get("device_id")
 
+        # Validate device_id
+        if not device_id:
+            return
+
+        # Extract dynamic fields (everything except device_id)
+        data = {k: v for k, v in raw.items() if k != "device_id"}
+
+        doc = {
+            "device_id": device_id,
+            "ts": utc_now(),
+            "data": data,
+        }
+
+        # Publish processed data
         self.mqtt.publish(
             self.processed_topic,
-            json.dumps(payload)
+            json.dumps({
+                "device_id": device_id,
+                "ts": doc["ts"].isoformat(),
+                "data": data,
+            })
         )
 
-        self.collection.insert_one(payload)
+        # Store raw doc in MongoDB
+        self.collection.insert_one(doc)
 
-        # Update last_seen for status logic
-        self.last_seen = utc_now()
-
+        # Update last_seen
+        self.last_seen = doc["ts"]
 
     def _start_watchdog(self):
         from threading import Thread

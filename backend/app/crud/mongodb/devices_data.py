@@ -36,7 +36,7 @@ def get_by_uid(
             "$addFields": {
                 "_ts": {
                     "$convert": {
-                        "input": "$timestamp",
+                        "input": "$ts",
                         "to": "date",
                         "onError": None,
                         "onNull": None,
@@ -79,7 +79,7 @@ def get_latest_by_uid(uid: str):
     cursor = (
         devices_data_collection
         .find({"device_id": uid})
-        .sort("timestamp", -1)
+        .sort("ts", -1)
         .limit(1)
     )
     items = list(cursor)
