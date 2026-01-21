@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -245,6 +246,10 @@ async def delete_device(
 @router.get("/data/{device_uid}")
 def fetch_device_data(
     device_uid: str,
+    granularity: Optional[str] = Query(None, description="sec, minute, hour, day, week, month, year"),
+    granuality: Optional[str] = Query(None, include_in_schema=False),
+    start: Optional[datetime] = Query(None, description="ISO 8601 start datetime"),
+    end: Optional[datetime] = Query(None, description="ISO 8601 end datetime"),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -263,11 +268,34 @@ def fetch_device_data(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to this device's data"
             )
-    data = device_data_crud.get_by_uid(device_uid)
-    if not data:
+    selected_granularity = (granularity or granuality or "").strip().lower() or None
+    if selected_granularity and selected_granularity not in {
+        "sec",
+        "second",
+        "minute",
+        "hour",
+        "day",
+        "week",
+        "month",
+        "year",
+    }:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No data found for this device"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid granularity. Use sec, minute, hour, day, week, month, or year.",
         )
+    if start and end and start > end:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start must be before end",
+        )
+
+    data = device_data_crud.get_by_uid(
+        device_uid,
+        start=start,
+        end=end,
+        granularity=selected_granularity,
+    )
+    if not data:
+        return []
     data = [serialize_document(doc) for doc in data]
     return data
