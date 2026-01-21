@@ -21,7 +21,7 @@ class MQTTClient:
         self.client.on_disconnect = self.on_disconnect
 
     def set_message_handler(self, handler):
-        """Set function yang akan handle message"""
+        """Set function to handle incoming messages"""
         self.message_handler = handler
 
     def set_on_connect_handler(self, handler):
@@ -29,7 +29,7 @@ class MQTTClient:
         self.on_connect_handler = handler
 
     def on_connect(self, client, userdata, flags, rc):
-        """Callback saat connect ke broker"""
+        """Callback when connected to broker"""
         if rc == 0:
             logger.info("✓ Connected to MQTT Broker")
             # Subscribe to topic
@@ -42,30 +42,30 @@ class MQTTClient:
             logger.error(f"✗ Failed to connect, code: {rc}")
 
     def subscribe(self, topic: str):
-        """Subscribe ke topik tertentu"""
+        """Subscribe to a specific topic"""
         self.client.subscribe(topic)
         logger.info(f"Subscribed to topic: {topic}")
     
     def unsubscribe(self, topic: str):
-        """Unsubscribe dari topik tertentu"""
+        """Unsubscribe from a specific topic"""
         self.client.unsubscribe(topic)
         logger.info(f"Unsubscribed from topic: {topic}")
 
     def message_callback_add(self, sub: str, callback):
-        """Tambah callback spesifik untuk sub topik"""
+        """Add specific callback for a sub-topic"""
         self.client.message_callback_add(sub, callback)
 
     def message_callback_remove(self, sub: str):
-        """Hapus callback spesifik untuk sub topik"""
+        """Remove specific callback for a sub-topic"""
         self.client.message_callback_remove(sub)
 
     def publish(self, topic: str, payload: str):
-        """Publish message ke topik tertentu"""
+        """Publish message to a specific topic"""
         self.client.publish(topic, payload)
         logger.debug(f"Published message to topic: {topic}")
 
     def on_message(self, client, userdata, msg):
-        """Callback saat terima message"""
+        """Callback when a message is received"""
         logger.debug(f"MQTT message received - Topic: {msg.topic}, QoS: {msg.qos}")
         if self.message_handler:
             self.message_handler(msg.topic, msg.payload)
@@ -73,12 +73,12 @@ class MQTTClient:
             logger.warning("No message handler set!")
 
     def on_disconnect(self, client, userdata, rc):
-        """Callback saat disconnect"""
+        """Callback when disconnected from broker"""
         if rc != 0:
             logger.warning(f"Unexpected disconnect. Code: {rc}")
 
     def connect(self) -> bool:
-        """Connect ke MQTT broker"""
+        """Connect to MQTT broker"""
         try:
             self.client.connect(
                 settings.MQTT_BROKER_HOST, settings.MQTT_BROKER_PORT, settings.MQTT_KEEPALIVE
@@ -89,7 +89,7 @@ class MQTTClient:
             return False
 
     def start_loop(self):
-        """Start listening loop"""
+        """Start MQTT client loop handle auto reconnects"""
         self.client.loop_forever()
 
     def stop(self):

@@ -12,7 +12,7 @@ pipeline_manager = None
 
 
 def signal_handler(sig, frame):
-    """Handle Ctrl+C for graceful shutdown"""
+    """Handle Ctrl+C for graceful shutdown by stopping MQTT client and pipelines"""
     logger.info("\nShutting down...")
     if pipeline_manager:
         pipeline_manager.stop()
@@ -25,36 +25,40 @@ def main():
     """Main entry point"""
     global mqtt_client, pipeline_manager
 
-    # 1. Test MongoDB connection
-    logger.info("Testing MongoDB connection...")
+    # Connect to MongoDB
+    logger.info("Connecting to MongoDB...")
     if not test_mongo_connection():
         logger.error("Cannot connect to MongoDB. Exiting.")
         sys.exit(1)
 
-    # 2. Show MQTT configuration
+    # Show MQTT configuration
     logger.info(f"MQTT Broker: {settings.MQTT_BROKER_HOST}:{settings.MQTT_BROKER_PORT}")
     logger.info(f"Topic for raw device data: {settings.MQTT_DEVICE_RAW_DATA_TOPIC}")
     logger.info(f"Topic for processed device data: {settings.MQTT_DEVICE_PROCESSED_DATA_TOPIC}")
     logger.info(f"Topic for device events: {settings.MQTT_DEVICE_EVENT_TOPIC}")
     logger.info(f"Topic for device status: {settings.MQTT_DEVICE_STATUS_TOPIC}")
 
-    # 3. Initialize MQTT client
+    # Initialize MQTT client
     logger.info("Initializing MQTT client...")
     mqtt_client = MQTTClient()
+
+    # Initialize Device Pipeline Manager
     pipeline_manager = DevicePipelineManager(mqtt_client)
     mqtt_client.set_on_connect_handler(pipeline_manager.handle_mqtt_connect)
 
-    # 5. Register signal handler (Ctrl+C)
+    # Register signal handler (Assign signal handlers for SIGINT and SIGTERM) 
+    # (Ctrl+C) Shutdown
     signal.signal(signal.SIGINT, signal_handler)
+    # Process termination Shutdown
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # 6. Connect dan start
+    # Connect and start
     logger.info("Starting MQTT client...")
     if mqtt_client.connect():
         logger.info("=" * 60)
         logger.info("Ingestion service started successfully!")
         logger.info("Listening for messages...")
-        logger.info("   Press Ctrl+C to stop")
+        logger.info("Press Ctrl+C to stop")
         logger.info("=" * 60)
         mqtt_client.start_loop()
         

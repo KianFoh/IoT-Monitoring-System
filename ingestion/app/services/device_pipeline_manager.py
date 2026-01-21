@@ -1,6 +1,5 @@
 import json
 from typing import Dict, List, Optional
-
 from app.core.postgresql import SessionLocal
 from app.models.customer import Customer
 from app.models.department import Department
