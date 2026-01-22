@@ -5,6 +5,7 @@ import { Modal } from "@/components/Modal/Modal";
 import { DeviceDashboardHeader } from "../components/DeviceDashboardHeader";
 import { DeviceDashboardMeta } from "../components/DeviceDashboardMeta";
 import { DeviceDataPanel } from "../components/DeviceDataPanel";
+import { DeviceDataChart } from "../components/DeviceDataChart";
 import { useDeviceDashboard } from "../hooks/useDeviceDashboard";
 import styles from "../styles/dashboard.module.css";
 
@@ -89,6 +90,15 @@ export function DeviceDashboardPage() {
           getFieldLabel={getFieldLabel}
           getFieldValue={getDisplayValue}
           onOpenFieldConfig={openFieldConfig}
+        />
+      )}
+
+      {device && displayMode === "data_chart" && (
+        <DeviceDataChart
+          displayMode={displayMode}
+          options={displayOptions}
+          onDisplayChange={setDisplayMode}
+          disabled={!device}
         />
       )}
 
