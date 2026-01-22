@@ -28,6 +28,11 @@ export function DeviceDashboardPage() {
     getDisplayValue,
     openFieldConfig,
     handleGeneratePanel,
+    chartItems,
+    chartLayout,
+    chartSaving,
+    chartError,
+    saveChartConfig,
     editingField,
     editLabel,
     setEditLabel,
@@ -100,6 +105,11 @@ export function DeviceDashboardPage() {
           onDisplayChange={setDisplayMode}
           disabled={!device}
           availableFields={panelFields}
+          savedCharts={chartItems}
+          savedLayout={chartLayout}
+          onSave={saveChartConfig}
+          saving={chartSaving}
+          saveError={chartError}
         />
       )}
 

@@ -20,6 +20,29 @@ const cleanPanelConfig = (fields: string[], config: DataPanelConfig) => {
   return Object.fromEntries(nextEntries);
 };
 
+const sanitizeChartLayout = (
+  layout: Array<{
+    i: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    minW?: number;
+    minH?: number;
+  }> | undefined
+) =>
+  layout
+    ? layout.map((item) => ({
+        i: item.i,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        minW: item.minW,
+        minH: item.minH,
+      }))
+    : undefined;
+
 export function useDeviceDataPanel({
   device,
   deviceUid,
@@ -94,7 +117,20 @@ export function useDeviceDataPanel({
       if (!device) {
         throw new Error("Device not loaded");
       }
-      return devicesApi.update(device.id, payload);
+      const currentConfig = device.dashboard_config ?? {};
+      const sanitizedChartLayout = sanitizeChartLayout(currentConfig.data_chart_layout);
+      const nextPanelFields =
+        payload.dashboard_config.data_panel_fields ?? currentConfig.data_panel_fields;
+      const nextPanelConfig =
+        payload.dashboard_config.data_panel_config ?? currentConfig.data_panel_config;
+      return devicesApi.update(device.id, {
+        dashboard_config: {
+          data_panel_fields: nextPanelFields,
+          data_panel_config: nextPanelConfig,
+          data_chart_items: currentConfig.data_chart_items,
+          data_chart_layout: sanitizedChartLayout,
+        },
+      });
     },
     onSuccess: (updated) => {
       setPanelFields(updated.dashboard_config?.data_panel_fields ?? []);
@@ -209,7 +245,7 @@ export function useDeviceDataPanel({
   const showGenerate = panelFields.length === 0;
   const panelSubtitle = showGenerate
     ? "Generate a panel from the latest payload."
-    : "Latest device snapshot.";
+    : "List of device data";
 
   return {
     panelFields: panelFieldsSorted,

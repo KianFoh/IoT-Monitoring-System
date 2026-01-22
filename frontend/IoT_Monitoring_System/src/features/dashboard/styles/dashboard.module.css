@@ -478,12 +478,7 @@
   flex-wrap: wrap;
 }
 
-/* Select */
-.dashboard-select-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
+
 
 .dashboard-select-label {
   font-size: var(--font-size-sm);
@@ -672,7 +667,7 @@
 }
 
 .device-data-panel-controls {
-  min-width: 200px;
+  min-width: 50px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -680,6 +675,25 @@
   flex-wrap: wrap;
 }
 
+
+.device-data-panel-controls .dashboard-select-trigger {
+  height: var(--control-height-md);
+  padding: 0 var(--spacing-md);
+  box-sizing: border-box;
+}
+
+.device-data-panel-controls .dashboard-select-group {
+  min-width: 180px;
+}
+
+.device-data-panel-control-button {
+  width: auto;
+  min-width: 110px;
+  height: var(--control-height-md);
+  padding: 0 var(--spacing-md);
+  box-sizing: border-box;
+  white-space: nowrap;
+}
 .device-data-empty {
   display: flex;
   flex-direction: column;
@@ -795,7 +809,15 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.device-chart-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .device-chart-grid {
@@ -804,7 +826,7 @@
 }
 
 .device-chart-grid-editing {
-  padding-bottom: var(--spacing-md);
+  padding-bottom: 0;
 }
 
 .device-chart-grid :global(.react-grid-layout) {
@@ -815,9 +837,50 @@
   box-sizing: border-box;
 }
 
+.device-chart-grid :global(.react-resizable-handle) {
+  background: none !important;
+  background-image: none !important;
+}
+
+.device-chart-grid :global(.react-grid-item > .react-resizable-handle) {
+  background: none !important;
+  background-image: none !important;
+}
+
 .device-chart-grid :global(.react-grid-item > .react-resizable-handle::after) {
+  content: none !important;
+  border: 0 !important;
+}
+
+.device-chart-grid :global(.react-grid-item.resizing) {
+  z-index: 4;
+}
+
+.device-chart-resize-handle {
+  background: none !important;
+  background-image: none !important;
+  position: absolute;
+  width: 16px !important;
+  height: 16px !important;
+  padding: 0;
+  cursor: se-resize;
+  z-index: 5;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+
+.device-chart-resize-handle-icon {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 10px;
+  height: 10px;
   border-right: 2px solid var(--text-white);
   border-bottom: 2px solid var(--text-white);
+  box-sizing: border-box;
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 .device-chart-card {
@@ -866,16 +929,6 @@
   align-items: center;
   gap: var(--spacing-xs);
   position: relative;
-}
-
-.device-chart-card-type {
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--color-primary-100);
-  background: var(--color-overlay-white-light);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
 }
 
 .device-chart-menu-button {
@@ -948,8 +1001,20 @@
   color: var(--color-error-300);
 }
 
-.device-chart-grid :global(.react-grid-item.resizing > .react-resizable-handle),
-.device-chart-grid :global(.react-grid-item.react-draggable-dragging > .react-resizable-handle) {
+.device-chart-grid-editing :global(.react-grid-item:hover) .device-chart-resize-handle,
+.device-chart-grid-editing :global(.react-grid-item.resizing) .device-chart-resize-handle,
+.device-chart-grid-editing :global(.react-grid-item.react-draggable-dragging) .device-chart-resize-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.device-chart-grid:not(.device-chart-grid-editing) .device-chart-resize-handle,
+.device-chart-grid:not(.device-chart-grid-editing) :global(.react-resizable-handle) {
+  display: none;
+}
+
+.device-chart-grid :global(.react-grid-item.resizing .react-resizable-handle),
+.device-chart-grid :global(.react-grid-item.react-draggable-dragging .react-resizable-handle) {
   opacity: 1;
 }
 .device-chart-menu-remove:hover {

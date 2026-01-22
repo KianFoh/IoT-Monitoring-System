@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type Ref, useEffect, useMemo, useState } from "react";
 import { FaEllipsisV } from "react-icons/fa";
 import {
   GridLayout,
@@ -23,6 +23,23 @@ type DisplayOption<T extends string> = {
 
 type ChartType = "meter" | "line" | "bar";
 
+type ChartItemConfig = {
+  id: string;
+  type: ChartType;
+  field: string;
+  name?: string | null;
+};
+
+type ChartLayoutItem = {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+};
+
 type ChartItem = {
   id: string;
   type: ChartType;
@@ -38,11 +55,12 @@ const CHART_OPTIONS: Array<{ value: ChartType; label: string }> = [
 
 const GRID_COLS = 12;
 const GRID_ROW_HEIGHT = 80;
-const DEFAULT_PANEL_SIZE = { w: 4, h: 3 };
+const DEFAULT_PANEL_SIZE = { w: 4, h: 3};
 const GRID_MARGIN: [number, number] = [16, 16];
 const GRID_PADDING: [number, number] = [0, 0];
 const RESIZE_HANDLES: ResizeHandleAxis[] = ["se"];
 const GRID_COMPACTOR = getCompactor("vertical", false, false);
+const RESIZE_HANDLE_INSET = 10;
 
 type DeviceDataChartProps<T extends string> = {
   displayMode: T;
@@ -50,6 +68,11 @@ type DeviceDataChartProps<T extends string> = {
   onDisplayChange: (value: T) => void;
   disabled?: boolean;
   availableFields: string[];
+  savedCharts?: ChartItemConfig[];
+  savedLayout?: ChartLayoutItem[];
+  onSave?: (charts: ChartItemConfig[], layout: ChartLayoutItem[]) => Promise<void>;
+  saving?: boolean;
+  saveError?: string | null;
 };
 
 const getNextPosition = (layout: Layout) => {
@@ -58,8 +81,40 @@ const getNextPosition = (layout: Layout) => {
   return { x: 0, y: maxY };
 };
 
-const getChartLabel = (type: ChartType) =>
-  CHART_OPTIONS.find((option) => option.value === type)?.label ?? type;
+const normalizeChart = (chart: ChartItemConfig): ChartItem => ({
+  ...chart,
+  name: chart.name?.trim() || "New panel",
+});
+
+const sanitizeLayoutItem = (item: LayoutItem | ChartLayoutItem): ChartLayoutItem => ({
+  i: item.i,
+  x: item.x,
+  y: item.y,
+  w: item.w,
+  h: item.h,
+  minW: item.minW,
+  minH: item.minH,
+});
+
+const ensureLayoutForCharts = (charts: ChartItem[], layout: ChartLayoutItem[]) => {
+  const nextLayout = layout
+    .filter((item) => charts.some((chart) => chart.id === item.i))
+    .map((item) => sanitizeLayoutItem(item));
+  const usedIds = new Set(nextLayout.map((item) => item.i));
+  let nextY = nextLayout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+  charts.forEach((chart) => {
+    if (usedIds.has(chart.id)) return;
+    nextLayout.push({
+      i: chart.id,
+      x: 0,
+      y: nextY,
+      w: DEFAULT_PANEL_SIZE.w,
+      h: DEFAULT_PANEL_SIZE.h,
+    });
+    nextY += DEFAULT_PANEL_SIZE.h;
+  });
+  return nextLayout;
+};
 
 export function DeviceDataChart<T extends string>({
   displayMode,
@@ -67,23 +122,46 @@ export function DeviceDataChart<T extends string>({
   onDisplayChange,
   disabled,
   availableFields,
+  savedCharts = [],
+  savedLayout = [],
+  onSave,
+  saving = false,
+  saveError = null,
 }: DeviceDataChartProps<T>) {
   const [isEditing, setIsEditing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [charts, setCharts] = useState<ChartItem[]>([]);
-  const [layout, setLayout] = useState<Layout>([]);
+  const normalizedSavedCharts = useMemo(
+    () => savedCharts.map((chart) => normalizeChart(chart)),
+    [savedCharts]
+  );
+  const normalizedSavedLayout = useMemo(
+    () => ensureLayoutForCharts(normalizedSavedCharts, savedLayout),
+    [normalizedSavedCharts, savedLayout]
+  );
+  const [draftCharts, setDraftCharts] = useState<ChartItem[]>(normalizedSavedCharts);
+  const [draftLayout, setDraftLayout] = useState<Layout>(normalizedSavedLayout as Layout);
   const [selectedChartType, setSelectedChartType] = useState<ChartType>(CHART_OPTIONS[0].value);
   const [selectedField, setSelectedField] = useState("");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [editingChartId, setEditingChartId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editField, setEditField] = useState("");
-  const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}`;
+  const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
   const { width, containerRef, mounted, measureWidth } = useContainerWidth({
     initialWidth: 0,
     measureBeforeMount: true,
   });
+  const resizeHandles = isEditing && !disabled ? RESIZE_HANDLES : [];
+  const renderResizeHandle = (axis: ResizeHandleAxis, ref: Ref<HTMLSpanElement>) => (
+    <span
+      ref={ref}
+      className={styles["device-chart-resize-handle"]}
+      style={axis === "se" ? { right: RESIZE_HANDLE_INSET, bottom: RESIZE_HANDLE_INSET } : undefined}
+    >
+      <span className={styles["device-chart-resize-handle-icon"]} />
+    </span>
+  );
 
   const dataOptions = useMemo(
     () => availableFields.map((field) => ({ value: field, label: field })),
@@ -108,9 +186,15 @@ export function DeviceDataChart<T extends string>({
   }, [isEditing]);
 
   useEffect(() => {
+    if (isEditing) return;
+    setDraftCharts(normalizedSavedCharts);
+    setDraftLayout(normalizedSavedLayout as Layout);
+  }, [normalizedSavedCharts, normalizedSavedLayout, isEditing]);
+
+  useEffect(() => {
     if (!mounted) return;
     measureWidth();
-  }, [mounted, charts.length, isEditing, isAddOpen, measureWidth]);
+  }, [mounted, draftCharts.length, normalizedSavedCharts.length, isEditing, isAddOpen, measureWidth]);
 
   useEffect(() => {
     if (!isEditOpen) return;
@@ -131,8 +215,39 @@ export function DeviceDataChart<T extends string>({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [activeMenuId]);
 
-  const handleToggleEdit = () => {
-    setIsEditing((prev) => !prev);
+  const handleEnterEdit = () => {
+    setDraftCharts(normalizedSavedCharts);
+    setDraftLayout(normalizedSavedLayout as Layout);
+    setIsEditing(true);
+  };
+
+  const handleExitEdit = () => {
+    setIsEditing(false);
+    setActiveMenuId(null);
+    setIsAddOpen(false);
+    setIsEditOpen(false);
+    setDraftCharts(normalizedSavedCharts);
+    setDraftLayout(normalizedSavedLayout as Layout);
+  };
+
+  const handleSaveChanges = async () => {
+    if (!onSave) {
+      setIsEditing(false);
+      setActiveMenuId(null);
+      return;
+    }
+    const nextCharts = draftCharts.map((chart) => ({
+      ...chart,
+      name: chart.name.trim() || "New panel",
+    }));
+    const nextLayout = draftLayout.map((item) => sanitizeLayoutItem(item));
+    try {
+      await onSave(nextCharts, nextLayout);
+      setIsEditing(false);
+      setActiveMenuId(null);
+    } catch {
+      // keep edit mode active when saving fails
+    }
   };
 
   const handleOpenAdd = () => {
@@ -146,21 +261,19 @@ export function DeviceDataChart<T extends string>({
   const handleAddChart = () => {
     if (!selectedField) return;
     const id = `chart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const nextPosition = getNextPosition(layout);
+    const nextPosition = getNextPosition(draftLayout);
     const nextLayout: LayoutItem = {
       i: id,
       x: nextPosition.x,
       y: nextPosition.y,
       w: DEFAULT_PANEL_SIZE.w,
       h: DEFAULT_PANEL_SIZE.h,
-      minH: 0.5,
-      minW: 0.5,
     };
-    setCharts((prev) => [
+    setDraftCharts((prev) => [
       ...prev,
       { id, type: selectedChartType, field: selectedField, name: "New panel" },
     ]);
-    setLayout((prev) => [...prev, nextLayout]);
+    setDraftLayout((prev) => [...prev, nextLayout]);
     setIsAddOpen(false);
   };
 
@@ -181,7 +294,7 @@ export function DeviceDataChart<T extends string>({
     if (!editingChartId) return;
     const name = editName.trim() || "New panel";
     const field = editField || "";
-    setCharts((prev) =>
+    setDraftCharts((prev) =>
       prev.map((chart) =>
         chart.id === editingChartId
           ? {
@@ -197,52 +310,68 @@ export function DeviceDataChart<T extends string>({
   };
 
   const handleRemoveChart = (chartId: string) => {
-    setCharts((prev) => prev.filter((chart) => chart.id !== chartId));
-    setLayout((prev) => prev.filter((item) => item.i !== chartId));
+    setDraftCharts((prev) => prev.filter((chart) => chart.id !== chartId));
+    setDraftLayout((prev) => prev.filter((item) => item.i !== chartId));
     setActiveMenuId(null);
   };
 
   const handleLayoutChange = (nextLayout: Layout) => {
-    setLayout(nextLayout);
+    if (!isEditing) return;
+    setDraftLayout(nextLayout);
   };
 
   const emptyMessage = isEditing
     ? "No charts yet. Use Add chart to create one."
     : "No charts yet. Switch to Edit to add charts.";
 
+  const displayCharts = isEditing ? draftCharts : normalizedSavedCharts;
+  const displayLayout = isEditing ? draftLayout : (normalizedSavedLayout as Layout);
+
   return (
     <div className={styles["device-data-panel"]}>
       <div className={styles["device-data-panel-header"]}>
         <div>
-          <h2>Display Panel</h2>
-          <span className={styles["device-data-panel-subtitle"]}>Data chart view.</span>
+          <h2>Data Chart</h2>
+          <span className={styles["device-data-panel-subtitle"]}>View device data chart</span>
         </div>
         <div className={styles["device-data-panel-controls"]}>
-          <DropdownSelect
-            id="device-dashboard-display"
-            value={displayMode}
-            options={options}
-            onChange={onDisplayChange}
-            disabled={disabled}
-          />
-          <div className={styles["device-chart-actions"]}>
-            <Button onClick={handleToggleEdit} variant={isEditing ? "cancel" : "primary"} disabled={disabled}>
-              {isEditing ? "Exit edit" : "Edit"}
-            </Button>
-            {isEditing && (
-              <Button onClick={handleOpenAdd} disabled={!dataOptions.length || disabled}>
+          {isEditing ? (
+            <div className={styles["device-chart-edit-actions"]}>
+              <Button onClick={handleOpenAdd} disabled={!dataOptions.length || disabled || saving} className={styles["device-data-panel-control-button"]}>
                 Add chart
               </Button>
-            )}
-          </div>
+              <Button onClick={handleExitEdit} variant="cancel" disabled={disabled || saving} className={styles["device-data-panel-control-button"]}>
+                Exit edit
+              </Button>
+              <Button onClick={handleSaveChanges} disabled={disabled || saving} isLoading={saving} className={styles["device-data-panel-control-button"]}>
+                Save
+              </Button>
+            </div>
+          ) : (
+            <>
+              <DropdownSelect
+                id="device-dashboard-display"
+                value={displayMode}
+                options={options}
+                onChange={onDisplayChange}
+                disabled={disabled}
+              />
+              <div className={styles["device-chart-actions"]}>
+                <Button onClick={handleEnterEdit} variant="primary" disabled={disabled} className={styles["device-data-panel-control-button"]}>
+                  Edit
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
+      {isEditing && saveError && <p className={styles["dashboard-modal-error"]}>{saveError}</p>}
 
       <div
         ref={containerRef}
         className={`${styles["device-chart-grid"]} ${isEditing ? styles["device-chart-grid-editing"] : ""}`}
       >
-        {charts.length === 0 ? (
+        {displayCharts.length === 0 ? (
           <div className={styles["device-data-empty"]}>
             <p>{emptyMessage}</p>
           </div>
@@ -253,19 +382,23 @@ export function DeviceDataChart<T extends string>({
         ) : (
           <GridLayout
             width={width}
-            layout={layout}
+            layout={displayLayout}
             gridConfig={{
               cols: GRID_COLS,
               rowHeight: GRID_ROW_HEIGHT,
               margin: GRID_MARGIN,
               containerPadding: GRID_PADDING,
             }}
-            dragConfig={{ enabled: isEditing && !disabled, cancel: dragCancelSelector }}
-            resizeConfig={{ enabled: isEditing && !disabled, handles: RESIZE_HANDLES }}
+            dragConfig={{ enabled: isEditing && !disabled, cancel: dragCancelSelector, bounded: true }}
+            resizeConfig={{
+              enabled: isEditing && !disabled,
+              handles: resizeHandles,
+              handleComponent: renderResizeHandle,
+            }}
             compactor={GRID_COMPACTOR}
             onLayoutChange={handleLayoutChange}
           >
-            {charts.map((chart) => (
+            {displayCharts.map((chart) => (
               <div
                 key={chart.id}
                 className={`${styles["device-chart-card"]} ${

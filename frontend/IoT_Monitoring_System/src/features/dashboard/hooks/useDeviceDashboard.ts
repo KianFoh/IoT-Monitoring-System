@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { wsManager } from "@/services/ws";
 import { devicesApi } from "../api/devicesApi";
@@ -14,14 +14,64 @@ const DISPLAY_OPTIONS: Array<{ value: DisplayMode; label: string }> = [
   { value: "data_chart", label: "Data chart" },
 ];
 
+const DEFAULT_CHART_LAYOUT = { w: 4, h: 3, minW: 3, minH: 3 };
+
+type ChartItemConfig = NonNullable<Device["dashboard_config"]>["data_chart_items"];
+type ChartLayoutConfig = NonNullable<Device["dashboard_config"]>["data_chart_layout"];
+
+const normalizeChartItems = (items: ChartItemConfig | undefined) =>
+  (items ?? []).map((item) => ({
+    ...item,
+    name: item.name?.trim() || "New panel",
+  }));
+
+const sanitizeChartLayoutItem = (item: NonNullable<ChartLayoutConfig>[number]) => ({
+  i: item.i,
+  x: item.x,
+  y: item.y,
+  w: item.w,
+  h: item.h,
+  minW: item.minW,
+  minH: item.minH,
+});
+
+const normalizeChartLayout = (
+  items: Array<{ id: string }>,
+  layout: ChartLayoutConfig | undefined
+) => {
+  const nextLayout = (layout ?? [])
+    .filter((item) => items.some((chart) => chart.id === item.i))
+    .map((item) => sanitizeChartLayoutItem(item));
+  const usedIds = new Set(nextLayout.map((item) => item.i));
+  let nextY = nextLayout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+  items.forEach((item) => {
+    if (usedIds.has(item.id)) return;
+    nextLayout.push({
+      i: item.id,
+      x: 0,
+      y: nextY,
+      w: DEFAULT_CHART_LAYOUT.w,
+      h: DEFAULT_CHART_LAYOUT.h,
+      minW: DEFAULT_CHART_LAYOUT.minW,
+      minH: DEFAULT_CHART_LAYOUT.minH,
+    });
+    nextY += DEFAULT_CHART_LAYOUT.h;
+  });
+  return nextLayout;
+};
+
 export function useDeviceDashboard(deviceUid?: string) {
   const { access_token } = useAuth();
+  const queryClient = useQueryClient();
   const [device, setDevice] = useState<Device | null>(null);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("data_panel");
   const [liveData, setLiveData] = useState<DevicePayload | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [wsStatus, setWsStatus] = useState<"idle" | "connecting" | "connected" | "failed">("idle");
   const [deviceStatus, setDeviceStatus] = useState<"online" | "offline" | null>(null);
+  const [chartItems, setChartItems] = useState<NonNullable<ChartItemConfig>>([]);
+  const [chartLayout, setChartLayout] = useState<NonNullable<ChartLayoutConfig>>([]);
+  const [chartError, setChartError] = useState<string | null>(null);
 
   useEffect(() => {
     setDevice(null);
@@ -29,6 +79,9 @@ export function useDeviceDashboard(deviceUid?: string) {
     setLastUpdate(null);
     setWsStatus("idle");
     setDeviceStatus(null);
+    setChartItems([]);
+    setChartLayout([]);
+    setChartError(null);
   }, [deviceUid]);
 
   const deviceQuery = useQuery<Device | null, Error>({
@@ -56,6 +109,18 @@ export function useDeviceDashboard(deviceUid?: string) {
       setDeviceStatus(null);
     }
   }, [deviceQuery.data, deviceQuery.isSuccess]);
+
+  useEffect(() => {
+    if (!device) {
+      setChartItems([]);
+      setChartLayout([]);
+      return;
+    }
+    const normalizedItems = normalizeChartItems(device.dashboard_config?.data_chart_items);
+    const normalizedLayout = normalizeChartLayout(normalizedItems, device.dashboard_config?.data_chart_layout);
+    setChartItems(normalizedItems);
+    setChartLayout(normalizedLayout);
+  }, [device]);
 
   const deviceError = useMemo(() => {
     if (!deviceUid) return "Missing device UID.";
@@ -160,6 +225,54 @@ export function useDeviceDashboard(deviceUid?: string) {
     onLastUpdate: updateLastUpdate,
   });
 
+  const chartMutation = useMutation({
+    mutationFn: (payload: {
+      data_chart_items: NonNullable<ChartItemConfig>;
+      data_chart_layout: NonNullable<ChartLayoutConfig>;
+    }) => {
+      if (!device) {
+        throw new Error("Device not loaded");
+      }
+      const currentConfig = device.dashboard_config ?? {};
+      const sanitizedLayout = payload.data_chart_layout.map((item) => sanitizeChartLayoutItem(item));
+      return devicesApi.update(device.id, {
+        dashboard_config: {
+          data_panel_fields: currentConfig.data_panel_fields,
+          data_panel_config: currentConfig.data_panel_config,
+          data_chart_items: payload.data_chart_items,
+          data_chart_layout: sanitizedLayout,
+        },
+      });
+    },
+    onSuccess: (updated) => {
+      setDevice(updated);
+      const normalizedItems = normalizeChartItems(updated.dashboard_config?.data_chart_items);
+      const normalizedLayout = normalizeChartLayout(normalizedItems, updated.dashboard_config?.data_chart_layout);
+      setChartItems(normalizedItems);
+      setChartLayout(normalizedLayout);
+      if (deviceUid) {
+        queryClient.setQueryData(["devices", "by-uid", deviceUid], updated);
+      }
+    },
+  });
+
+  const saveChartConfig = useCallback(
+    async (
+      items: NonNullable<ChartItemConfig>,
+      layout: NonNullable<ChartLayoutConfig>
+    ) => {
+      setChartError(null);
+      try {
+        await chartMutation.mutateAsync({ data_chart_items: items, data_chart_layout: layout });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to save chart layout";
+        setChartError(message);
+        throw err;
+      }
+    },
+    [chartMutation]
+  );
+
   const lastUpdateLabel = useMemo(
     () => (lastUpdate ? lastUpdate.toLocaleString() : "--"),
     [lastUpdate]
@@ -174,6 +287,11 @@ export function useDeviceDashboard(deviceUid?: string) {
     setDisplayMode,
     displayOptions: DISPLAY_OPTIONS,
     ...panel,
+    chartItems,
+    chartLayout,
+    chartSaving: chartMutation.isPending,
+    chartError,
+    saveChartConfig,
     lastUpdateLabel,
   } as const;
 }
