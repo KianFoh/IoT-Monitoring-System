@@ -99,6 +99,7 @@ export function DeviceDashboardPage() {
           options={displayOptions}
           onDisplayChange={setDisplayMode}
           disabled={!device}
+          availableFields={panelFields}
         />
       )}
 

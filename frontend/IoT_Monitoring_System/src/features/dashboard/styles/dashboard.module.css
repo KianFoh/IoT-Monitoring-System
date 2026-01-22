@@ -673,6 +673,11 @@
 
 .device-data-panel-controls {
   min-width: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
 }
 
 .device-data-empty {
@@ -784,6 +789,172 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.device-chart-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.device-chart-grid {
+  margin-top: var(--spacing-md);
+  width: 100%;
+}
+
+.device-chart-grid-editing {
+  padding-bottom: var(--spacing-md);
+}
+
+.device-chart-grid :global(.react-grid-layout) {
+  width: 100%;
+}
+
+.device-chart-grid :global(.react-grid-item) {
+  box-sizing: border-box;
+}
+
+.device-chart-grid :global(.react-grid-item > .react-resizable-handle::after) {
+  border-right: 2px solid var(--text-white);
+  border-bottom: 2px solid var(--text-white);
+}
+
+.device-chart-card {
+  height: 100%;
+  padding: var(--spacing-md);
+  background: linear-gradient(
+    135deg,
+    var(--color-overlay-white-extra-light),
+    var(--color-overlay-white-light)
+  );
+  border: 1px solid var(--color-overlay-white-medium);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  position: relative;
+  box-sizing: border-box;
+  overflow: visible;
+  box-shadow: var(--shadow-lg);
+}
+
+.device-chart-card-editing {
+  cursor: grab;
+}
+
+.device-chart-card-editing:active {
+  cursor: grabbing;
+}
+
+.device-chart-card-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.device-chart-card-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-chart-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  position: relative;
+}
+
+.device-chart-card-type {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-primary-100);
+  background: var(--color-overlay-white-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.device-chart-menu-button {
+  border: none;
+  background: var(--color-overlay-white-medium);
+  color: var(--color-primary-100);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal), transform var(--transition-normal), background var(--transition-normal);
+}
+
+.device-chart-menu-button-active,
+.device-chart-card:hover .device-chart-menu-button {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-1px);
+}
+
+.device-chart-grid :global(.react-grid-item.resizing) .device-chart-menu-button,
+.device-chart-grid :global(.react-grid-item.react-draggable-dragging) .device-chart-menu-button {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-1px);
+}
+
+.device-chart-menu-button:hover {
+  color: var(--text-white);
+  background: var(--color-primary-500);
+}
+
+.device-chart-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 140px;
+  background: var(--color-dark-800);
+  border: 1px solid var(--color-overlay-white-medium);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xl);
+  padding: 6px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.device-chart-menu button {
+  background: transparent;
+  border: none;
+  color: var(--text-white);
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.device-chart-menu button:hover {
+  background: var(--color-overlay-white-medium);
+}
+
+.device-chart-menu-remove {
+  color: var(--color-error-300);
+}
+
+.device-chart-grid :global(.react-grid-item.resizing > .react-resizable-handle),
+.device-chart-grid :global(.react-grid-item.react-draggable-dragging > .react-resizable-handle) {
+  opacity: 1;
+}
+.device-chart-menu-remove:hover {
+  background: var(--color-error-600);
+  color: var(--text-white);
 }
 
 @media (max-width: 768px) {
