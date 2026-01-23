@@ -102,7 +102,7 @@ export function MeterChart({
   const textColor = hasValue ? "var(--text-white)" : "var(--color-primary-100)";
   const currentValueText = hasValue ? valueText : "No data";
 
-  const renderKey = `${width}x${height}`;
+  const renderKey = `${width}x${height}-min${min}-max${max}`;
 
   return (
     <div ref={containerRef} className={styles["meter-chart"]}>
@@ -116,7 +116,7 @@ export function MeterChart({
         needleColor={needleColor}
         textColor={textColor}
         currentValueText={currentValueText}
-        valueFormat=".1f"
+        valueFormat=".2~f"
         width={width}
         height={height}
         ringWidth={ringWidth}
