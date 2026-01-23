@@ -13,6 +13,7 @@ import "react-resizable/css/styles.css";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { Modal } from "@/components/Modal/Modal";
+import { MeterChart } from "./charts/MeterChart";
 import DropdownSelect from "./DropdownSelect";
 import styles from "../styles/dashboard.module.css";
 
@@ -28,6 +29,8 @@ type ChartItemConfig = {
   type: ChartType;
   field: string;
   name?: string | null;
+  min?: number | null;
+  max?: number | null;
 };
 
 type ChartLayoutItem = {
@@ -45,6 +48,8 @@ type ChartItem = {
   type: ChartType;
   field: string;
   name: string;
+  min?: number;
+  max?: number;
 };
 
 const CHART_OPTIONS: Array<{ value: ChartType; label: string }> = [
@@ -68,6 +73,8 @@ type DeviceDataChartProps<T extends string> = {
   onDisplayChange: (value: T) => void;
   disabled?: boolean;
   availableFields: string[];
+  getChartValue?: (field: string) => unknown;
+  getChartUnit?: (field: string) => string;
   savedCharts?: ChartItemConfig[];
   savedLayout?: ChartLayoutItem[];
   onSave?: (charts: ChartItemConfig[], layout: ChartLayoutItem[]) => Promise<void>;
@@ -84,6 +91,8 @@ const getNextPosition = (layout: Layout) => {
 const normalizeChart = (chart: ChartItemConfig): ChartItem => ({
   ...chart,
   name: chart.name?.trim() || "New panel",
+  min: typeof chart.min === "number" ? chart.min : undefined,
+  max: typeof chart.max === "number" ? chart.max : undefined,
 });
 
 const sanitizeLayoutItem = (item: LayoutItem | ChartLayoutItem): ChartLayoutItem => ({
@@ -116,12 +125,32 @@ const ensureLayoutForCharts = (charts: ChartItem[], layout: ChartLayoutItem[]) =
   return nextLayout;
 };
 
+const parseNumericValue = (value: unknown) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const parseOptionalNumber = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export function DeviceDataChart<T extends string>({
   displayMode,
   options,
   onDisplayChange,
   disabled,
   availableFields,
+  getChartValue,
+  getChartUnit,
   savedCharts = [],
   savedLayout = [],
   onSave,
@@ -143,10 +172,15 @@ export function DeviceDataChart<T extends string>({
   const [draftLayout, setDraftLayout] = useState<Layout>(normalizedSavedLayout as Layout);
   const [selectedChartType, setSelectedChartType] = useState<ChartType>(CHART_OPTIONS[0].value);
   const [selectedField, setSelectedField] = useState("");
+  const [selectedMin, setSelectedMin] = useState("");
+  const [selectedMax, setSelectedMax] = useState("");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [editingChartId, setEditingChartId] = useState<string | null>(null);
+  const [editingChartType, setEditingChartType] = useState<ChartType | null>(null);
   const [editName, setEditName] = useState("");
   const [editField, setEditField] = useState("");
+  const [editMin, setEditMin] = useState("");
+  const [editMax, setEditMax] = useState("");
   const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
   const { width, containerRef, mounted, measureWidth } = useContainerWidth({
     initialWidth: 0,
@@ -226,6 +260,11 @@ export function DeviceDataChart<T extends string>({
     setActiveMenuId(null);
     setIsAddOpen(false);
     setIsEditOpen(false);
+    setEditingChartType(null);
+    setEditMin("");
+    setEditMax("");
+    setSelectedMin("");
+    setSelectedMax("");
     setDraftCharts(normalizedSavedCharts);
     setDraftLayout(normalizedSavedLayout as Layout);
   };
@@ -251,11 +290,15 @@ export function DeviceDataChart<T extends string>({
   };
 
   const handleOpenAdd = () => {
+    setSelectedMin("");
+    setSelectedMax("");
     setIsAddOpen(true);
   };
 
   const handleCloseAdd = () => {
     setIsAddOpen(false);
+    setSelectedMin("");
+    setSelectedMax("");
   };
 
   const handleAddChart = () => {
@@ -269,18 +312,31 @@ export function DeviceDataChart<T extends string>({
       w: DEFAULT_PANEL_SIZE.w,
       h: DEFAULT_PANEL_SIZE.h,
     };
+    const min = selectedChartType === "meter" ? parseOptionalNumber(selectedMin) : undefined;
+    const max = selectedChartType === "meter" ? parseOptionalNumber(selectedMax) : undefined;
     setDraftCharts((prev) => [
       ...prev,
-      { id, type: selectedChartType, field: selectedField, name: "New panel" },
+      {
+        id,
+        type: selectedChartType,
+        field: selectedField,
+        name: "New panel",
+        ...(selectedChartType === "meter" ? { min, max } : {}),
+      },
     ]);
     setDraftLayout((prev) => [...prev, nextLayout]);
     setIsAddOpen(false);
+    setSelectedMin("");
+    setSelectedMax("");
   };
 
   const handleOpenEdit = (chart: ChartItem) => {
     setEditingChartId(chart.id);
+    setEditingChartType(chart.type);
     setEditName(chart.name.trim() || "New panel");
     setEditField(chart.field);
+    setEditMin(typeof chart.min === "number" ? String(chart.min) : "");
+    setEditMax(typeof chart.max === "number" ? String(chart.max) : "");
     setIsEditOpen(true);
     setActiveMenuId(null);
   };
@@ -288,12 +344,17 @@ export function DeviceDataChart<T extends string>({
   const handleCloseEdit = () => {
     setIsEditOpen(false);
     setEditingChartId(null);
+    setEditingChartType(null);
+    setEditMin("");
+    setEditMax("");
   };
 
   const handleSaveEdit = () => {
     if (!editingChartId) return;
     const name = editName.trim() || "New panel";
     const field = editField || "";
+    const min = editingChartType === "meter" ? parseOptionalNumber(editMin) : undefined;
+    const max = editingChartType === "meter" ? parseOptionalNumber(editMax) : undefined;
     setDraftCharts((prev) =>
       prev.map((chart) =>
         chart.id === editingChartId
@@ -301,12 +362,14 @@ export function DeviceDataChart<T extends string>({
               ...chart,
               name,
               field: field || chart.field,
+              ...(chart.type === "meter" ? { min, max } : {}),
             }
           : chart
       )
     );
     setIsEditOpen(false);
     setEditingChartId(null);
+    setEditingChartType(null);
   };
 
   const handleRemoveChart = (chartId: string) => {
@@ -398,55 +461,72 @@ export function DeviceDataChart<T extends string>({
             compactor={GRID_COMPACTOR}
             onLayoutChange={handleLayoutChange}
           >
-            {displayCharts.map((chart) => (
-              <div
-                key={chart.id}
-                className={`${styles["device-chart-card"]} ${
-                  isEditing ? styles["device-chart-card-editing"] : ""
-                }`}
-              >
-                <div className={styles["device-chart-card-header"]}>
-                  <span className={styles["device-chart-card-title"]}>{chart.name || "New panel"}</span>
-                  <div className={styles["device-chart-card-actions"]} data-chart-menu={chart.id}>
-                    {isEditing && (
-                      <>
-                        <button
-                          type="button"
-                          className={`${styles["device-chart-menu-button"]} ${
-                            activeMenuId === chart.id ? styles["device-chart-menu-button-active"] : ""
-                          }`}
-                          aria-label="Chart options"
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setActiveMenuId((prev) => (prev === chart.id ? null : chart.id));
-                          }}
-                        >
-                          <FaEllipsisV />
-                        </button>
-                        {activeMenuId === chart.id && (
-                          <div
-                            className={styles["device-chart-menu"]}
+            {displayCharts.map((chart) => {
+              const rawValue = getChartValue ? getChartValue(chart.field) : null;
+              const numericValue = parseNumericValue(rawValue);
+              const unit = getChartUnit ? getChartUnit(chart.field) : "";
+              const meterMin = typeof chart.min === "number" ? chart.min : undefined;
+              const meterMax = typeof chart.max === "number" ? chart.max : undefined;
+              const placeholder =
+                chart.type === "line" ? "Line chart coming soon." : "Bar chart coming soon.";
+              const chartContent =
+                chart.type === "meter" ? (
+                  <MeterChart value={numericValue} unit={unit} min={meterMin} max={meterMax} />
+                ) : (
+                  <div className={styles["device-chart-placeholder"]}>{placeholder}</div>
+                );
+
+              return (
+                <div
+                  key={chart.id}
+                  className={`${styles["device-chart-card"]} ${
+                    isEditing ? styles["device-chart-card-editing"] : ""
+                  }`}
+                >
+                  <div className={styles["device-chart-card-header"]}>
+                    <span className={styles["device-chart-card-title"]}>{chart.name || "New panel"}</span>
+                    <div className={styles["device-chart-card-actions"]} data-chart-menu={chart.id}>
+                      {isEditing && (
+                        <>
+                          <button
+                            type="button"
+                            className={`${styles["device-chart-menu-button"]} ${
+                              activeMenuId === chart.id ? styles["device-chart-menu-button-active"] : ""
+                            }`}
+                            aria-label="Chart options"
                             onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveMenuId((prev) => (prev === chart.id ? null : chart.id));
+                            }}
                           >
-                            <button type="button" onClick={() => handleOpenEdit(chart)}>
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className={styles["device-chart-menu-remove"]}
-                              onClick={() => handleRemoveChart(chart.id)}
+                            <FaEllipsisV />
+                          </button>
+                          {activeMenuId === chart.id && (
+                            <div
+                              className={styles["device-chart-menu"]}
+                              onMouseDown={(event) => event.stopPropagation()}
                             >
-                              Remove
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    )}
+                              <button type="button" onClick={() => handleOpenEdit(chart)}>
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className={styles["device-chart-menu-remove"]}
+                                onClick={() => handleRemoveChart(chart.id)}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
+                  <div className={styles["device-chart-card-body"]}>{chartContent}</div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </GridLayout>
         )}
       </div>
@@ -470,6 +550,30 @@ export function DeviceDataChart<T extends string>({
             onChange={setSelectedField}
             disabled={!dataOptions.length || disabled}
           />
+          {selectedChartType === "meter" && (
+            <>
+              <Input
+                id="device-chart-min"
+                label="Min"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={selectedMin}
+                onChange={(event) => setSelectedMin(event.target.value)}
+                disabled={disabled}
+              />
+              <Input
+                id="device-chart-max"
+                label="Max"
+                type="number"
+                inputMode="decimal"
+                placeholder="100"
+                value={selectedMax}
+                onChange={(event) => setSelectedMax(event.target.value)}
+                disabled={disabled}
+              />
+            </>
+          )}
           {!dataOptions.length && (
             <p className={styles["dashboard-modal-error"]}>Generate a data panel to load fields.</p>
           )}
@@ -502,6 +606,28 @@ export function DeviceDataChart<T extends string>({
             onChange={setEditField}
             disabled={!dataOptions.length}
           />
+          {editingChartType === "meter" && (
+            <>
+              <Input
+                id="device-edit-chart-min"
+                label="Min"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={editMin}
+                onChange={(event) => setEditMin(event.target.value)}
+              />
+              <Input
+                id="device-edit-chart-max"
+                label="Max"
+                type="number"
+                inputMode="decimal"
+                placeholder="100"
+                value={editMax}
+                onChange={(event) => setEditMax(event.target.value)}
+              />
+            </>
+          )}
           {!dataOptions.length && (
             <p className={styles["dashboard-modal-error"]}>Generate a data panel to load fields.</p>
           )}

@@ -786,7 +786,6 @@
 
 .device-data-label {
   font-size: var(--font-size-base);
-  text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--color-primary-100);
   font-weight: var(--font-weight-semibold);
@@ -913,6 +912,8 @@
 .device-chart-card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  min-height: 32px;
 }
 
 .device-chart-card-title {
@@ -924,11 +925,30 @@
   white-space: nowrap;
 }
 
+.device-chart-card-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xs);
+}
+
+.device-chart-placeholder {
+  color: var(--color-primary-100);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  padding: var(--spacing-sm);
+}
+
 .device-chart-card-actions {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
   position: relative;
+  min-height: 28px;
+  min-width: 28px;
 }
 
 .device-chart-menu-button {

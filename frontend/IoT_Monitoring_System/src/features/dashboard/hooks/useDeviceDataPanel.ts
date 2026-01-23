@@ -152,6 +152,7 @@ export function useDeviceDataPanel({
     return undefined;
   };
 
+  const getFieldRawValue = (field: string) => getFieldValue(field);
   const getFieldLabel = (field: string) => panelConfig[field]?.label?.trim() || field;
   const getFieldUnit = (field: string) => panelConfig[field]?.unit?.trim() || "";
 
@@ -253,8 +254,10 @@ export function useDeviceDataPanel({
     showGenerate,
     panelLoading,
     panelError,
+    getFieldRawValue,
     getFieldLabel,
     getDisplayValue,
+    getFieldUnit,
     openFieldConfig,
     handleGeneratePanel,
     editingField,

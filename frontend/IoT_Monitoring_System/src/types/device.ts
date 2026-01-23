@@ -12,6 +12,8 @@ export interface Device {
       type: "meter" | "line" | "bar";
       field: string;
       name?: string | null;
+      min?: number | null;
+      max?: number | null;
     }>;
     data_chart_layout?: Array<{
       i: string;

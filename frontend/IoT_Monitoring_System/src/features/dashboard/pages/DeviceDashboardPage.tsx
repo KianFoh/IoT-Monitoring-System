@@ -24,8 +24,10 @@ export function DeviceDashboardPage() {
     showGenerate,
     panelLoading,
     panelError,
+    getFieldRawValue,
     getFieldLabel,
     getDisplayValue,
+    getFieldUnit,
     openFieldConfig,
     handleGeneratePanel,
     chartItems,
@@ -105,6 +107,8 @@ export function DeviceDashboardPage() {
           onDisplayChange={setDisplayMode}
           disabled={!device}
           availableFields={panelFields}
+          getChartValue={getFieldRawValue}
+          getChartUnit={getFieldUnit}
           savedCharts={chartItems}
           savedLayout={chartLayout}
           onSave={saveChartConfig}
