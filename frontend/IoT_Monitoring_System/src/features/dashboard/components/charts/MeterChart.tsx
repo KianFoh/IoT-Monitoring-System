@@ -92,14 +92,12 @@ export function MeterChart({
   }, [size.width, size.height]);
 
 
-  const radius = width / 2;
-  const maxRingWidth = Math.max(1, Math.floor(radius) - 2);
-  const ringWidth = Math.min(Math.max(4, Math.round(width * 0.12)), maxRingWidth);
-  const valueTextFontSize = Math.max(9, Math.round(width * 0.075));
-  const labelFontSize = Math.max(8, Math.round(width * 0.05));
+  const ringWidth = Math.max(18, Math.round(width * 0.12));
+  const valueTextFontSize = Math.max(13, Math.round(width * 0.075));
+  const labelFontSize = Math.max(11, Math.round(width * 0.05));
 
-  const needleColor = hasValue ? "var(--text-white)" : "var(--color-primary-200)";
-  const textColor = hasValue ? "var(--text-white)" : "var(--color-primary-100)";
+  const needleColor = "var(--color-primary-200)";
+  const textColor = "var(--text-white)";
   const currentValueText = hasValue ? valueText : "No data";
 
   const renderKey = `${width}x${height}-min${min}-max${max}`;
@@ -111,8 +109,8 @@ export function MeterChart({
         minValue={min}
         maxValue={maxValue}
         value={safeValue}
-        segments={3}
-        segmentColors={["#22c55e", "#f59e0b", "#ef4444"]}
+        segments={4}
+        segmentColors={["#22c55e", "#e5ff00", "#f59e0b", "#ef4444"]}
         needleColor={needleColor}
         textColor={textColor}
         currentValueText={currentValueText}

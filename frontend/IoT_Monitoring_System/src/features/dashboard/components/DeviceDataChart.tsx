@@ -1,5 +1,5 @@
 import { type Ref, useEffect, useMemo, useState } from "react";
-import { FaEllipsisV } from "react-icons/fa";
+import { FaEllipsisV, FaFilter } from "react-icons/fa";
 import {
   GridLayout,
   getCompactor,
@@ -24,6 +24,8 @@ type DisplayOption<T extends string> = {
 
 type ChartType = "meter" | "line" | "bar";
 
+type LineGranularity = "sec" | "minute" | "hour" | "day" | "week" | "month" | "year";
+
 type ChartItemConfig = {
   id: string;
   type: ChartType;
@@ -31,6 +33,7 @@ type ChartItemConfig = {
   name?: string | null;
   min?: number | null;
   max?: number | null;
+  fields?: string[] | null;
 };
 
 type ChartLayoutItem = {
@@ -50,12 +53,23 @@ type ChartItem = {
   name: string;
   min?: number;
   max?: number;
+  fields?: string[];
 };
 
 const CHART_OPTIONS: Array<{ value: ChartType; label: string }> = [
   { value: "meter", label: "Meter" },
   { value: "line", label: "Line" },
   { value: "bar", label: "Bar" },
+];
+
+const LINE_GRANULARITY_OPTIONS: Array<{ value: LineGranularity; label: string }> = [
+  { value: "sec", label: "Second" },
+  { value: "minute", label: "Minute" },
+  { value: "hour", label: "Hour" },
+  { value: "day", label: "Day" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "year", label: "Year" },
 ];
 
 const GRID_COLS = 12;
@@ -88,12 +102,24 @@ const getNextPosition = (layout: Layout) => {
   return { x: 0, y: maxY };
 };
 
-const normalizeChart = (chart: ChartItemConfig): ChartItem => ({
-  ...chart,
-  name: chart.name?.trim() || "New panel",
-  min: typeof chart.min === "number" ? chart.min : undefined,
-  max: typeof chart.max === "number" ? chart.max : undefined,
-});
+const normalizeChart = (chart: ChartItemConfig): ChartItem => {
+  const normalizedFields =
+    chart.type === "line"
+      ? Array.isArray(chart.fields) && chart.fields.length
+        ? chart.fields
+        : chart.field
+          ? [chart.field]
+          : []
+      : undefined;
+
+  return {
+    ...chart,
+    name: chart.name?.trim() || "New panel",
+    min: typeof chart.min === "number" ? chart.min : undefined,
+    max: typeof chart.max === "number" ? chart.max : undefined,
+    fields: normalizedFields,
+  };
+};
 
 const sanitizeLayoutItem = (item: LayoutItem | ChartLayoutItem): ChartLayoutItem => ({
   i: item.i,
@@ -160,6 +186,7 @@ export function DeviceDataChart<T extends string>({
   const [isEditing, setIsEditing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const normalizedSavedCharts = useMemo(
     () => savedCharts.map((chart) => normalizeChart(chart)),
     [savedCharts]
@@ -174,6 +201,12 @@ export function DeviceDataChart<T extends string>({
   const [selectedField, setSelectedField] = useState("");
   const [selectedMin, setSelectedMin] = useState("");
   const [selectedMax, setSelectedMax] = useState("");
+  const [selectedLineFields, setSelectedLineFields] = useState<string[]>([]);
+  const [selectedLineMin, setSelectedLineMin] = useState("");
+  const [selectedLineMax, setSelectedLineMax] = useState("");
+  const [timeGranularity, setTimeGranularity] = useState<LineGranularity>("day");
+  const [timeStart, setTimeStart] = useState("");
+  const [timeEnd, setTimeEnd] = useState("");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [editingChartId, setEditingChartId] = useState<string | null>(null);
   const [editingChartType, setEditingChartType] = useState<ChartType | null>(null);
@@ -202,6 +235,20 @@ export function DeviceDataChart<T extends string>({
     [availableFields]
   );
 
+  const timeDateInputType =
+    timeGranularity === "sec" || timeGranularity === "minute" ? "datetime-local" : "date";
+  const timeDateStep =
+    timeDateInputType === "datetime-local" ? (timeGranularity === "sec" ? 60 : 3600) : undefined;
+  const timeDateLabel = timeDateInputType === "datetime-local" ? "date/time" : "date";
+
+  const canAddChart = useMemo(() => {
+    if (disabled) return false;
+    if (selectedChartType === "line") {
+      return selectedLineFields.length > 0;
+    }
+    return Boolean(selectedField);
+  }, [disabled, selectedChartType, selectedLineFields.length, selectedField]);
+
   useEffect(() => {
     if (!availableFields.length) {
       setSelectedField("");
@@ -211,6 +258,20 @@ export function DeviceDataChart<T extends string>({
       setSelectedField(availableFields[0]);
     }
   }, [availableFields, selectedField]);
+
+  useEffect(() => {
+    if (!availableFields.length) {
+      setSelectedLineFields([]);
+      return;
+    }
+    setSelectedLineFields((prev) => prev.filter((field) => availableFields.includes(field)));
+  }, [availableFields]);
+
+  useEffect(() => {
+    if (selectedChartType !== "line") return;
+    if (!availableFields.length) return;
+    setSelectedLineFields((prev) => (prev.length ? prev : [availableFields[0]]));
+  }, [availableFields, selectedChartType]);
 
   useEffect(() => {
     if (!isEditing) {
@@ -260,11 +321,15 @@ export function DeviceDataChart<T extends string>({
     setActiveMenuId(null);
     setIsAddOpen(false);
     setIsEditOpen(false);
+    setIsFilterOpen(false);
     setEditingChartType(null);
     setEditMin("");
     setEditMax("");
     setSelectedMin("");
     setSelectedMax("");
+    setSelectedLineMin("");
+    setSelectedLineMax("");
+    setSelectedLineFields([]);
     setDraftCharts(normalizedSavedCharts);
     setDraftLayout(normalizedSavedLayout as Layout);
   };
@@ -292,6 +357,9 @@ export function DeviceDataChart<T extends string>({
   const handleOpenAdd = () => {
     setSelectedMin("");
     setSelectedMax("");
+    setSelectedLineMin("");
+    setSelectedLineMax("");
+    setSelectedLineFields(availableFields.length ? [availableFields[0]] : []);
     setIsAddOpen(true);
   };
 
@@ -299,10 +367,23 @@ export function DeviceDataChart<T extends string>({
     setIsAddOpen(false);
     setSelectedMin("");
     setSelectedMax("");
+    setSelectedLineMin("");
+    setSelectedLineMax("");
+    setSelectedLineFields([]);
+  };
+
+  const handleToggleLineField = (field: string) => {
+    setSelectedLineFields((prev) =>
+      prev.includes(field) ? prev.filter((item) => item !== field) : [...prev, field]
+    );
   };
 
   const handleAddChart = () => {
-    if (!selectedField) return;
+    const isLineChart = selectedChartType === "line";
+    const selectedLinePrimary = selectedLineFields[0] ?? "";
+    const fieldValue = isLineChart ? selectedLinePrimary : selectedField;
+    if (!fieldValue) return;
+    if (isLineChart && selectedLineFields.length === 0) return;
     const id = `chart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const nextPosition = getNextPosition(draftLayout);
     const nextLayout: LayoutItem = {
@@ -312,29 +393,41 @@ export function DeviceDataChart<T extends string>({
       w: DEFAULT_PANEL_SIZE.w,
       h: DEFAULT_PANEL_SIZE.h,
     };
-    const min = selectedChartType === "meter" ? parseOptionalNumber(selectedMin) : undefined;
-    const max = selectedChartType === "meter" ? parseOptionalNumber(selectedMax) : undefined;
+    const meterMin = selectedChartType === "meter" ? parseOptionalNumber(selectedMin) : undefined;
+    const meterMax = selectedChartType === "meter" ? parseOptionalNumber(selectedMax) : undefined;
+    const lineMin = selectedChartType === "line" ? parseOptionalNumber(selectedLineMin) : undefined;
+    const lineMax = selectedChartType === "line" ? parseOptionalNumber(selectedLineMax) : undefined;
     setDraftCharts((prev) => [
       ...prev,
       {
         id,
         type: selectedChartType,
-        field: selectedField,
+        field: fieldValue,
         name: "New panel",
-        ...(selectedChartType === "meter" ? { min, max } : {}),
+        ...(selectedChartType === "meter" ? { min: meterMin, max: meterMax } : {}),
+        ...(selectedChartType === "line"
+          ? {
+              min: lineMin,
+              max: lineMax,
+              fields: selectedLineFields,
+            }
+          : {}),
       },
     ]);
     setDraftLayout((prev) => [...prev, nextLayout]);
     setIsAddOpen(false);
     setSelectedMin("");
     setSelectedMax("");
+    setSelectedLineMin("");
+    setSelectedLineMax("");
+    setSelectedLineFields([]);
   };
 
   const handleOpenEdit = (chart: ChartItem) => {
     setEditingChartId(chart.id);
     setEditingChartType(chart.type);
     setEditName(chart.name.trim() || "New panel");
-    setEditField(chart.field);
+    setEditField(chart.fields?.[0] ?? chart.field);
     setEditMin(typeof chart.min === "number" ? String(chart.min) : "");
     setEditMax(typeof chart.max === "number" ? String(chart.max) : "");
     setIsEditOpen(true);
@@ -349,12 +442,26 @@ export function DeviceDataChart<T extends string>({
     setEditMax("");
   };
 
+  const handleOpenFilter = () => {
+    setIsFilterOpen(true);
+  };
+
+  const handleCloseFilter = () => {
+    setIsFilterOpen(false);
+  };
+
   const handleSaveEdit = () => {
     if (!editingChartId) return;
     const name = editName.trim() || "New panel";
     const field = editField || "";
-    const min = editingChartType === "meter" ? parseOptionalNumber(editMin) : undefined;
-    const max = editingChartType === "meter" ? parseOptionalNumber(editMax) : undefined;
+    const min =
+      editingChartType === "meter" || editingChartType === "line"
+        ? parseOptionalNumber(editMin)
+        : undefined;
+    const max =
+      editingChartType === "meter" || editingChartType === "line"
+        ? parseOptionalNumber(editMax)
+        : undefined;
     setDraftCharts((prev) =>
       prev.map((chart) =>
         chart.id === editingChartId
@@ -362,7 +469,7 @@ export function DeviceDataChart<T extends string>({
               ...chart,
               name,
               field: field || chart.field,
-              ...(chart.type === "meter" ? { min, max } : {}),
+              ...(chart.type === "meter" || chart.type === "line" ? { min, max } : {}),
             }
           : chart
       )
@@ -400,6 +507,15 @@ export function DeviceDataChart<T extends string>({
         <div className={styles["device-data-panel-controls"]}>
           {isEditing ? (
             <div className={styles["device-chart-edit-actions"]}>
+              <button
+                type="button"
+                className={styles["device-data-panel-filter-button"]}
+                onClick={handleOpenFilter}
+                disabled={disabled || saving}
+                aria-label="Open filters"
+              >
+                <FaFilter />
+              </button>
               <Button onClick={handleOpenAdd} disabled={!dataOptions.length || disabled || saving} className={styles["device-data-panel-control-button"]}>
                 Add chart
               </Button>
@@ -412,6 +528,15 @@ export function DeviceDataChart<T extends string>({
             </div>
           ) : (
             <>
+              <button
+                type="button"
+                className={styles["device-data-panel-filter-button"]}
+                onClick={handleOpenFilter}
+                disabled={disabled}
+                aria-label="Open filters"
+              >
+                <FaFilter />
+              </button>
               <DropdownSelect
                 id="device-dashboard-display"
                 value={displayMode}
@@ -539,49 +664,98 @@ export function DeviceDataChart<T extends string>({
             value={selectedChartType}
             options={CHART_OPTIONS}
             onChange={setSelectedChartType}
-            disabled={disabled}
+            disabled={disabled} 
           />
-          <DropdownSelect
-            id="device-chart-field"
-            label="Data field"
-            value={selectedField}
-            options={dataOptions}
-            placeholder={dataOptions.length ? "Select data" : "No data fields available"}
-            onChange={setSelectedField}
-            disabled={!dataOptions.length || disabled}
-          />
+          {selectedChartType !== "line" && (
+            <DropdownSelect
+              id="device-chart-field"
+              label="Data field"
+              value={selectedField}
+              options={dataOptions}
+              placeholder={dataOptions.length ? "Select data" : "No data fields available"}
+              onChange={setSelectedField}
+              disabled={!dataOptions.length || disabled}
+            />
+          )}
+          {selectedChartType === "line" && (
+            <>
+              <div>
+                <span className={styles["dashboard-select-label"]}>Data fields</span>
+                <div className={styles["dashboard-checkbox-row"]}>
+                  {dataOptions.map((option) => (
+                    <label key={option.value}>
+                      <input
+                        type="checkbox"
+                        checked={selectedLineFields.includes(option.value)}
+                        onChange={() => handleToggleLineField(option.value)}
+                        disabled={disabled}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className={styles["dashboard-inline-row"]}>
+                <Input
+                  id="device-chart-line-min"
+                  label="Min (optional)"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={selectedLineMin}
+                  onChange={(event) => setSelectedLineMin(event.target.value)}
+                  disabled={disabled}
+                />
+                <Input
+                  id="device-chart-line-max"
+                  label="Max (optional)"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="100"
+                  value={selectedLineMax}
+                  onChange={(event) => setSelectedLineMax(event.target.value)}
+                  disabled={disabled}
+                />
+              </div>
+            </>
+          )}
           {selectedChartType === "meter" && (
             <>
-              <Input
-                id="device-chart-min"
-                label="Min"
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={selectedMin}
-                onChange={(event) => setSelectedMin(event.target.value)}
-                disabled={disabled}
-              />
-              <Input
-                id="device-chart-max"
-                label="Max"
-                type="number"
-                inputMode="decimal"
-                placeholder="100"
-                value={selectedMax}
-                onChange={(event) => setSelectedMax(event.target.value)}
-                disabled={disabled}
-              />
+              <div className={styles["dashboard-inline-row"]}>
+                <Input
+                  id="device-chart-min"
+                  label="Min"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={selectedMin}
+                  onChange={(event) => setSelectedMin(event.target.value)}
+                  disabled={disabled}
+                />
+                <Input
+                  id="device-chart-max"
+                  label="Max"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="100"
+                  value={selectedMax}
+                  onChange={(event) => setSelectedMax(event.target.value)}
+                  disabled={disabled}
+                />
+              </div>
             </>
           )}
           {!dataOptions.length && (
             <p className={styles["dashboard-modal-error"]}>Generate a data panel to load fields.</p>
           )}
+          {selectedChartType === "line" && dataOptions.length > 0 && selectedLineFields.length === 0 && (
+            <p className={styles["dashboard-modal-error"]}>Select at least one data field.</p>
+          )}
           <div className={styles["dashboard-modal-actions"]}>
             <Button type="button" variant="cancel" onClick={handleCloseAdd}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleAddChart} disabled={!selectedField || disabled}>
+            <Button type="button" onClick={handleAddChart} disabled={!canAddChart}>
               Add chart
             </Button>
           </div>
@@ -606,26 +780,28 @@ export function DeviceDataChart<T extends string>({
             onChange={setEditField}
             disabled={!dataOptions.length}
           />
-          {editingChartType === "meter" && (
+          {(editingChartType === "meter" || editingChartType === "line") && (
             <>
-              <Input
-                id="device-edit-chart-min"
-                label="Min"
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={editMin}
-                onChange={(event) => setEditMin(event.target.value)}
-              />
-              <Input
-                id="device-edit-chart-max"
-                label="Max"
-                type="number"
-                inputMode="decimal"
-                placeholder="100"
-                value={editMax}
-                onChange={(event) => setEditMax(event.target.value)}
-              />
+              <div className={styles["dashboard-inline-row"]}>
+                <Input
+                  id="device-edit-chart-min"
+                  label="Min"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={editMin}
+                  onChange={(event) => setEditMin(event.target.value)}
+                />
+                <Input
+                  id="device-edit-chart-max"
+                  label="Max"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="100"
+                  value={editMax}
+                  onChange={(event) => setEditMax(event.target.value)}
+                />
+              </div>
             </>
           )}
           {!dataOptions.length && (
@@ -641,6 +817,42 @@ export function DeviceDataChart<T extends string>({
               disabled={!editName.trim() || (!editField && dataOptions.length > 0)}
             >
               Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isFilterOpen} onClose={handleCloseFilter} title="Chart filters">
+        <div className={styles["dashboard-modal-form"]}>
+          <DropdownSelect
+            id="device-data-time-granularity"
+            label="Granularity"
+            value={timeGranularity}
+            options={LINE_GRANULARITY_OPTIONS}
+            onChange={setTimeGranularity}
+            disabled={disabled}
+          />
+          <Input
+            id="device-data-time-start"
+            label={`Start ${timeDateLabel}`}
+            type={timeDateInputType}
+            step={timeDateStep}
+            value={timeStart}
+            onChange={(event) => setTimeStart(event.target.value)}
+            disabled={disabled}
+          />
+          <Input
+            id="device-data-time-end"
+            label={`End ${timeDateLabel}`}
+            type={timeDateInputType}
+            step={timeDateStep}
+            value={timeEnd}
+            onChange={(event) => setTimeEnd(event.target.value)}
+            disabled={disabled}
+          />
+          <div className={styles["dashboard-modal-actions"]}>
+            <Button type="button" variant="cancel" onClick={handleCloseFilter}>
+              Close
             </Button>
           </div>
         </div>

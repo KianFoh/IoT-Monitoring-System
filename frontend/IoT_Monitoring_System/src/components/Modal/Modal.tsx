@@ -26,10 +26,6 @@ export function Modal({ isOpen, onClose, title, footer, children }: ModalProps) 
   if (!isOpen) return null;
   
 
-  const handleOverlayClick = () => {
-    onClose();
-  };
-
   const stopPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -45,7 +41,7 @@ export function Modal({ isOpen, onClose, title, footer, children }: ModalProps) 
         </div>
 
         <div className={styles["gen-modal-body"]}>{children}</div>
-
+        
         {footer && <div className={styles["gen-modal-footer"]}>{footer}</div>}
       </div>
     </div>

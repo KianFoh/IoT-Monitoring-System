@@ -54,17 +54,49 @@ def get_by_uid(
             time_filter["$lte"] = end
         pipeline.append({"$match": {"_ts": time_filter}})
 
-    pipeline.append({"$sort": {"_ts": -1}})
-
     if granularity:
         group_id = _build_group_id(granularity)
-        pipeline.extend(
-            [
-                {"$group": {"_id": group_id, "doc": {"$first": "$$ROOT"}}},
-                {"$replaceRoot": {"newRoot": "$doc"}},
-                {"$sort": {"_ts": -1}},
-            ]
-        )
+        pipeline.extend([
+            {
+                "$addFields": {
+                    "data_kv": {"$objectToArray": {"$ifNull": ["$data", {}]}},
+                }
+            },
+            {"$unwind": "$data_kv"},
+            {
+                "$addFields": {
+                    "data_value": {
+                        "$convert": {
+                            "input": "$data_kv.v",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        }
+                    }
+                }
+            },
+            {"$match": {"data_value": {"$ne": None}}},
+            {
+                "$group": {
+                    "_id": {"bucket": group_id, "key": "$data_kv.k"},
+                    "avg": {"$avg": "$data_value"},
+                    "ts": {"$max": "$_ts"},
+                    "device_id": {"$first": "$device_id"},
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$_id.bucket",
+                    "data": {"$push": {"k": "$_id.key", "v": "$avg"}},
+                    "ts": {"$max": "$ts"},
+                    "device_id": {"$first": "$device_id"},
+                }
+            },
+            {"$addFields": {"data": {"$arrayToObject": "$data"}}},
+            {"$sort": {"ts": -1}},
+        ])
+    else:
+        pipeline.append({"$sort": {"_ts": -1}})
 
     if limit:
         pipeline.append({"$limit": limit})
