@@ -28,6 +28,7 @@ class DeviceOut(BaseModel):
     dashboard_config: Optional[dict] = None
     department_name: str
     customer_name: str
+    distributor_name: Optional[str] = None
     created_at: datetime
     is_online: bool
     is_active: bool

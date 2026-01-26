@@ -13,10 +13,14 @@ STATUS_TOPIC_WILDCARD = f"{STATUS_TOPIC_PREFIX}/#"
 
 def _parse_status_topic(topic: str) -> Tuple[Optional[str], Optional[str]]:
     parts = [part for part in topic.split("/") if part]
-    if len(parts) < 5:
+    if len(parts) < 6:
         return None, None
     if parts[0] != "internal" or parts[1] != "devices" or parts[2] != "status":
         return None, None
+    if len(parts) >= 7:
+        distributor = parts[3]
+        customer = parts[4]
+        return f"{distributor}/{customer}", parts[-1]
     return parts[3], parts[-1]
 
 
@@ -50,8 +54,8 @@ class DeviceStatusBridge:
         logging.info("Subscribed to device status topic: %s", STATUS_TOPIC_WILDCARD)
 
     def _handle_message(self, topic: str, payload: bytes) -> None:
-        customer_name, device_uid = _parse_status_topic(topic)
-        if not customer_name or not device_uid:
+        customer_path, device_uid = _parse_status_topic(topic)
+        if not customer_path or not device_uid:
             return
         status = _parse_status_payload(payload)
         message = {
@@ -67,7 +71,7 @@ class DeviceStatusBridge:
         )
         future.add_done_callback(self._log_broadcast_failure)
         if self._stream_manager:
-            device_key = f"{customer_name}/{device_uid}"
+            device_key = f"{customer_path}/{device_uid}"
             if self._stream_manager.has_connections(device_key):
                 future = asyncio.run_coroutine_threadsafe(
                     self._stream_manager.broadcast(device_key, message),

@@ -10,6 +10,7 @@ import {
   FaUserCog,
   FaUserAlt ,
   FaBuilding,
+  FaSitemap ,
 } from "react-icons/fa";
 import styles from"./Navbar.module.css";
 
@@ -24,6 +25,7 @@ const Navbar = () => {
 
   const navItems: NavItem[] = [
     { to: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
+    { to: "/dashboard/distributors", label: "Distributors", icon: <FaSitemap  /> },
     { to: "/dashboard/customers", label: "Customers", icon: <FaUserAlt  /> },
     { to: "/dashboard/departments", label: "Departments", icon: <FaBuilding /> },
     { to: "/dashboard/mqtt-users", label: "MQTT Users", icon: <FaUserCog  /> },

@@ -4,6 +4,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.utils.ws_events import broadcast_customer_event
 from app.crud.postgres import customer as customer_crud
+from app.crud.postgres import distributor as distributor_crud
 from app.models.user import User as UserModel
 from app.models.enum.user_role import UserRole
 from app.schemas.customer import CustomerCreate, CustomerSearch, CustomerUpdate, CustomerOut, CustomerListResponse
@@ -38,6 +39,14 @@ async def create_customer(
             status_code=status.HTTP_409_CONFLICT,
             detail="Customer name already exists"
         )
+
+    if customer.distributor_id is not None:
+        distributor = distributor_crud.get_distributor(db, customer.distributor_id)
+        if not distributor:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Distributor not found",
+            )
     
     db_customer = customer_crud.create_customer(db, customer)
     customer_out = customer_crud.get_customer_with_references(db, db_customer.id) or CustomerOut.model_validate(
@@ -45,6 +54,8 @@ async def create_customer(
             "id": db_customer.id,
             "name": db_customer.name,
             "phone_no": db_customer.phone_no,
+            "distributor_id": db_customer.distributor_id,
+            "distributor_name": None,
             "is_active": db_customer.is_active,
             "created_at": db_customer.created_at,
             "is_deletable": True,
@@ -139,6 +150,15 @@ async def update_customer(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Customer name already exists"
             )
+
+    if "distributor_id" in customer_update.model_fields_set:
+        if customer_update.distributor_id is not None:
+            distributor = distributor_crud.get_distributor(db, customer_update.distributor_id)
+            if not distributor:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Distributor not found",
+                )
     
     db_customer = customer_crud.update_customer(db, customer_id, customer_update)
     customer_out = customer_crud.get_customer_with_references(db, customer_id) or CustomerOut.model_validate(
@@ -146,6 +166,8 @@ async def update_customer(
             "id": db_customer.id,
             "name": db_customer.name,
             "phone_no": db_customer.phone_no,
+            "distributor_id": db_customer.distributor_id,
+            "distributor_name": None,
             "is_active": db_customer.is_active,
             "created_at": db_customer.created_at,
             "is_deletable": True,

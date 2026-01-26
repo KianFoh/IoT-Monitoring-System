@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app.models.customer import Customer as CustomerModel
 from app.models.department import Department as DepartmentModel
+from app.models.distributor import Distributor as DistributorModel
 from app.models.mqtt_user import Mqtt_User as MqttUserModel
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerOut
 
@@ -17,20 +18,27 @@ def _base_customer_query(db: Session):
         .filter(MqttUserModel.customer_id == CustomerModel.id)
         .exists()
     )
-    return db.query(
-        CustomerModel,
-        has_departments.label("has_departments"),
-        has_mqtt_user.label("has_mqtt_user"),
+    return (
+        db.query(
+            CustomerModel,
+            has_departments.label("has_departments"),
+            has_mqtt_user.label("has_mqtt_user"),
+            DistributorModel.id.label("distributor_id"),
+            DistributorModel.name.label("distributor_name"),
+        )
+        .outerjoin(DistributorModel, CustomerModel.distributor_id == DistributorModel.id)
     )
 
 def _serialize_customer_row(row) -> CustomerOut:
-    customer, has_departments, has_mqtt_user = row
+    customer, has_departments, has_mqtt_user, distributor_id, distributor_name = row
     is_deletable = not (has_departments or has_mqtt_user)
     return CustomerOut.model_validate(
         {
             "id": customer.id,
             "name": customer.name,
             "phone_no": customer.phone_no,
+            "distributor_id": distributor_id,
+            "distributor_name": distributor_name,
             "is_active": customer.is_active,
             "created_at": customer.created_at,
             "is_deletable": is_deletable,
@@ -57,7 +65,8 @@ def get_customers(db: Session, search: str | None = None, page: int = 1, page_si
         query = query.filter(
             or_(
                 CustomerModel.name.ilike(like),
-                CustomerModel.phone_no.ilike(like)
+                CustomerModel.phone_no.ilike(like),
+                DistributorModel.name.ilike(like),
             )
         )
     total = query.count()
@@ -115,7 +124,11 @@ def customer_has_references(db: Session, customer_id: int) -> bool:
 # ==================== Create ====================
 def create_customer(db: Session, customer: CustomerCreate):
     """Create a new customer."""
-    db_customer = CustomerModel(name=customer.name, phone_no=customer.phone_no)
+    db_customer = CustomerModel(
+        name=customer.name,
+        phone_no=customer.phone_no,
+        distributor_id=customer.distributor_id,
+    )
     db.add(db_customer)
     db.commit()
     db.refresh(db_customer)

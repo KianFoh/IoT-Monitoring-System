@@ -1,33 +1,22 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import type { Customer } from "@/types/customer";
-import { customersApi } from "../api/customersApi";
+import type { Distributor } from "@/types/distributor";
+import { distributorsApi } from "../api/distributorsApi";
 
-export function useCustomerActions() {
+export function useDistributorActions() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const [addForm, setAddForm] = useState({
-    name: "",
-    phone_no: "",
-    distributor_name: "",
-    distributor_id: null as number | null,
-  });
-  const [editForm, setEditForm] = useState({
-    name: "",
-    phone_no: "",
-    distributor_name: "",
-    distributor_id: null as number | null,
-    is_active: true,
-  });
+  const [addForm, setAddForm] = useState({ name: "", phone_no: "" });
+  const [editForm, setEditForm] = useState({ name: "", phone_no: "", is_active: true });
 
   const openAddModal = () => {
-    setAddForm({ name: "", phone_no: "", distributor_name: "", distributor_id: null });
+    setAddForm({ name: "", phone_no: "" });
     setActionError(null);
     setShowAddModal(true);
   };
@@ -37,14 +26,12 @@ export function useCustomerActions() {
     setActionError(null);
   };
 
-  const openEditModal = (customer: Customer) => {
-    setSelectedCustomer(customer);
+  const openEditModal = (distributor: Distributor) => {
+    setSelectedDistributor(distributor);
     setEditForm({
-      name: customer.name || "",
-      phone_no: customer.phone_no || "",
-      distributor_name: customer.distributor_name || "",
-      distributor_id: customer.distributor_id ?? null,
-      is_active: !!customer.is_active,
+      name: distributor.name || "",
+      phone_no: distributor.phone_no || "",
+      is_active: !!distributor.is_active,
     });
     setActionError(null);
     setShowEditModal(true);
@@ -52,38 +39,30 @@ export function useCustomerActions() {
 
   const closeEditModal = () => {
     setShowEditModal(false);
-    setSelectedCustomer(null);
+    setSelectedDistributor(null);
     setActionError(null);
   };
 
-  const openDeleteModal = (customer: Customer) => {
-    setSelectedCustomer(customer);
+  const openDeleteModal = (distributor: Distributor) => {
+    setSelectedDistributor(distributor);
     setActionError(null);
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
-    setSelectedCustomer(null);
+    setSelectedDistributor(null);
     setActionError(null);
   };
 
   const addMutation = useMutation({
-    mutationFn: ({
-      name,
-      phone_no,
-      distributor_id,
-    }: {
-      name: string;
-      phone_no?: string | null;
-      distributor_id?: number | null;
-    }) =>
-      customersApi.create({ name, phone_no, distributor_id }),
+    mutationFn: ({ name, phone_no }: { name: string; phone_no?: string | null }) =>
+      distributorsApi.create({ name, phone_no }),
     onSuccess: () => {
       closeAddModal();
     },
     onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to add customer";
+      const message = err instanceof Error ? err.message : "Failed to add distributor";
       setActionError(message);
     },
   });
@@ -94,25 +73,24 @@ export function useCustomerActions() {
       payload,
     }: {
       id: number;
-      payload: { name?: string; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null };
-    }) =>
-      customersApi.update(id, payload),
+      payload: { name?: string; phone_no?: string | null; is_active?: boolean };
+    }) => distributorsApi.update(id, payload),
     onSuccess: () => {
       closeEditModal();
     },
     onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to update customer";
+      const message = err instanceof Error ? err.message : "Failed to update distributor";
       setActionError(message);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => customersApi.remove(id),
+    mutationFn: (id: number) => distributorsApi.remove(id),
     onSuccess: () => {
       closeDeleteModal();
     },
     onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to delete customer";
+      const message = err instanceof Error ? err.message : "Failed to delete distributor";
       setActionError(message);
     },
   });
@@ -130,11 +108,10 @@ export function useCustomerActions() {
       await addMutation.mutateAsync({
         name: addForm.name.trim(),
         phone_no: phone ? phone : null,
-        distributor_id: addForm.distributor_id ?? null,
       });
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add customer";
+      const message = err instanceof Error ? err.message : "Failed to add distributor";
       setActionError(message);
       return false;
     }
@@ -142,40 +119,39 @@ export function useCustomerActions() {
 
   const handleEditSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
-    if (!selectedCustomer) return false;
+    if (!selectedDistributor) return false;
 
     const phone = editForm.phone_no.trim();
-    const payload: { name?: string; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null } = {
+    const payload: { name?: string; phone_no?: string | null; is_active?: boolean } = {
       phone_no: phone ? phone : null,
       is_active: editForm.is_active,
-      distributor_id: editForm.distributor_id ?? null,
     };
 
     if (editForm.name.trim()) payload.name = editForm.name.trim();
 
     try {
       setActionError(null);
-      await editMutation.mutateAsync({ id: selectedCustomer.id, payload });
+      await editMutation.mutateAsync({ id: selectedDistributor.id, payload });
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update customer";
+      const message = err instanceof Error ? err.message : "Failed to update distributor";
       setActionError(message);
       return false;
     }
   };
 
   const handleDelete = async () => {
-    if (!selectedCustomer) return false;
-    if (!selectedCustomer.is_deletable) {
-      setActionError("Customer is referenced by other records.");
+    if (!selectedDistributor) return false;
+    if (!selectedDistributor.is_deletable) {
+      setActionError("Distributor is referenced by other records.");
       return false;
     }
     try {
       setActionError(null);
-      await deleteMutation.mutateAsync(selectedCustomer.id);
+      await deleteMutation.mutateAsync(selectedDistributor.id);
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete customer";
+      const message = err instanceof Error ? err.message : "Failed to delete distributor";
       setActionError(message);
       return false;
     }
@@ -187,7 +163,7 @@ export function useCustomerActions() {
     showAddModal,
     showEditModal,
     showDeleteModal,
-    selectedCustomer,
+    selectedDistributor,
     actionError,
     actionLoading,
     addForm,

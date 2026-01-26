@@ -3,7 +3,7 @@ import { LoginPage, EmailVerificationPage, ResendVerificationPage, ResetPassword
 import { ProtectedRoute } from "./ProtectedRoute";
 import { SuperuserRoute } from "./SuperuserRoute";
 import { GuestRoute } from "./GuestRoute";
-import { DashboardLayout, DashboardHome, CustomersPage, DepartmentPage, DevicesPage, DeviceDashboardPage, MqttUserPage, SettingsPage, UsersPage } from "@/features/dashboard";
+import { DashboardLayout, DashboardHome, CustomersPage, DistributorsPage, DepartmentPage, DevicesPage, DeviceDashboardPage, MqttUserPage, SettingsPage, UsersPage } from "@/features/dashboard";
 
 export default function AppRoutes() {
 
@@ -28,7 +28,8 @@ export default function AppRoutes() {
         <Route element={<SuperuserRoute />}>
           <Route path="devices/:deviceUid" element={<DeviceDashboardPage />} />
         </Route>
-        <Route path="customers" element={<CustomersPage />} />
+        <Route path="distributors" element={<DistributorsPage />} />
+        <Route path="customers" element={<CustomersPage />} />       
         <Route path="departments" element={<DepartmentPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="mqtt-users" element={<MqttUserPage />} />

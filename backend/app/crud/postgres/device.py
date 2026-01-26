@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.device import Device as DeviceModel
 from app.models.department import Department as DepartmentModel
 from app.models.customer import Customer as CustomerModel
+from app.models.distributor import Distributor as DistributorModel
 from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceRecentOut, DeviceOut
 
 # ==================== Create ====================
@@ -44,13 +45,15 @@ def _base_device_query(db: Session):
             DeviceModel,
             DepartmentModel.name.label("department_name"),
             CustomerModel.name.label("customer_name"),
+            DistributorModel.name.label("distributor_name"),
         )
         .outerjoin(DepartmentModel, DeviceModel.department_id == DepartmentModel.id)
         .outerjoin(CustomerModel, DepartmentModel.customer_id == CustomerModel.id)
+        .outerjoin(DistributorModel, CustomerModel.distributor_id == DistributorModel.id)
     )
 
 def _serialize_device_row(row) -> DeviceOut:
-    device, department_name, customer_name = row
+    device, department_name, customer_name, distributor_name = row
     department_name = department_name or ""
     customer_name = customer_name or ""
     return DeviceOut.model_validate(
@@ -65,6 +68,7 @@ def _serialize_device_row(row) -> DeviceOut:
             "is_active": device.is_active,
             "department_name": department_name,
             "customer_name": customer_name,
+            "distributor_name": distributor_name,
             "created_at": device.created_at,
         }
     )
@@ -97,6 +101,13 @@ def get_devices(db: Session, search: Optional[str] = None, page: int = 1, page_s
 def get_device_with_relations(db: Session, device_id: int):
     """Get a single device enriched with customer/department names."""
     row = _base_device_query(db).filter(DeviceModel.id == device_id).first()
+    if not row:
+        return None
+    return _serialize_device_row(row)
+
+def get_device_with_relations_by_uid(db: Session, device_uid: str):
+    """Get a single device enriched with customer/department names by UID."""
+    row = _base_device_query(db).filter(DeviceModel.uid == device_uid).first()
     if not row:
         return None
     return _serialize_device_row(row)

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.core.websocket_manager import manager
 from app.schemas.customer import CustomerOut
 from app.schemas.department import DepartmentOut
+from app.schemas.distributor import DistributorOut
 from app.schemas.device import DeviceOut
 from app.schemas.mqtt_user import MqttUserOut
 from app.schemas.user import UserOut
@@ -23,6 +24,13 @@ async def broadcast_customer_event(event_type: str, customer: CustomerOut):
     await manager.broadcast(
         "customer",
         {"type": event_type, "data": _serialize(customer)},
+    )
+
+
+async def broadcast_distributor_event(event_type: str, distributor: DistributorOut):
+    await manager.broadcast(
+        "distributor",
+        {"type": event_type, "data": _serialize(distributor)},
     )
 
 

@@ -27,11 +27,14 @@ export const customersApi = {
     return api.get<CustomerSearch[]>(`/customers/search?${params.toString()}`);
   },
 
-  async create(payload: { name: string; phone_no?: string | null }) {
+  async create(payload: { name: string; phone_no?: string | null; distributor_id?: number | null }) {
     return api.post<Customer>("/customers/", payload);
   },
 
-  async update(id: number, payload: { name?: string; phone_no?: string | null; is_active?: boolean }) {
+  async update(
+    id: number,
+    payload: { name?: string; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null }
+  ) {
     return api.patch<Customer>(`/customers/${id}`, payload);
   },
 

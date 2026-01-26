@@ -3,6 +3,7 @@ export * from "./pages/DashboardHome";
 export * from "./pages/DevicesPage";
 export * from "./pages/DeviceDashboardPage";
 export * from "./pages/CustomersPage";
+export * from "./pages/DistributorsPage";
 export * from "./pages/DepartmentPage";
 export * from "./pages/MqttUserPage";
 export * from "./pages/SettingsPage";

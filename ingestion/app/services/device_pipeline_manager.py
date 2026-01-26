@@ -2,9 +2,9 @@ import json
 from typing import Dict, List, Optional
 from app.core.postgresql import SessionLocal
 from app.models.customer import Customer
+from app.models.distributor import Distributor
 from app.models.department import Department
 from app.models.device import Device
-from app.core.config import settings
 from app.services.device_pipeline import DeviceInfo, DevicePipeline
 from app.utils.logger import logger
 
@@ -21,16 +21,18 @@ class DeviceRepository:
                     Device.is_active,
                     Department.name,
                     Customer.name,
+                    Distributor.name,
                 )
                 .join(Department, Device.department_id == Department.id)
                 .join(Customer, Department.customer_id == Customer.id)
+                .outerjoin(Distributor, Customer.distributor_id == Distributor.id)
                 .all()
             )
         finally:
             session.close()
 
         devices: List[DeviceInfo] = []
-        for uid, data_interval, is_active, department_name, customer_name in rows:
+        for uid, data_interval, is_active, department_name, customer_name, distributor_name in rows:
             if not customer_name or not department_name:
                 logger.warning(f"Device {uid} missing customer or department; skipping")
                 continue
@@ -40,6 +42,7 @@ class DeviceRepository:
                     uid=uid,
                     customer_name=customer_name,
                     department_name=department_name,
+                    distributor_name=distributor_name,
                     data_interval=interval_value,
                     is_active=is_active,
                 )
@@ -54,11 +57,7 @@ class DevicePipelineManager:
         self._repository = repository or DeviceRepository()
         self._pipelines: Dict[str, DevicePipeline] = {}
         # Subscribe to all device event topics with MQTT wildcards.
-        self._event_topic = settings.MQTT_DEVICE_EVENT_TOPIC.format(
-            customer_name="+",
-            department_name="+",
-            device_uid="+",
-        )
+        self._event_topic = "internal/devices/events/#"
 
     def load_existing_devices(self):
         """Load existing devices and start pipelines"""
@@ -163,12 +162,18 @@ class DevicePipelineManager:
 
         is_active = self._coerce_bool(data.get("is_active"))
 
+        distributor_name = data.get("distributor_name")
+        if not distributor_name:
+            existing = self._pipelines.get(device_uid)
+            distributor_name = existing.device.distributor_name if existing else None
+
         restart_requested = data.get("restart_pipeline")
 
         device_info = DeviceInfo(
             uid=device_uid,
             customer_name=customer_name,
             department_name=department_name,
+            distributor_name=distributor_name,
             data_interval=data_interval,
             is_active=is_active,
         )
@@ -194,11 +199,11 @@ class DevicePipelineManager:
                 else:
                     logger.warning(f"Device event update: failed to restart pipeline for {device_uid}")
             else:
-                stopped = self.stop_pipeline(device_uid)
-                if stopped:
-                    logger.info(f"Device event update: stopped pipeline for {device_uid}")
+                destroyed = self.stop_pipeline(device_uid)
+                if destroyed:
+                    logger.info(f"Device event update: destroyed pipeline for {device_uid}")
                 else:
-                    logger.info(f"Device event update: no pipeline to stop for {device_uid}")
+                    logger.info(f"Device event update: no pipeline to destroy for {device_uid}")
             return
 
         if event_type == "delete":

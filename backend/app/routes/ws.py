@@ -4,6 +4,7 @@ from app.core.websocket_manager import ALLOWED_CHANNELS, manager
 from app.core.security import decode_token
 from app.core.database import SessionLocal
 from app.models.user import User
+from app.crud.postgres import device as device_crud
 from app.models.enum.user_role import UserRole
 
 
@@ -142,8 +143,23 @@ async def device_stream_websocket(
     if not stream_manager:
         await websocket.close(code=1011)
         return
+    db = SessionLocal()
+    try:
+        device = device_crud.get_device_with_relations_by_uid(db, device_uid)
+    finally:
+        db.close()
+    if not device:
+        await websocket.close(code=4404)
+        return
 
-    topic = f"internal/devices/processed/{customer_name}/{department_name}/{device_uid}/"
+    distributor = (device.distributor_name or "").strip().lower()
+    customer = (device.customer_name or "").strip().lower()
+    department = (device.department_name or "").strip().lower()
+    if distributor:
+        topic = f"internal/devices/processed/{distributor}/{customer}/{department}/{device_uid}/"
+    else:
+        topic = f"internal/devices/processed/{customer}/{department}/{device_uid}/"
+
     await stream_manager.connect(topic, websocket)
     try:
         while True:
@@ -170,8 +186,22 @@ async def device_status_websocket(
     if not stream_manager:
         await websocket.close(code=1011)
         return
+    db = SessionLocal()
+    try:
+        device = device_crud.get_device_with_relations_by_uid(db, device_uid)
+    finally:
+        db.close()
+    if not device:
+        await websocket.close(code=4404)
+        return
 
-    device_key = f"{customer_name}/{device_uid}"
+    distributor = (device.distributor_name or "").strip().lower()
+    customer = (device.customer_name or "").strip().lower()
+    if distributor:
+        device_key = f"{distributor}/{customer}/{device_uid}"
+    else:
+        device_key = f"{customer}/{device_uid}"
+
     await stream_manager.connect(device_key, websocket)
     try:
         while True:

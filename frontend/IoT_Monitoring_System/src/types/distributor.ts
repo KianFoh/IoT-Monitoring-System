@@ -1,22 +1,20 @@
-export interface Customer {
+export interface Distributor {
   id: number;
   name: string;
   phone_no: string | null;
-  distributor_id?: number | null;
-  distributor_name?: string | null;
   is_active: boolean;
   created_at: string;
   is_deletable: boolean;
 }
 
-export interface CustomerListResponse {
-  items: Customer[];
+export interface DistributorListResponse {
+  items: Distributor[];
   total: number;
   page: number;
   page_size: number;
 }
 
-export interface CustomerSearch {
+export interface DistributorSearch {
   id: number;
   name: string;
 }

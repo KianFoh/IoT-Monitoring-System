@@ -11,7 +11,7 @@ from app.core.mqtt_client import MQTTClient
 from app.services.device_processed_bridge import DeviceProcessedBridge
 from app.services.device_status_bridge import DeviceStatusBridge
 from app.services.device_stream_manager import DeviceStreamManager
-from app.routes import health, user, auth, customer, department, device, mqtt_user, ws
+from app.routes import health, user, auth, customer, distributor, department, device, mqtt_user, ws
 
 # Get settings
 settings = get_settings()
@@ -98,6 +98,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(customer.router)
+app.include_router(distributor.router)
 app.include_router(health.router)
 app.include_router(department.router)
 app.include_router(device.router)

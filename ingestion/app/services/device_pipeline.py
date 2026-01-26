@@ -1,8 +1,7 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from app.core.config import settings
 from app.core.mongo import get_collection
 from app.core.postgresql import SessionLocal
 from app.models.device import Device
@@ -15,6 +14,7 @@ class DeviceInfo:
     uid: str
     customer_name: str
     department_name: str
+    distributor_name: Optional[str]
     data_interval: int
     is_active: bool
 
@@ -29,18 +29,15 @@ class DevicePipeline:
         
     @property
     def device_topic(self):
-        return settings.MQTT_DEVICE_RAW_DATA_TOPIC.format(
-            customer_name=self._normalize_topic_value(self.device.customer_name),
-            device_uid=self.device.uid,
-        )
+        customer = self._normalize_topic_value(self.device.customer_name)
+        distributor = self._normalize_topic_value(self.device.distributor_name) if self.device.distributor_name else ""
+        if distributor:
+            return f"{distributor}/{customer}/json/send/{self.device.uid}/"
+        return f"{customer}/json/send/{self.device.uid}/"
 
     @property
     def processed_topic(self):
-        return settings.MQTT_DEVICE_PROCESSED_DATA_TOPIC.format(
-            customer_name=self._normalize_topic_value(self.device.customer_name),
-            department_name=self._normalize_topic_value(self.device.department_name),
-            device_uid=self.device.uid,
-        )
+        return self._build_internal_topic("processed")
     
     def start(self):
         if not self.device.is_active:
@@ -146,14 +143,18 @@ class DevicePipeline:
             return
         self.status = new_status
         self.mqtt.publish(
-            settings.MQTT_DEVICE_STATUS_TOPIC.format(
-                customer_name=self._normalize_topic_value(self.device.customer_name),
-                department_name=self._normalize_topic_value(self.device.department_name),
-                device_uid=self.device.uid,
-            ),
+            self._build_internal_topic("status"),
             new_status,
         )
         self._update_device_status(new_status == "online")
+
+    def _build_internal_topic(self, topic_type: str) -> str:
+        customer = self._normalize_topic_value(self.device.customer_name)
+        department = self._normalize_topic_value(self.device.department_name)
+        distributor = self._normalize_topic_value(self.device.distributor_name) if self.device.distributor_name else ""
+        if distributor:
+            return f"internal/devices/{topic_type}/{distributor}/{customer}/{department}/{self.device.uid}/"
+        return f"internal/devices/{topic_type}/{customer}/{department}/{self.device.uid}/"
 
     @staticmethod
     def _normalize_topic_value(value: str) -> str:

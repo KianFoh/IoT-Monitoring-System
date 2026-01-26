@@ -1,5 +1,6 @@
 # models packagefrom .customer import Customer
 from .customer import Customer
+from .distributor import Distributor
 from .user import User
 from .department import Department
 from .device import Device

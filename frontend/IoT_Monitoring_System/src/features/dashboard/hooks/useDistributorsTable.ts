@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CustomerListResponse } from "@/types/customer";
-import { customersApi } from "../api/customersApi";
+import type { DistributorListResponse } from "@/types/distributor";
+import { distributorsApi } from "../api/distributorsApi";
 import { wsManager, type WSEvent } from "@/services/ws";
 
-export function useCustomersTable(initialPageSize = 5) {
+export function useDistributorsTable(initialPageSize = 5) {
   const [queryValue, setQueryValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -15,11 +15,11 @@ export function useCustomersTable(initialPageSize = 5) {
     setQueryValue(value);
   };
 
-  const { data, isPending, error } = useQuery<CustomerListResponse, Error>({
-    queryKey: ["customers", "list", { page: currentPage, pageSize, query: queryValue }],
+  const { data, isPending, error } = useQuery<DistributorListResponse, Error>({
+    queryKey: ["distributors", "list", { page: currentPage, pageSize, query: queryValue }],
     refetchOnMount: true,
     queryFn: async () =>
-      customersApi.list({
+      distributorsApi.list({
         page: currentPage,
         page_size: pageSize,
         search: queryValue,
@@ -29,21 +29,14 @@ export function useCustomersTable(initialPageSize = 5) {
   });
 
   useEffect(() => {
-    const unsub = wsManager.on("customer", (_event: WSEvent<any>) => {
-      queryClient.invalidateQueries({ queryKey: ["customers", "list"] });
-    });
-    return () => unsub();
-  }, [queryClient]);
-
-  useEffect(() => {
     const unsub = wsManager.on("distributor", (_event: WSEvent<any>) => {
-      queryClient.invalidateQueries({ queryKey: ["customers", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["distributors", "list"] });
     });
     return () => unsub();
   }, [queryClient]);
 
   const total = data?.total ?? 0;
-  const customers = data?.items ?? [];
+  const distributors = data?.items ?? [];
 
   const totalPages = useMemo(() => {
     if (!pageSize) return 1;
@@ -64,7 +57,7 @@ export function useCustomersTable(initialPageSize = 5) {
     setCurrentPage,
     pageSize,
     setPageSize,
-    customers,
+    distributors,
     total,
     totalPages,
     loading: isPending,

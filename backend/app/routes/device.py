@@ -14,27 +14,50 @@ from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
-DEVICE_EVENT_TOPIC = "internal/devices/events/{customer_name}/{department_name}/{device_uid}/"
+DEVICE_EVENT_PREFIX = "internal/devices/events"
 
 
 def _normalize_topic_name(value: str) -> str:
     return (value or "").strip().lower()
 
 
-def _publish_device_event(request: Request, customer_name: str, department_name: str, payload: dict) -> None:
+def _build_device_event_topic(
+    customer_name: str,
+    department_name: str,
+    device_uid: str,
+    distributor_name: str | None = None,
+) -> str:
+    normalized_customer = _normalize_topic_name(customer_name)
+    normalized_department = _normalize_topic_name(department_name)
+    normalized_distributor = _normalize_topic_name(distributor_name) if distributor_name else ""
+    if normalized_distributor:
+        return f"{DEVICE_EVENT_PREFIX}/{normalized_distributor}/{normalized_customer}/{normalized_department}/{device_uid}/"
+    return f"{DEVICE_EVENT_PREFIX}/{normalized_customer}/{normalized_department}/{device_uid}/"
+
+
+def _publish_device_event(
+    request: Request,
+    customer_name: str,
+    department_name: str,
+    payload: dict,
+    distributor_name: str | None = None,
+) -> None:
     mqtt_client = getattr(request.app.state, "mqtt_client", None)
     if not mqtt_client:
         return
+    payload_to_send = dict(payload)
     normalized_customer = _normalize_topic_name(customer_name)
     normalized_department = _normalize_topic_name(department_name)
-    payload_to_send = dict(payload)
     payload_to_send["customer_name"] = normalized_customer
     payload_to_send["department_name"] = normalized_department
+    if distributor_name:
+        payload_to_send["distributor_name"] = _normalize_topic_name(distributor_name)
     mqtt_client.publish(
-        DEVICE_EVENT_TOPIC.format(
-            customer_name=normalized_customer,
-            department_name=normalized_department,
-            device_uid=payload_to_send.get("uid"),
+        _build_device_event_topic(
+            normalized_customer,
+            normalized_department,
+            payload_to_send.get("uid"),
+            distributor_name,
         ),
         payload_to_send,
     )
@@ -107,6 +130,7 @@ async def create_device(
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
         },
+        device_out.distributor_name,
     )
     return device_out
 
@@ -207,6 +231,7 @@ async def update_device(
             "is_active": device_out.is_active,
             "restart_pipeline": restart_pipeline,
         },
+        device_out.distributor_name,
     )
     return device_out
 
@@ -247,6 +272,7 @@ async def delete_device(
             "data_interval": device_out.data_interval if device_out else None,
             "is_active": device_out.is_active if device_out else None,
         },
+        device_out.distributor_name if device_out else None,
     )
 
 # ==================== Fetch Device Data =====================

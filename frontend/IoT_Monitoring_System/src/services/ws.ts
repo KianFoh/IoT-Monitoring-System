@@ -1,12 +1,12 @@
 import config from "../config";
 
-export type WSChannel = "customer" | "department" | "device" | "mqtt_user" | "user" | "device_status";
+export type WSChannel = "customer" | "distributor" | "department" | "device" | "mqtt_user" | "user" | "device_status";
 export type WSEventType = "add" | "update" | "delete";
 export interface WSEvent<T = any> { type: WSEventType; data: T }
 export type Listener<T = any> = (event: WSEvent<T>) => void;
 export type StreamListener<T = unknown> = (data: T) => void;
 
-export const ALL_CHANNELS: WSChannel[] = ["customer", "department", "device", "mqtt_user", "user", "device_status"];
+export const ALL_CHANNELS: WSChannel[] = ["customer", "distributor", "department", "device", "mqtt_user", "user", "device_status"];
 
 type AuthHandlers = {
   refreshToken?: () => Promise<string | null>;

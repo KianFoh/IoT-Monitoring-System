@@ -1,25 +1,19 @@
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { Customer } from "@/types/customer";
+import type { Distributor } from "@/types/distributor";
 import { TableActions } from "../components/TableActions";
 import styles from "../styles/dashboard.module.css";
 
-export function useCustomerColumns(
-  onEdit: (c: Customer) => void,
-  onDelete: (c: Customer) => void
+export function useDistributorColumns(
+  onEdit: (d: Distributor) => void,
+  onDelete: (d: Distributor) => void
 ) {
-  const columns = useMemo<ColumnDef<Customer>[]>(
+  const columns = useMemo<ColumnDef<Distributor>[]>(
     () => [
       {
         accessorKey: "name",
         header: "Name",
         meta: { width: 200 },
-      },
-      {
-        accessorKey: "distributor_name",
-        header: "Distributor",
-        meta: { width: 200 },
-        cell: (info) => info.getValue<string | null>() || "-",
       },
       {
         accessorKey: "phone_no",
@@ -60,7 +54,7 @@ export function useCustomerColumns(
             onEdit={onEdit}
             onDelete={onDelete}
             disableDelete={!info.row.original.is_deletable}
-            deleteDisabledReason="Customer is referenced by other records"
+            deleteDisabledReason="Distributor is referenced by other records"
           />
         ),
       },
@@ -71,4 +65,4 @@ export function useCustomerColumns(
   return columns;
 }
 
-export default useCustomerColumns;
+export default useDistributorColumns;
