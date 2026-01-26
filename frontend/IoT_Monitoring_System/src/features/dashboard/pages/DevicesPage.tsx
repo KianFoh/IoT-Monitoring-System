@@ -10,6 +10,7 @@ import { Modal } from "@/components/Modal/Modal";
 import PageSizeSelect from "../components/PageSizeSelect";
 import { FaPlus } from "react-icons/fa";
 import styles from "../styles/dashboard.module.css";
+import { useAuth } from "@/features/auth/context/AuthContext";
 import { useDevicesTable } from "../hooks/useDevicesTable";
 import { useDeviceActions } from "../hooks/useDeviceActions";
 import { useDeviceColumns } from "../hooks/useDeviceColumns";
@@ -35,6 +36,15 @@ const findDepartmentId = (name: string, options: DepartmentSearch[]) => {
 };
 
 export function DevicesPage() {
+  const { user } = useAuth();
+  if (user?.role === "user") {
+    return (
+      <div className={styles["devices-container"]}>
+        <h1>Devices</h1>
+      </div>
+    );
+  }
+
   const navigate = useNavigate();
   const {
     query,

@@ -125,7 +125,7 @@ class DevicePipelineManager:
                 restarted += 1
         if reloaded or restarted:
             logger.info(
-                "Custom processors reloaded; %s registered, %s pipelines restarted",
+                "Custom processors reloaded %s registered, %s pipelines restarted",
                 reloaded,
                 restarted,
             )

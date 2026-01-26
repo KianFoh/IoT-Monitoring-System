@@ -4,14 +4,19 @@ from app.core.websocket_manager import ALLOWED_CHANNELS, manager
 from app.core.security import decode_token
 from app.core.database import SessionLocal
 from app.models.user import User
+from app.models.department import Department
+from app.models.customer import Customer
+from app.models.distributor import Distributor
 from app.crud.postgres import device as device_crud
 from app.models.enum.user_role import UserRole
+from app.services.device_status_ws import device_status_ws_manager
 
 
 router = APIRouter()
 
-# Channel -> allowed roles (currently superuser only)
+# Channel -> allowed roles
 CHANNEL_ROLES = {channel: {UserRole.superuser} for channel in ALLOWED_CHANNELS}
+CHANNEL_ROLES["device_status"] = {UserRole.superuser, UserRole.user}
 
 '''
  Error codes:
@@ -115,6 +120,48 @@ async def websocket_endpoint(websocket: WebSocket, channel: str):
     user = await authenticate_websocket(websocket, channel)
     if not user:
         return
+    if channel == "device_status":
+        meta = {"role": user.role}
+        if user.role == UserRole.user:
+            if not user.department_id:
+                await websocket.close(code=4403)
+                return
+            db = SessionLocal()
+            try:
+                row = (
+                    db.query(
+                        Department.name.label("department_name"),
+                        Customer.name.label("customer_name"),
+                        Distributor.name.label("distributor_name"),
+                    )
+                    .join(Customer, Department.customer_id == Customer.id)
+                    .outerjoin(Distributor, Customer.distributor_id == Distributor.id)
+                    .filter(Department.id == user.department_id)
+                    .first()
+                )
+            finally:
+                db.close()
+            if not row:
+                await websocket.close(code=4404)
+                return
+            department_name, customer_name, distributor_name = row
+            meta.update(
+                {
+                    "department": (department_name or "").strip().lower(),
+                    "customer": (customer_name or "").strip().lower(),
+                    "distributor": (distributor_name or "").strip().lower() if distributor_name else None,
+                }
+            )
+        await device_status_ws_manager.connect(websocket, meta=meta)
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            device_status_ws_manager.disconnect(websocket)
+        except Exception:
+            device_status_ws_manager.disconnect(websocket)
+            await websocket.close()
+        return
 
     await manager.connect(channel, websocket)
     try:
@@ -170,44 +217,3 @@ async def device_stream_websocket(
         stream_manager.disconnect(topic, websocket)
         await websocket.close()
 
-
-@router.websocket("/ws/devices/{customer_name}/{department_name}/{device_uid}/status")
-async def device_status_websocket(
-    websocket: WebSocket,
-    customer_name: str,
-    department_name: str,
-    device_uid: str,
-):
-    user = await authenticate_websocket_with_roles(websocket, {UserRole.superuser})
-    if not user:
-        return
-
-    stream_manager = getattr(websocket.app.state, "device_status_stream_manager", None)
-    if not stream_manager:
-        await websocket.close(code=1011)
-        return
-    db = SessionLocal()
-    try:
-        device = device_crud.get_device_with_relations_by_uid(db, device_uid)
-    finally:
-        db.close()
-    if not device:
-        await websocket.close(code=4404)
-        return
-
-    distributor = (device.distributor_name or "").strip().lower()
-    customer = (device.customer_name or "").strip().lower()
-    if distributor:
-        device_key = f"{distributor}/{customer}/{device_uid}"
-    else:
-        device_key = f"{customer}/{device_uid}"
-
-    await stream_manager.connect(device_key, websocket)
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        stream_manager.disconnect(device_key, websocket)
-    except Exception:
-        stream_manager.disconnect(device_key, websocket)
-        await websocket.close()

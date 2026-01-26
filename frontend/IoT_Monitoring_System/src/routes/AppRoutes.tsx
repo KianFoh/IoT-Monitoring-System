@@ -22,19 +22,19 @@ export default function AppRoutes() {
 
       {/* Authenticated routes */}
       <Route element={<ProtectedRoute />}>
-      <Route path="/dashboard" element={<DashboardLayout />}>
-        <Route index element={<DashboardHome />} />
-        <Route path="devices" element={<DevicesPage />} />
-        <Route element={<SuperuserRoute />}>
-          <Route path="devices/:deviceUid" element={<DeviceDashboardPage />} />
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<DashboardHome />} />
+          <Route path="devices" element={<DevicesPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route element={<SuperuserRoute />}>
+            <Route path="devices/:deviceUid" element={<DeviceDashboardPage />} />
+            <Route path="distributors" element={<DistributorsPage />} />
+            <Route path="customers" element={<CustomersPage />} />
+            <Route path="departments" element={<DepartmentPage />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="mqtt-users" element={<MqttUserPage />} />
+          </Route>
         </Route>
-        <Route path="distributors" element={<DistributorsPage />} />
-        <Route path="customers" element={<CustomersPage />} />       
-        <Route path="departments" element={<DepartmentPage />} />
-        <Route path="users" element={<UsersPage />} />
-        <Route path="mqtt-users" element={<MqttUserPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

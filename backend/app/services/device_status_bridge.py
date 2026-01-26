@@ -11,17 +11,24 @@ STATUS_TOPIC_PREFIX = "internal/devices/status"
 STATUS_TOPIC_WILDCARD = f"{STATUS_TOPIC_PREFIX}/#"
 
 
-def _parse_status_topic(topic: str) -> Tuple[Optional[str], Optional[str]]:
+def _parse_status_topic(
+    topic: str,
+) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]:
     parts = [part for part in topic.split("/") if part]
     if len(parts) < 6:
-        return None, None
+        return None, None, None, None, None
     if parts[0] != "internal" or parts[1] != "devices" or parts[2] != "status":
-        return None, None
+        return None, None, None, None, None
     if len(parts) >= 7:
         distributor = parts[3]
         customer = parts[4]
-        return f"{distributor}/{customer}", parts[-1]
-    return parts[3], parts[-1]
+        department = parts[5]
+        device_uid = parts[6]
+        return f"{distributor}/{customer}", device_uid, distributor, customer, department
+    customer = parts[3]
+    department = parts[4]
+    device_uid = parts[5]
+    return customer, device_uid, None, customer, department
 
 
 def _parse_status_payload(payload: bytes) -> str:
@@ -54,19 +61,25 @@ class DeviceStatusBridge:
         logging.info("Subscribed to device status topic: %s", STATUS_TOPIC_WILDCARD)
 
     def _handle_message(self, topic: str, payload: bytes) -> None:
-        customer_path, device_uid = _parse_status_topic(topic)
-        if not customer_path or not device_uid:
+        customer_path, device_uid, distributor, customer, department = _parse_status_topic(topic)
+        if not customer_path or not device_uid or not customer or not department:
             return
         status = _parse_status_payload(payload)
         message = {
             "uid": device_uid,
             "status": status,
         }
+        scope = {
+            "customer": customer,
+            "department": department,
+        }
+        if distributor:
+            scope["distributor"] = distributor
         if not self._loop or self._loop.is_closed():
             logging.warning("Device status websocket loop is not available")
             return
         future = asyncio.run_coroutine_threadsafe(
-            broadcast_device_status_event("status", message),
+            broadcast_device_status_event("status", message, scope),
             self._loop,
         )
         future.add_done_callback(self._log_broadcast_failure)

@@ -28,11 +28,10 @@ async def lifespan(app: FastAPI):
     _mqtt_client = MQTTClient()
     app.state.mqtt_client = _mqtt_client
     app.state.device_stream_manager = DeviceStreamManager()
-    app.state.device_status_stream_manager = DeviceStreamManager()
     app.state.device_status_bridge = DeviceStatusBridge(
         _mqtt_client,
         loop,
-        app.state.device_status_stream_manager,
+        None,
     )
     app.state.device_processed_bridge = DeviceProcessedBridge(
         _mqtt_client,
@@ -53,7 +52,6 @@ async def lifespan(app: FastAPI):
     app.state.device_status_bridge = None
     app.state.device_processed_bridge = None
     app.state.device_stream_manager = None
-    app.state.device_status_stream_manager = None
 
 # Initialize FastAPI app
 app = FastAPI(

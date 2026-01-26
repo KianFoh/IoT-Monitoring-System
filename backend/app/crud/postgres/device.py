@@ -73,9 +73,18 @@ def _serialize_device_row(row) -> DeviceOut:
         }
     )
 
-def get_devices(db: Session, search: Optional[str] = None, page: int = 1, page_size: int = 10):
+def get_devices(
+    db: Session,
+    search: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+    department_id: Optional[int] = None,
+):
     """Get devices with optional search and pagination, enriched with customer/department names."""
     query = _base_device_query(db)
+
+    if department_id is not None:
+        query = query.filter(DeviceModel.department_id == department_id)
 
     if search:
         like = f"%{search.lower()}%"

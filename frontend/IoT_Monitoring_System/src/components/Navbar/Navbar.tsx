@@ -34,6 +34,11 @@ const Navbar = () => {
     { to: "/dashboard/settings", label: "Settings", icon: <FaCog /> },
   ];
 
+  const isUser = user?.role === "user";
+  const visibleNavItems = isUser
+    ? navItems.filter((item) => ["/dashboard", "/dashboard/devices", "/dashboard/settings"].includes(item.to))
+    : navItems;
+
   return (
     <nav className={styles["gen-navbar"]}>
       {/* Profile */}
@@ -48,7 +53,7 @@ const Navbar = () => {
       </div>
       {/* Menu */}
       <ul className={styles["gen-navbar-menu"]}>
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <li key={item.to}>
             <NavLink
               to={item.to}

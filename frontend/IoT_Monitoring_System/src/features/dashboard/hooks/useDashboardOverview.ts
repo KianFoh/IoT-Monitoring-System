@@ -14,12 +14,13 @@ const DEFAULT_STATS: DashboardStats = {
   mqttUsers: 0,
 };
 
-export const useDashboardOverview = () => {
+export const useDashboardOverview = (enabled = true) => {
   const devices_limit = 6;
   const queryClient = useQueryClient();
 
   const { data, isPending, error } = useQuery({
     refetchOnMount: true,
+    enabled,
     queryKey: ["dashboard", "overview"],
     queryFn: async () => {
       const [{ customers, devices: devicesCount, users, mqttUsers }, devicesData] = await Promise.all([
@@ -40,6 +41,7 @@ export const useDashboardOverview = () => {
   });
 
   useEffect(() => {
+    if (!enabled) return;
     const unsubscribers: Array<() => void> = [];
 
     unsubscribers.push(
@@ -139,12 +141,12 @@ export const useDashboardOverview = () => {
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, [queryClient]);
+  }, [queryClient, enabled]);
 
   return {
     stats: data?.stats ?? DEFAULT_STATS,
     devices: data?.devices ?? [],
-    loading: isPending,
-    error: error instanceof Error ? error.message : null,
+    loading: enabled ? isPending : false,
+    error: enabled && error instanceof Error ? error.message : null,
   };
 };

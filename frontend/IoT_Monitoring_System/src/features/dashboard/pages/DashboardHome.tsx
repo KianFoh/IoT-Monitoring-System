@@ -1,16 +1,27 @@
 import { StatCard } from "../../..//components/StatCard/StatCard";
 import { useDashboardOverview } from "../hooks/useDashboardOverview";
+import { useUserDashboardOverview } from "../hooks/useUserDashboardOverview";
 import { LoadingScreen } from "../../..//components/Loading/LoadingScreen";
 import { Link } from "react-router-dom";
 import { DataTable } from "../components/DataTable";
-import { FaNetworkWired, FaUserAlt, FaUserCog, FaUsers } from "react-icons/fa";
+import { FaCheckCircle, FaNetworkWired, FaTimesCircle, FaUserAlt, FaUserCog, FaUsers } from "react-icons/fa";
 import styles from "../styles/dashboard.module.css";
 import useOverviewDeviceColumns from "../hooks/useOverviewDeviceColumns";
+import useUserOverviewDeviceColumns from "../hooks/useUserOverviewDeviceColumns";
+import { useAuth } from "@/features/auth/context/AuthContext";
 
 export function DashboardHome() {
-  const { stats, devices, loading, error } = useDashboardOverview();
+  const { user } = useAuth();
+  const isUser = user?.role === "user";
+  const superOverview = useDashboardOverview(!isUser);
+  const userOverview = useUserDashboardOverview(isUser);
+  const superStats = superOverview.stats;
+  const userStats = userOverview.stats;
+  const loading = isUser ? userOverview.loading : superOverview.loading;
+  const error = isUser ? userOverview.error : superOverview.error;
 
-  const columns = useOverviewDeviceColumns();
+  const superColumns = useOverviewDeviceColumns();
+  const userColumns = useUserOverviewDeviceColumns();
 
   if (loading) return <LoadingScreen />;
 
@@ -26,13 +37,23 @@ export function DashboardHome() {
   return (
     <div className={styles["dashboard-container"]}>
       <h1>Dashboard</h1>
-      <p>Monitor your IoT devices and in real-time</p>
+      <p>Dashboard Overview</p>
 
       <div className={styles["dashboard-stats-grid"]}>
-        <StatCard title="Total Customers" value={stats.totalCustomers} color="primary" icon={<FaUserAlt />} />
-        <StatCard title="Total Devices" value={stats.totalDevices} color="success" icon={<FaNetworkWired />} />
-        <StatCard title="Total Users" value={stats.totalUsers} color="info" icon={<FaUsers />} />
-        <StatCard title="Total Mqtt Users" value={stats.mqttUsers} color="warning" icon={<FaUserCog />} />
+        {isUser ? (
+          <>
+            <StatCard title="Total Devices" value={userStats.totalDevices} color="primary" icon={<FaNetworkWired />} />
+            <StatCard title="Online" value={userStats.onlineDevices} color="success" icon={<FaCheckCircle />} />
+            <StatCard title="Offline" value={userStats.offlineDevices} color="warning" icon={<FaTimesCircle />} />
+          </>
+        ) : (
+          <>
+            <StatCard title="Total Customers" value={superStats.totalCustomers} color="primary" icon={<FaUserAlt />} />
+            <StatCard title="Total Devices" value={superStats.totalDevices} color="success" icon={<FaNetworkWired />} />
+            <StatCard title="Total Users" value={superStats.totalUsers} color="info" icon={<FaUsers />} />
+            <StatCard title="Total Mqtt Users" value={superStats.mqttUsers} color="warning" icon={<FaUserCog />} />
+          </>
+        )}
       </div>
 
       <div className={styles["dashboard-section-header"]}>
@@ -41,7 +62,21 @@ export function DashboardHome() {
           See all
         </Link>
       </div>
-      <DataTable data={devices} columns={columns} tableClassName={styles["dashboard-table"]} emptyMessage="No devices found" />
+      {isUser ? (
+        <DataTable
+          data={userOverview.devices}
+          columns={userColumns}
+          tableClassName={styles["dashboard-table"]}
+          emptyMessage="No devices found"
+        />
+      ) : (
+        <DataTable
+          data={superOverview.devices}
+          columns={superColumns}
+          tableClassName={styles["dashboard-table"]}
+          emptyMessage="No devices found"
+        />
+      )}
     </div>
   );
 }

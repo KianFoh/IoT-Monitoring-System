@@ -2,11 +2,21 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/features/auth/api/authApi";
-import { wsManager } from "@/services/ws";
+import { ALL_CHANNELS, type WSChannel, wsManager } from "@/services/ws";
 import { api } from "@/services/api";
 import type { AuthContextType, User } from "@/types/auth";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const getWsChannelsForRole = (role?: User["role"] | null): WSChannel[] => {
+  if (role === "superuser") {
+    return ALL_CHANNELS;
+  }
+  if (role === "user") {
+    return ["device_status"];
+  }
+  return [];
+};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
@@ -40,11 +50,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     async (token: string, nextUser: User, options?: { reconnectWs?: boolean }) => {
       syncToken(token);
       const shouldReconnect = options?.reconnectWs ?? true;
+      const channels = getWsChannelsForRole(nextUser?.role);
       try {
         if (shouldReconnect) {
-          await wsManager.reconnectAll(undefined, { manual: true, keepListeners: true });
+          await wsManager.reconnectAll(channels, { manual: true, keepListeners: true });
         } else {
-          await wsManager.connectAll();
+          await wsManager.connectAll(channels);
         }
         // update React-visible auth state only after WS is ready
         setAccessToken(token);

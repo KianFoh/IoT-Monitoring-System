@@ -173,42 +173,21 @@ export function useDeviceDashboard(deviceUid?: string) {
   }, [access_token, device?.customer_name, device?.department_name, device?.uid, updateLastUpdate]);
 
   useEffect(() => {
-    const customer = device?.customer_name?.trim().toLowerCase();
-    const department = device?.department_name?.trim().toLowerCase();
     const uid = device?.uid;
-    if (!access_token || !customer || !department || !uid) return;
+    if (!uid) return;
 
-    const streamKey = `device-status:${customer}/${department}/${uid}`;
-    const path = `/ws/devices/${encodeURIComponent(customer)}/${encodeURIComponent(department)}/${encodeURIComponent(uid)}/status`;
-    let cancelled = false;
-
-    const unsubscribe = wsManager.onStream(streamKey, (payload: unknown) => {
-      if (cancelled) return;
-      if (!payload) return;
-      if (typeof payload === "string") {
-        const statusText = payload.toLowerCase();
-        if (statusText === "online" || statusText === "offline") {
-          setDeviceStatus(statusText);
-        }
-        return;
-      }
-      if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return;
-      const statusPayload = payload as { status?: unknown; uid?: unknown };
-      const statusValue =
-        typeof statusPayload.status === "string" ? statusPayload.status.toLowerCase() : null;
-      if (statusValue !== "online" && statusValue !== "offline") return;
-      if (statusPayload.uid && statusPayload.uid !== uid) return;
-      setDeviceStatus(statusValue);
+    const unsubscribe = wsManager.on("device_status", (event: any) => {
+      const evtType = event?.type ?? event?.eventType ?? event?.payload?.type;
+      const payload = event?.data ?? event?.payload?.data ?? event?.payload ?? event;
+      if (evtType !== "status" || !payload) return;
+      const status = typeof payload.status === "string" ? payload.status.toLowerCase() : null;
+      if (status !== "online" && status !== "offline") return;
+      if (payload.uid && payload.uid !== uid) return;
+      setDeviceStatus(status);
     });
 
-    wsManager.connectStream(streamKey, path).catch(() => {});
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-      wsManager.disconnectStream(streamKey);
-    };
-  }, [access_token, device?.customer_name, device?.department_name, device?.uid]);
+    return () => unsubscribe();
+  }, [device?.uid]);
 
   const wsReady = wsStatus === "connected" || wsStatus === "failed";
 

@@ -145,13 +145,25 @@ def get_devices(
     db: Session = Depends(get_db)
 ):
     """Get devices with pagination and search."""
-    require_role(current_user, [UserRole.superuser])
+    require_role(current_user, [UserRole.superuser, UserRole.user])
+
+    department_id = None
+    if current_user.role == UserRole.user:
+        department_id = current_user.department_id
+        if not department_id:
+            return DeviceListResponse(
+                items=[],
+                total=0,
+                page=page,
+                page_size=page_size,
+            )
 
     items, total = device_crud.get_devices(
         db,
         search=search.strip() if search else None,
         page=page,
         page_size=page_size,
+        department_id=department_id,
     )
     return DeviceListResponse(
         items=items,
