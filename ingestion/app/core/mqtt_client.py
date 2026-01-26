@@ -8,10 +8,9 @@ class MQTTClient:
 
     def __init__(self):
         self.client = mqtt.Client()
-        self.message_handler = None
         self.on_connect_handler = None
 
-        # Set authentication
+        # Set username and password
         if settings.MQTT_USERNAME and settings.MQTT_PASSWORD:
             self.client.username_pw_set(settings.MQTT_USERNAME, settings.MQTT_PASSWORD)
 
@@ -19,10 +18,6 @@ class MQTTClient:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
-
-    def set_message_handler(self, handler):
-        """Set function to handle incoming messages"""
-        self.message_handler = handler
 
     def set_on_connect_handler(self, handler):
         """Set function to run after a successful connect"""
@@ -67,10 +62,6 @@ class MQTTClient:
     def on_message(self, client, userdata, msg):
         """Callback when a message is received"""
         logger.debug(f"MQTT message received - Topic: {msg.topic}, QoS: {msg.qos}")
-        if self.message_handler:
-            self.message_handler(msg.topic, msg.payload)
-        else:
-            logger.warning("No message handler set!")
 
     def on_disconnect(self, client, userdata, rc):
         """Callback when disconnected from broker"""

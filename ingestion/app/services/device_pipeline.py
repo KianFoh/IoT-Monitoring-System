@@ -1,4 +1,6 @@
+import json
 from dataclasses import dataclass
+from typing import Any, Dict
 
 from app.core.config import settings
 from app.core.mongo import get_collection
@@ -45,10 +47,10 @@ class DevicePipeline:
             return False
 
         self.running = True
-        # Subscribe to MQTT
+        # Subscribe to the device topic and attach handler.
         self.mqtt.subscribe(self.device_topic)
         self.mqtt.message_callback_add(self.device_topic, self.on_message)
-        # Start watchdog in separate thread
+        # Start watchdog in a separate thread.
         self._start_watchdog()
         return True
 
@@ -73,39 +75,47 @@ class DevicePipeline:
         self.mqtt.message_callback_add(self.device_topic, self.on_message)
 
     def on_message(self, client, userdata, msg):
-        import json
-
-        raw = json.loads(msg.payload.decode())
+        raw = self._parse_payload(msg.payload)
+        if raw is None:
+            logger.warning("Invalid JSON in device payload")
+            return
         device_id = raw.get("device_id")
 
-        # Validate device_id
         if not device_id:
             return
 
-        # Extract dynamic fields (everything except device_id)
+        # Extract dynamic fields everything except device_id
         data = {k: v for k, v in raw.items() if k != "device_id"}
 
-        doc = {
-            "device_id": device_id,
-            "ts": utc_now(),
-            "data": data,
-        }
+        doc = {"device_id": device_id, "ts": utc_now(), "data": data}
 
-        # Publish processed data
-        self.mqtt.publish(
-            self.processed_topic,
-            json.dumps({
-                "device_id": device_id,
-                "ts": doc["ts"].isoformat(),
-                "data": data,
-            })
-        )
+        # Publish processed data.
+        self._publish_processed(device_id, doc["ts"], data)
 
-        # Store raw doc in MongoDB
+        # Store raw doc in MongoDB.
         self.collection.insert_one(doc)
 
-        # Update last_seen
+        # Update last seen timestamp.
         self.last_seen = doc["ts"]
+
+    def _publish_processed(self, device_id: str, timestamp, data: Dict[str, Any]) -> None:
+        self.mqtt.publish(
+            self.processed_topic,
+            json.dumps(
+                {
+                    "device_id": device_id,
+                    "ts": timestamp.isoformat(),
+                    "data": data,
+                }
+            ),
+        )
+
+    @staticmethod
+    def _parse_payload(payload: bytes) -> Dict[str, Any] | None:
+        try:
+            return json.loads(payload.decode())
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None
 
     def _start_watchdog(self):
         from threading import Thread

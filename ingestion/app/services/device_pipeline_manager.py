@@ -11,6 +11,7 @@ from app.utils.logger import logger
 
 class DeviceRepository:
     def fetch_devices(self) -> List[DeviceInfo]:
+        """Fetch all devices"""
         session = SessionLocal()
         try:
             rows = (
@@ -48,9 +49,11 @@ class DeviceRepository:
 
 class DevicePipelineManager:
     def __init__(self, mqtt_client, repository: Optional[DeviceRepository] = None):
+        """Manage device pipelines based on MQTT events"""
         self._mqtt_client = mqtt_client
         self._repository = repository or DeviceRepository()
         self._pipelines: Dict[str, DevicePipeline] = {}
+        # Subscribe to all device event topics with MQTT wildcards.
         self._event_topic = settings.MQTT_DEVICE_EVENT_TOPIC.format(
             customer_name="+",
             department_name="+",
@@ -58,6 +61,7 @@ class DevicePipelineManager:
         )
 
     def load_existing_devices(self):
+        """Load existing devices and start pipelines"""
         devices = self._repository.fetch_devices()
         started = 0
         existing = 0
@@ -69,6 +73,27 @@ class DevicePipelineManager:
                 started += 1
         logger.info(f"Started {started} new device pipelines ({existing} already running)")
         return started, existing, len(devices)
+
+    @staticmethod
+    def _coerce_int(value) -> Optional[int]:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _coerce_bool(value) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized == "true":
+                return True
+            if normalized == "false":
+                return False
+        return False
 
     def start_pipeline(self, device_info: DeviceInfo) -> bool:
         if device_info.uid in self._pipelines:
@@ -128,22 +153,15 @@ class DevicePipelineManager:
             logger.warning("Device event missing required fields")
             return
 
-        data_interval = data.get("data_interval")
-        if data_interval is not None:
-            try:
-                data_interval = int(data_interval)
-            except (TypeError, ValueError):
-                logger.warning("Invalid data_interval in device event payload")
-                data_interval = None
+        raw_interval = data.get("data_interval")
+        data_interval = self._coerce_int(raw_interval)
+        if raw_interval is not None and data_interval is None:
+            logger.warning("Invalid data_interval in device event payload")
         if data_interval is None:
             existing = self._pipelines.get(device_uid)
             data_interval = existing.device.data_interval if existing else 60
 
-        is_active = data.get("is_active")
-        if isinstance(is_active, str):
-            is_active = is_active.strip().lower() in {"1", "true", "yes", "y"}
-        elif is_active is None:
-            is_active = False
+        is_active = self._coerce_bool(data.get("is_active"))
 
         restart_requested = data.get("restart_pipeline")
 
@@ -152,7 +170,7 @@ class DevicePipelineManager:
             customer_name=customer_name,
             department_name=department_name,
             data_interval=data_interval,
-            is_active=bool(is_active),
+            is_active=is_active,
         )
 
         if event_type == "add":

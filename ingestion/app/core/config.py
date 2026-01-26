@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     # Monitoring / logging
     LOG_LEVEL: str = "INFO"
 
+    # Setup env file path
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[3] / ".env",
         extra="ignore",

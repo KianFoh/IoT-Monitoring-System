@@ -2,7 +2,7 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from app.core.config import settings
 
-# Create a single shared MongoDB client without URI
+# Create a single shared MongoDB client instance
 _mongo_client = MongoClient(
     host=settings.MONGO_HOST,
     port=settings.MONGO_PORT,
