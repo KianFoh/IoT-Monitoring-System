@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 from app.core.mongo import get_collection
 from app.core.postgresql import SessionLocal
 from app.models.device import Device
+from app.services.custom_processing import get_device_processor
 from app.utils.logger import logger
 from app.utils.time import utc_now
 
@@ -26,6 +27,7 @@ class DevicePipeline:
         self.status = "offline"
         self.running = False
         self.collection = get_collection()
+        self.custom_processor = get_device_processor(device.uid)
         
     @property
     def device_topic(self):
@@ -44,6 +46,8 @@ class DevicePipeline:
             return False
 
         self.running = True
+        if self.custom_processor:
+            logger.info(f"Custom processor enabled for device {self.device.uid}")
         # Subscribe to the device topic and attach handler.
         self.mqtt.subscribe(self.device_topic)
         self.mqtt.message_callback_add(self.device_topic, self.on_message)
@@ -81,8 +85,9 @@ class DevicePipeline:
         if not device_id:
             return
 
-        # Extract dynamic fields everything except device_id
+        # Extract dynamic fields (everything except device_id)
         data = {k: v for k, v in raw.items() if k != "device_id"}
+        data = self._apply_custom_processing(data)
 
         doc = {"device_id": device_id, "ts": utc_now(), "data": data}
 
@@ -113,6 +118,18 @@ class DevicePipeline:
             return json.loads(payload.decode())
         except (json.JSONDecodeError, UnicodeDecodeError):
             return None
+
+    def _apply_custom_processing(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.custom_processor:
+            return data
+        try:
+            processed = self.custom_processor(data)
+            if isinstance(processed, dict):
+                return processed
+            logger.warning(f"Custom processor for {self.device.uid} returned non-dict; using original data")
+        except Exception as exc:
+            logger.error(f"Custom processor failed for {self.device.uid}: {exc}")
+        return data
 
     def _start_watchdog(self):
         from threading import Thread

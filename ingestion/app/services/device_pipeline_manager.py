@@ -1,10 +1,14 @@
 import json
+import threading
+import time
+from pathlib import Path
 from typing import Dict, List, Optional
 from app.core.postgresql import SessionLocal
 from app.models.customer import Customer
 from app.models.distributor import Distributor
 from app.models.department import Department
 from app.models.device import Device
+from app.services import custom_processing
 from app.services.device_pipeline import DeviceInfo, DevicePipeline
 from app.utils.logger import logger
 
@@ -56,8 +60,13 @@ class DevicePipelineManager:
         self._mqtt_client = mqtt_client
         self._repository = repository or DeviceRepository()
         self._pipelines: Dict[str, DevicePipeline] = {}
+        self._processing_dir = Path(custom_processing.__file__).resolve().parent
+        self._processing_snapshot = self._build_processing_snapshot()
+        self._processing_lock = threading.Lock()
+        self._stop_event = threading.Event()
         # Subscribe to all device event topics with MQTT wildcards.
         self._event_topic = "internal/devices/events/#"
+        self._start_processing_watcher()
 
     def load_existing_devices(self):
         """Load existing devices and start pipelines"""
@@ -72,6 +81,54 @@ class DevicePipelineManager:
                 started += 1
         logger.info(f"Started {started} new device pipelines ({existing} already running)")
         return started, existing, len(devices)
+
+    def _build_processing_snapshot(self) -> Dict[str, float]:
+        snapshot: Dict[str, float] = {}
+        if not self._processing_dir.exists():
+            return snapshot
+        for path in self._processing_dir.glob("*.py"):
+            if path.name.startswith("_"):
+                continue
+            try:
+                snapshot[str(path)] = path.stat().st_mtime
+            except OSError:
+                continue
+        return snapshot
+
+    def _start_processing_watcher(self) -> None:
+        if not self._processing_dir.exists():
+            return
+        thread = threading.Thread(target=self._watch_custom_processing, daemon=True)
+        self._processing_thread = thread
+        thread.start()
+
+    def _watch_custom_processing(self) -> None:
+        while not self._stop_event.is_set():
+            time.sleep(1)
+            current_snapshot = self._build_processing_snapshot()
+            if current_snapshot == self._processing_snapshot:
+                continue
+            self._processing_snapshot = current_snapshot
+            self._reload_custom_processors()
+
+    def _reload_custom_processors(self) -> None:
+        with self._processing_lock:
+            reloaded = custom_processing.reload_processors()
+            to_restart = []
+            for pipeline in self._pipelines.values():
+                has_processor = custom_processing.get_device_processor(pipeline.device.uid) is not None
+                if pipeline.custom_processor or has_processor:
+                    to_restart.append(pipeline.device)
+        restarted = 0
+        for device_info in to_restart:
+            if self.restart_pipeline(device_info):
+                restarted += 1
+        if reloaded or restarted:
+            logger.info(
+                "Custom processors reloaded; %s registered, %s pipelines restarted",
+                reloaded,
+                restarted,
+            )
 
     @staticmethod
     def _coerce_int(value) -> Optional[int]:
@@ -217,6 +274,10 @@ class DevicePipelineManager:
         logger.warning(f"Unknown device event type: {event_type}")
 
     def stop(self):
+        self._stop_event.set()
+        processing_thread = getattr(self, "_processing_thread", None)
+        if processing_thread:
+            processing_thread.join(timeout=2)
         for pipeline in list(self._pipelines.values()):
             pipeline.stop()
         self._pipelines.clear()
