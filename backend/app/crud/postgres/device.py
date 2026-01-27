@@ -79,6 +79,9 @@ def get_devices(
     page: int = 1,
     page_size: int = 10,
     department_id: Optional[int] = None,
+    include_customer_name: bool = True,
+    include_department_name: bool = True,
+    include_machine_name: bool = True,
 ):
     """Get devices with optional search and pagination, enriched with customer/department names."""
     query = _base_device_query(db)
@@ -88,14 +91,17 @@ def get_devices(
 
     if search:
         like = f"%{search.lower()}%"
-        query = query.filter(
-            or_(
-                func.lower(DeviceModel.uid).like(like),
-                func.lower(DeviceModel.name).like(like),
-                func.lower(DepartmentModel.name).like(like),
-                func.lower(CustomerModel.name).like(like),
-            )
-        )
+        filters = [
+            func.lower(DeviceModel.uid).like(like),
+            func.lower(DeviceModel.name).like(like),
+        ]
+        if include_machine_name:
+            filters.append(func.lower(DeviceModel.machine).like(like))
+        if include_department_name:
+            filters.append(func.lower(DepartmentModel.name).like(like))
+        if include_customer_name:
+            filters.append(func.lower(CustomerModel.name).like(like))
+        query = query.filter(or_(*filters))
 
     total = query.count()
     rows = (

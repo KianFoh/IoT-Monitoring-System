@@ -2,7 +2,7 @@ import { StatCard } from "../../..//components/StatCard/StatCard";
 import { useDashboardOverview } from "../hooks/useDashboardOverview";
 import { useUserDashboardOverview } from "../hooks/useUserDashboardOverview";
 import { LoadingScreen } from "../../..//components/Loading/LoadingScreen";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { DataTable } from "../components/DataTable";
 import { FaCheckCircle, FaNetworkWired, FaTimesCircle, FaUserAlt, FaUserCog, FaUsers } from "react-icons/fa";
 import styles from "../styles/dashboard.module.css";
@@ -11,6 +11,7 @@ import useUserOverviewDeviceColumns from "../hooks/useUserOverviewDeviceColumns"
 import { useAuth } from "@/features/auth/context/AuthContext";
 
 export function DashboardHome() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isUser = user?.role === "user";
   const superOverview = useDashboardOverview(!isUser);
@@ -20,8 +21,12 @@ export function DashboardHome() {
   const loading = isUser ? userOverview.loading : superOverview.loading;
   const error = isUser ? userOverview.error : superOverview.error;
 
-  const superColumns = useOverviewDeviceColumns();
-  const userColumns = useUserOverviewDeviceColumns();
+  const handleViewDashboard = (device: { uid: string }) => {
+    navigate(`/dashboard/devices/${device.uid}`);
+  };
+
+  const superColumns = useOverviewDeviceColumns(handleViewDashboard);
+  const userColumns = useUserOverviewDeviceColumns(handleViewDashboard);
 
   if (loading) return <LoadingScreen />;
 

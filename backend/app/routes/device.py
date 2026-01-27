@@ -158,12 +158,19 @@ def get_devices(
                 page_size=page_size,
             )
 
+    include_customer_name = current_user.role == UserRole.superuser
+    include_department_name = False
+    include_machine_name = current_user.role == UserRole.user
+
     items, total = device_crud.get_devices(
         db,
         search=search.strip() if search else None,
         page=page,
         page_size=page_size,
         department_id=department_id,
+        include_customer_name=include_customer_name,
+        include_department_name=include_department_name,
+        include_machine_name=include_machine_name,
     )
     return DeviceListResponse(
         items=items,
@@ -171,7 +178,6 @@ def get_devices(
         page=page,
         page_size=page_size,
     )
-
 
 # ==================== Read (Single) ====================
 @router.get("/{device_id}", response_model=DeviceOut)
@@ -210,6 +216,49 @@ async def update_device(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
+
+    if current_user.role == UserRole.user:
+        if existing_device.department_id != current_user.department_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to update this device",
+            )
+        update_data = device_update.model_dump(exclude_unset=True)
+        if update_data:
+            forbidden = [field for field in update_data.keys() if field != "machine"]
+            if forbidden:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only update the machine name",
+                )
+            updated_device = device_crud.update_device(
+                db,
+                existing_device,
+                DeviceUpdate(machine=device_update.machine),
+            )
+        else:
+            updated_device = existing_device
+
+        device_out = device_crud.get_device_with_relations(db, device_id) or DeviceOut.model_validate(
+            updated_device, from_attributes=True
+        )
+        await broadcast_device_event("update", device_out)
+        _publish_device_event(
+            request,
+            device_out.customer_name,
+            device_out.department_name,
+            {
+                "uid": device_out.uid,
+                "event_type": "update",
+                "customer_name": device_out.customer_name,
+                "department_name": device_out.department_name,
+                "data_interval": device_out.data_interval,
+                "is_active": device_out.is_active,
+                "restart_pipeline": False,
+            },
+            device_out.distributor_name,
+        )
+        return device_out
 
     restart_pipeline = False
     if device_update.data_interval is not None and device_update.data_interval != existing_device.data_interval:
@@ -268,7 +317,10 @@ async def delete_device(
     
     device_out = device_crud.get_device_with_relations(db, device_id)
     device_crud.delete_device(db, device_id)
-    await broadcast_device_event("delete", {"id": device_id})
+    if device_out:
+        await broadcast_device_event("delete", device_out)
+    else:
+        await broadcast_device_event("delete", {"id": device_id})
     customer_name = device_out.customer_name if device_out else ""
     department_name = device_out.department_name if device_out else ""
     uid = device_out.uid if device_out else device.uid

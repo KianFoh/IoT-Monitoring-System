@@ -244,9 +244,7 @@ export function useDeviceDataPanel({
 
   const panelFieldsSorted = useMemo(() => panelFields.slice(), [panelFields]);
   const showGenerate = panelFields.length === 0;
-  const panelSubtitle = showGenerate
-    ? "Generate a panel from the latest payload."
-    : "List of device data";
+  const panelSubtitle = "List of device data";
 
   return {
     panelFields: panelFieldsSorted,

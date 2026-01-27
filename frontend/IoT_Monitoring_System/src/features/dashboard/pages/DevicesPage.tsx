@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataTable } from "../components/DataTable";
 import Pagination from "../components/Pagination";
 import SearchFilter from "../components/SearchFilter";
@@ -14,9 +14,11 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 import { useDevicesTable } from "../hooks/useDevicesTable";
 import { useDeviceActions } from "../hooks/useDeviceActions";
 import { useDeviceColumns } from "../hooks/useDeviceColumns";
+import { useUserDeviceColumns } from "../hooks/useUserDeviceColumns";
 import { Switch } from "@/components/Switch/Switch";
 import { customersApi } from "../api/customersApi";
 import { departmentsApi } from "../api/departmentsApi";
+import { devicesApi } from "../api/devicesApi";
 import type { CustomerSearch } from "@/types/customer";
 import type { DepartmentSearch } from "@/types/department";
 import type { Device } from "@/types/device";
@@ -35,16 +37,130 @@ const findDepartmentId = (name: string, options: DepartmentSearch[]) => {
   return match ? match.id : null;
 };
 
-export function DevicesPage() {
-  const { user } = useAuth();
-  if (user?.role === "user") {
-    return (
-      <div className={styles["devices-container"]}>
-        <h1>Devices</h1>
-      </div>
-    );
-  }
+function UserDevicesPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const {
+    query,
+    setQuery,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    devices,
+    totalPages,
+    loading,
+    error,
+  } = useDevicesTable(5);
 
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [editMachine, setEditMachine] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const openEditModal = useCallback((device: Device) => {
+    setSelectedDevice(device);
+    setEditMachine(device.machine ?? "");
+    setActionError(null);
+    setShowEditModal(true);
+  }, []);
+
+  const closeEditModal = useCallback(() => {
+    setShowEditModal(false);
+    setSelectedDevice(null);
+    setEditMachine("");
+    setActionError(null);
+  }, []);
+
+  const handleEditSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!selectedDevice) return;
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        const machine = editMachine.trim();
+        await devicesApi.update(selectedDevice.id, { machine: machine.length ? machine : null });
+        queryClient.invalidateQueries({ queryKey: ["devices", "list"] });
+        closeEditModal();
+      } catch (err: unknown) {
+        setActionError(err instanceof Error ? err.message : "Failed to update device");
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [selectedDevice, editMachine, queryClient, closeEditModal]
+  );
+
+  const handleViewDashboard = useCallback(
+    (device: Device) => {
+      navigate(`/dashboard/devices/${device.uid}`);
+    },
+    [navigate]
+  );
+
+  const columns = useUserDeviceColumns(openEditModal, handleViewDashboard);
+
+  return (
+    <div className={styles["devices-container"]}>
+      <h1>Devices</h1>
+      <p>Manage and monitor your IoT devices</p>
+
+      <div className={styles["dashboard-devices-topbar"]}>
+        <div className={styles["dashboard-search-and-action"]}>
+          <div className={styles["dashboard-search-wrapper"]}>
+            <SearchFilter
+              value={query}
+              onChange={(v) => setQuery(v)}
+              placeholder="Search devices by UID, device name or machine name..."
+            />
+          </div>
+        </div>
+      </div>
+
+      {error && <p>{error}</p>}
+      <DataTable
+        data={devices}
+        columns={columns}
+        tableClassName={styles["dashboard-table"]}
+        emptyMessage={loading ? "Loading devices..." : "No devices found"}
+      />
+
+      <div className={styles["dashboard-pagination-row"]}>
+        <div className={styles["dashboard-page-size-left"]}>
+          <PageSizeSelect value={pageSize} onChange={(n) => { setPageSize(n); setCurrentPage(1); }} />
+        </div>
+        <div className={styles["dashboard-pagination-right"]}>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(p) => setCurrentPage(p)} maxPagesToShow={5} />
+        </div>
+      </div>
+
+      <Modal isOpen={showEditModal} onClose={closeEditModal} title="Edit Device">
+        <form className={styles["dashboard-modal-form"]} onSubmit={handleEditSubmit}>
+          <Input
+            id="edit-device-machine"
+            label="Machine"
+            placeholder="Enter machine name"
+            value={editMachine}
+            onChange={(e) => setEditMachine(e.target.value)}
+          />
+          {actionError && <p className={styles["dashboard-modal-error"]}>{actionError}</p>}
+          <div className={styles["dashboard-modal-actions"]}>
+            <Button onClick={closeEditModal} type="button" variant="cancel" disabled={actionLoading}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={actionLoading} disabled={!selectedDevice}>
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
+
+function SuperuserDevicesPage() {
   const navigate = useNavigate();
   const {
     query,
@@ -283,7 +399,7 @@ export function DevicesPage() {
             <SearchFilter
               value={query}
               onChange={(v) => setQuery(v)}
-              placeholder="Search devices by UID, name or customer..."
+              placeholder="Search devices by UID, device name or customer name..."
             />
           </div>
 
@@ -532,4 +648,12 @@ export function DevicesPage() {
       </Modal>
     </div>
   );
+}
+
+export function DevicesPage() {
+  const { user } = useAuth();
+  if (user?.role === "user") {
+    return <UserDevicesPage />;
+  }
+  return <SuperuserDevicesPage />;
 }

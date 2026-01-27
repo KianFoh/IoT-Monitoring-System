@@ -25,9 +25,9 @@ export default function AppRoutes() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardHome />} />
           <Route path="devices" element={<DevicesPage />} />
+          <Route path="devices/:deviceUid" element={<DeviceDashboardPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route element={<SuperuserRoute />}>
-            <Route path="devices/:deviceUid" element={<DeviceDashboardPage />} />
             <Route path="distributors" element={<DistributorsPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="departments" element={<DepartmentPage />} />

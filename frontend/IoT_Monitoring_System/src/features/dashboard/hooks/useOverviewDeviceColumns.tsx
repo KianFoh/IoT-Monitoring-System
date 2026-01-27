@@ -1,9 +1,12 @@
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { DashboardOverviewDevice } from "@/types/dashboard";
+import { TableActions } from "../components/TableActions";
 import styles from "../styles/dashboard.module.css";
 
-export default function useOverviewDeviceColumns(): ColumnDef<DashboardOverviewDevice>[] {
+export default function useOverviewDeviceColumns(
+  onView: (device: DashboardOverviewDevice) => void
+): ColumnDef<DashboardOverviewDevice>[] {
   return useMemo<ColumnDef<DashboardOverviewDevice>[]>(() => [
     {
       accessorKey: "uid",
@@ -38,5 +41,19 @@ export default function useOverviewDeviceColumns(): ColumnDef<DashboardOverviewD
         </span>
       ),
     },
-  ], []);
+    {
+      id: "actions",
+      header: "Action",
+      meta: { align: "center" },
+      cell: (info) => (
+        <TableActions
+          item={info.row.original}
+          onView={onView}
+          showEdit={false}
+          showDelete={false}
+          viewTitle="View data"
+        />
+      ),
+    },
+  ], [onView]);
 }

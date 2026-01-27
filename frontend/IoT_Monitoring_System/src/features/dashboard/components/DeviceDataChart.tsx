@@ -86,6 +86,7 @@ type DeviceDataChartProps<T extends string> = {
   options: DisplayOption<T>[];
   onDisplayChange: (value: T) => void;
   disabled?: boolean;
+  readOnly?: boolean;
   availableFields: string[];
   getChartValue?: (field: string) => unknown;
   getChartUnit?: (field: string) => string;
@@ -174,6 +175,7 @@ export function DeviceDataChart<T extends string>({
   options,
   onDisplayChange,
   disabled,
+  readOnly = false,
   availableFields,
   getChartValue,
   getChartUnit,
@@ -219,7 +221,7 @@ export function DeviceDataChart<T extends string>({
     initialWidth: 0,
     measureBeforeMount: true,
   });
-  const resizeHandles = isEditing && !disabled ? RESIZE_HANDLES : [];
+  const resizeHandles = isEditing && !disabled && !readOnly ? RESIZE_HANDLES : [];
   const renderResizeHandle = (axis: ResizeHandleAxis, ref: Ref<HTMLSpanElement>) => (
     <span
       ref={ref}
@@ -242,12 +244,18 @@ export function DeviceDataChart<T extends string>({
   const timeDateLabel = timeDateInputType === "datetime-local" ? "date/time" : "date";
 
   const canAddChart = useMemo(() => {
-    if (disabled) return false;
+    if (disabled || readOnly) return false;
     if (selectedChartType === "line") {
       return selectedLineFields.length > 0;
     }
     return Boolean(selectedField);
-  }, [disabled, selectedChartType, selectedLineFields.length, selectedField]);
+  }, [disabled, readOnly, selectedChartType, selectedLineFields.length, selectedField]);
+
+  useEffect(() => {
+    if (readOnly && isEditing) {
+      setIsEditing(false);
+    }
+  }, [readOnly, isEditing]);
 
   useEffect(() => {
     if (!availableFields.length) {
@@ -311,6 +319,7 @@ export function DeviceDataChart<T extends string>({
   }, [activeMenuId]);
 
   const handleEnterEdit = () => {
+    if (readOnly || disabled) return;
     setDraftCharts(normalizedSavedCharts);
     setDraftLayout(normalizedSavedLayout as Layout);
     setIsEditing(true);
@@ -355,6 +364,7 @@ export function DeviceDataChart<T extends string>({
   };
 
   const handleOpenAdd = () => {
+    if (readOnly || disabled) return;
     setSelectedMin("");
     setSelectedMax("");
     setSelectedLineMin("");
@@ -424,6 +434,7 @@ export function DeviceDataChart<T extends string>({
   };
 
   const handleOpenEdit = (chart: ChartItem) => {
+    if (readOnly || disabled) return;
     setEditingChartId(chart.id);
     setEditingChartType(chart.type);
     setEditName(chart.name.trim() || "New panel");
@@ -480,19 +491,18 @@ export function DeviceDataChart<T extends string>({
   };
 
   const handleRemoveChart = (chartId: string) => {
+    if (readOnly || disabled) return;
     setDraftCharts((prev) => prev.filter((chart) => chart.id !== chartId));
     setDraftLayout((prev) => prev.filter((item) => item.i !== chartId));
     setActiveMenuId(null);
   };
 
   const handleLayoutChange = (nextLayout: Layout) => {
-    if (!isEditing) return;
+    if (!isEditing || readOnly) return;
     setDraftLayout(nextLayout);
   };
 
-  const emptyMessage = isEditing
-    ? "No charts yet. Use Add chart to create one."
-    : "No charts yet. Switch to Edit to add charts.";
+  const emptyMessage = "No charts configured yet.";
 
   const displayCharts = isEditing ? draftCharts : normalizedSavedCharts;
   const displayLayout = isEditing ? draftLayout : (normalizedSavedLayout as Layout);
@@ -545,9 +555,11 @@ export function DeviceDataChart<T extends string>({
                 disabled={disabled}
               />
               <div className={styles["device-chart-actions"]}>
-                <Button onClick={handleEnterEdit} variant="primary" disabled={disabled} className={styles["device-data-panel-control-button"]}>
-                  Edit
-                </Button>
+                {!readOnly && (
+                  <Button onClick={handleEnterEdit} variant="primary" disabled={disabled} className={styles["device-data-panel-control-button"]}>
+                    Edit
+                  </Button>
+                )}
               </div>
             </>
           )}

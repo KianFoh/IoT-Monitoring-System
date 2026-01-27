@@ -4,9 +4,10 @@ import type { Device } from "@/types/device";
 import { TableActions } from "../components/TableActions";
 import styles from "../styles/dashboard.module.css";
 
-export default function useUserOverviewDeviceColumns(
+export function useUserDeviceColumns(
+  onEdit: (device: Device) => void,
   onView: (device: Device) => void
-): ColumnDef<Device>[] {
+) {
   return useMemo<ColumnDef<Device>[]>(
     () => [
       {
@@ -17,7 +18,6 @@ export default function useUserOverviewDeviceColumns(
       {
         accessorKey: "name",
         header: "Name",
-        cell: (info) => <>{info.getValue<string>() || "-"}</>,
       },
       {
         accessorKey: "machine",
@@ -39,19 +39,20 @@ export default function useUserOverviewDeviceColumns(
       },
       {
         id: "actions",
-        header: "Action",
+        header: "Actions",
         meta: { align: "center" },
         cell: (info) => (
           <TableActions
             item={info.row.original}
+            onEdit={onEdit}
             onView={onView}
-            showEdit={false}
             showDelete={false}
+            showView={true}
             viewTitle="View data"
           />
         ),
       },
     ],
-    [onView]
+    [onEdit, onView]
   );
 }

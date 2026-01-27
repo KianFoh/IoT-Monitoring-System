@@ -61,7 +61,7 @@ const normalizeChartLayout = (
 };
 
 export function useDeviceDashboard(deviceUid?: string) {
-  const { access_token } = useAuth();
+  const { access_token, user } = useAuth();
   const queryClient = useQueryClient();
   const [device, setDevice] = useState<Device | null>(null);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("data_panel");

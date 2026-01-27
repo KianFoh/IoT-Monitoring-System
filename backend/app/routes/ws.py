@@ -10,6 +10,7 @@ from app.models.distributor import Distributor
 from app.crud.postgres import device as device_crud
 from app.models.enum.user_role import UserRole
 from app.services.device_status_ws import device_status_ws_manager
+from app.services.device_event_ws import device_event_ws_manager
 
 
 router = APIRouter()
@@ -17,6 +18,7 @@ router = APIRouter()
 # Channel -> allowed roles
 CHANNEL_ROLES = {channel: {UserRole.superuser} for channel in ALLOWED_CHANNELS}
 CHANNEL_ROLES["device_status"] = {UserRole.superuser, UserRole.user}
+CHANNEL_ROLES["device"] = {UserRole.superuser, UserRole.user}
 
 '''
  Error codes:
@@ -120,7 +122,7 @@ async def websocket_endpoint(websocket: WebSocket, channel: str):
     user = await authenticate_websocket(websocket, channel)
     if not user:
         return
-    if channel == "device_status":
+    if channel in {"device_status", "device"}:
         meta = {"role": user.role}
         if user.role == UserRole.user:
             if not user.department_id:
@@ -152,14 +154,16 @@ async def websocket_endpoint(websocket: WebSocket, channel: str):
                     "distributor": (distributor_name or "").strip().lower() if distributor_name else None,
                 }
             )
-        await device_status_ws_manager.connect(websocket, meta=meta)
+
+        manager_to_use = device_status_ws_manager if channel == "device_status" else device_event_ws_manager
+        await manager_to_use.connect(websocket, meta=meta)
         try:
             while True:
                 await websocket.receive_text()
         except WebSocketDisconnect:
-            device_status_ws_manager.disconnect(websocket)
+            manager_to_use.disconnect(websocket)
         except Exception:
-            device_status_ws_manager.disconnect(websocket)
+            manager_to_use.disconnect(websocket)
             await websocket.close()
         return
 
@@ -182,7 +186,7 @@ async def device_stream_websocket(
     department_name: str,
     device_uid: str,
 ):
-    user = await authenticate_websocket_with_roles(websocket, {UserRole.superuser})
+    user = await authenticate_websocket_with_roles(websocket, {UserRole.superuser, UserRole.user})
     if not user:
         return
 
@@ -193,11 +197,20 @@ async def device_stream_websocket(
     db = SessionLocal()
     try:
         device = device_crud.get_device_with_relations_by_uid(db, device_uid)
+        device_record = device_crud.get_device_by_uid(db, device_uid)
     finally:
         db.close()
-    if not device:
+    if not device or not device_record:
         await websocket.close(code=4404)
         return
+
+    if user.role == UserRole.user:
+        if not user.department_id:
+            await websocket.close(code=4403)
+            return
+        if device_record.department_id != user.department_id:
+            await websocket.close(code=4403)
+            return
 
     distributor = (device.distributor_name or "").strip().lower()
     customer = (device.customer_name or "").strip().lower()
@@ -216,4 +229,3 @@ async def device_stream_websocket(
     except Exception:
         stream_manager.disconnect(topic, websocket)
         await websocket.close()
-

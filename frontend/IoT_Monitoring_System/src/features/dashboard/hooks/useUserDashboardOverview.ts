@@ -97,6 +97,15 @@ export const useUserDashboardOverview = (enabled = true) => {
   useEffect(() => {
     if (!isEnabled) return;
     const queryKey = ["dashboard", "overview", "user", departmentId];
+    const unsub = wsManager.on("device", () => {
+      queryClient.invalidateQueries({ queryKey });
+    });
+    return () => unsub();
+  }, [queryClient, departmentId, isEnabled]);
+
+  useEffect(() => {
+    if (!isEnabled) return;
+    const queryKey = ["dashboard", "overview", "user", departmentId];
     const unsub = wsManager.on("device_status", (event: WSEvent<any>) => {
       const evtType = (event as any).type || (event as any).eventType || (event as any).payload?.type;
       const payload = (event as any).data ?? (event as any).payload?.data ?? (event as any).payload ?? event;

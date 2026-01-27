@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { Modal } from "@/components/Modal/Modal";
@@ -11,6 +12,8 @@ import styles from "../styles/dashboard.module.css";
 
 export function DeviceDashboardPage() {
   const { deviceUid } = useParams<{ deviceUid: string }>();
+  const { user } = useAuth();
+  const isReadOnly = user?.role === "user";
   const {
     device,
     deviceLoading,
@@ -59,14 +62,23 @@ export function DeviceDashboardPage() {
     "--"
   );
   const metaItems = device
-    ? [
-        { label: "Customer", value: device.customer_name || "Unknown" },
-        { label: "Department", value: device.department_name || "Unknown" },
-        { label: "UID", value: device.uid },
-        { label: "Status", value: statusBadge },
-        { label: "Data Interval", value: `${device.data_interval}s` },
-        { label: "Last Update", value: lastUpdateLabel },
-      ]
+    ? isReadOnly
+      ? [
+          { label: "UID", value: device.uid },
+          { label: "Device Name", value: device.name || "Unknown" },
+          { label: "Machine", value: device.machine || "Unknown" },
+          { label: "Status", value: statusBadge },
+          { label: "Data Interval", value: `${device.data_interval}s` },
+          { label: "Last Update", value: lastUpdateLabel },
+        ]
+      : [
+          { label: "Customer", value: device.customer_name || "Unknown" },
+          { label: "Department", value: device.department_name || "Unknown" },
+          { label: "UID", value: device.uid },
+          { label: "Status", value: statusBadge },
+          { label: "Data Interval", value: `${device.data_interval}s` },
+          { label: "Last Update", value: lastUpdateLabel },
+        ]
     : [];
 
   return (
@@ -75,6 +87,8 @@ export function DeviceDashboardPage() {
         title="Device Dashboard"
         subtitle={device ? `${device.name} - ${device.uid}` : "Device telemetry"}
         backHref="/dashboard/devices"
+        backLabel="Back"
+        useHistoryBack
       />
 
       {deviceLoading && <p>Loading device...</p>}
@@ -88,15 +102,16 @@ export function DeviceDashboardPage() {
           options={displayOptions}
           onDisplayChange={setDisplayMode}
           disabled={!device}
+          readOnly={isReadOnly}
           subtitle={panelSubtitle}
           showGenerate={showGenerate}
           panelLoading={panelLoading}
           panelError={panelError}
-          onGenerate={handleGeneratePanel}
+          onGenerate={isReadOnly ? () => {} : handleGeneratePanel}
           panelFields={panelFields}
           getFieldLabel={getFieldLabel}
           getFieldValue={getDisplayValue}
-          onOpenFieldConfig={openFieldConfig}
+          onOpenFieldConfig={isReadOnly ? () => {} : openFieldConfig}
         />
       )}
 
@@ -106,48 +121,51 @@ export function DeviceDashboardPage() {
           options={displayOptions}
           onDisplayChange={setDisplayMode}
           disabled={!device}
+          readOnly={isReadOnly}
           availableFields={panelFields}
           getChartValue={getFieldRawValue}
           getChartUnit={getFieldUnit}
           savedCharts={chartItems}
           savedLayout={chartLayout}
-          onSave={saveChartConfig}
+          onSave={isReadOnly ? undefined : saveChartConfig}
           saving={chartSaving}
           saveError={chartError}
         />
       )}
 
-      <Modal
-        isOpen={!!editingField}
-        onClose={closeFieldConfig}
-        title={editingField ? `Configure ${editingField}` : "Configure field"}
-      >
-        <div className={styles["dashboard-modal-form"]}>
-          <Input
-            id="device-field-label"
-            label="Label"
-            placeholder="Enter Data Name"
-            value={editLabel}
-            onChange={(event) => setEditLabel(event.target.value)}
-          />
-          <Input
-            id="device-field-unit"
-            label="Unit"
-            placeholder="Enter Unit"
-            value={editUnit}
-            onChange={(event) => setEditUnit(event.target.value)}
-          />
-          {configError && <p className={styles["dashboard-modal-error"]}>{configError}</p>}
-          <div className={styles["dashboard-modal-actions"]}>
-            <Button type="button" variant="cancel" onClick={closeFieldConfig} disabled={configSaving}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleSaveConfig} isLoading={configSaving}>
-              Save
-            </Button>
+      {!isReadOnly && (
+        <Modal
+          isOpen={!!editingField}
+          onClose={closeFieldConfig}
+          title={editingField ? `Configure ${editingField}` : "Configure field"}
+        >
+          <div className={styles["dashboard-modal-form"]}>
+            <Input
+              id="device-field-label"
+              label="Label"
+              placeholder="Enter Data Name"
+              value={editLabel}
+              onChange={(event) => setEditLabel(event.target.value)}
+            />
+            <Input
+              id="device-field-unit"
+              label="Unit"
+              placeholder="Enter Unit"
+              value={editUnit}
+              onChange={(event) => setEditUnit(event.target.value)}
+            />
+            {configError && <p className={styles["dashboard-modal-error"]}>{configError}</p>}
+            <div className={styles["dashboard-modal-actions"]}>
+              <Button type="button" variant="cancel" onClick={closeFieldConfig} disabled={configSaving}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSaveConfig} isLoading={configSaving}>
+                Save
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
     </div>
   );
 }

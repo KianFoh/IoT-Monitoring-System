@@ -13,7 +13,7 @@ const getWsChannelsForRole = (role?: User["role"] | null): WSChannel[] => {
     return ALL_CHANNELS;
   }
   if (role === "user") {
-    return ["device_status"];
+    return ["device_status", "device"];
   }
   return [];
 };

@@ -9,6 +9,7 @@ from app.schemas.distributor import DistributorOut
 from app.schemas.device import DeviceOut
 from app.schemas.mqtt_user import MqttUserOut
 from app.schemas.user import UserOut
+from app.services.device_event_ws import device_event_ws_manager
 from app.services.device_status_ws import device_status_ws_manager
 
 
@@ -43,8 +44,7 @@ async def broadcast_department_event(event_type: str, department: DepartmentOut)
 
 
 async def broadcast_device_event(event_type: str, device: DeviceOut):
-    await manager.broadcast(
-        "device",
+    await device_event_ws_manager.broadcast(
         {"type": event_type, "data": _serialize(device)},
     )
 

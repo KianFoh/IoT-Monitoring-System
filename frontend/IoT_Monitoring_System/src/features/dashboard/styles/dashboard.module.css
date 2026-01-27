@@ -48,17 +48,18 @@
 }
 
 .dashboard-section-link {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-primary-200);
-  text-decoration: none;
+
   padding: 6px 10px;
-  border-radius: var(--radius-full);
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .dashboard-section-link:hover {
   color: var(--color-primary-50);
-  background: var(--color-overlay-white-extra-heavy);
 }
 
 /* Topbar: search + action button row */
