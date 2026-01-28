@@ -758,7 +758,7 @@ export function DeviceDataChart<T extends string>({
             </>
           )}
           {!dataOptions.length && (
-            <p className={styles["dashboard-modal-error"]}>Generate a data panel to load fields.</p>
+            <p className={styles["dashboard-modal-error"]}>Add data fields in the data panel first.</p>
           )}
           {selectedChartType === "line" && dataOptions.length > 0 && selectedLineFields.length === 0 && (
             <p className={styles["dashboard-modal-error"]}>Select at least one data field.</p>
@@ -817,7 +817,7 @@ export function DeviceDataChart<T extends string>({
             </>
           )}
           {!dataOptions.length && (
-            <p className={styles["dashboard-modal-error"]}>Generate a data panel to load fields.</p>
+            <p className={styles["dashboard-modal-error"]}>Add data fields in the data panel first.</p>
           )}
           <div className={styles["dashboard-modal-actions"]}>
             <Button type="button" variant="cancel" onClick={handleCloseEdit}>

@@ -346,7 +346,7 @@ def fetch_device_latest_data(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Fetch the latest data for a specific device by UID."""
+    """Fetch the latest data snapshot for a specific device by UID."""
     require_role(current_user, [UserRole.superuser, UserRole.user])
 
     device = device_crud.get_device_by_uid(db, device_uid)
@@ -355,7 +355,7 @@ def fetch_device_latest_data(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
-    if current_user == UserRole.user:
+    if current_user.role == UserRole.user:
         if device.department_id != current_user.department_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

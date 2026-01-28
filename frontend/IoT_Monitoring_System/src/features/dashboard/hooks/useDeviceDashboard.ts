@@ -60,6 +60,17 @@ const normalizeChartLayout = (
   return nextLayout;
 };
 
+const formatLastUpdate = (value: Date) => {
+  const pad = (num: number) => String(num).padStart(2, "0");
+  const day = pad(value.getDate());
+  const month = pad(value.getMonth() + 1);
+  const year = value.getFullYear();
+  const hours = pad(value.getHours());
+  const minutes = pad(value.getMinutes());
+  const seconds = pad(value.getSeconds());
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+};
+
 export function useDeviceDashboard(deviceUid?: string) {
   const { access_token, user } = useAuth();
   const queryClient = useQueryClient();
@@ -72,6 +83,7 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [chartItems, setChartItems] = useState<NonNullable<ChartItemConfig>>([]);
   const [chartLayout, setChartLayout] = useState<NonNullable<ChartLayoutConfig>>([]);
   const [chartError, setChartError] = useState<string | null>(null);
+  const [latestFetched, setLatestFetched] = useState(false);
 
   useEffect(() => {
     setDevice(null);
@@ -82,6 +94,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     setChartItems([]);
     setChartLayout([]);
     setChartError(null);
+    setLatestFetched(false);
   }, [deviceUid]);
 
   const deviceQuery = useQuery<Device | null, Error>({
@@ -151,7 +164,7 @@ export function useDeviceDashboard(deviceUid?: string) {
         updateLastUpdate(timestamp);
       }
       if (data) {
-        setLiveData(data);
+        setLiveData((prev) => (prev ? { ...prev, ...data } : data));
       }
     });
 
@@ -173,6 +186,12 @@ export function useDeviceDashboard(deviceUid?: string) {
   }, [access_token, device?.customer_name, device?.department_name, device?.uid, updateLastUpdate]);
 
   useEffect(() => {
+    if (wsStatus === "idle") {
+      setLatestFetched(false);
+    }
+  }, [wsStatus]);
+
+  useEffect(() => {
     const uid = device?.uid;
     if (!uid) return;
 
@@ -189,7 +208,80 @@ export function useDeviceDashboard(deviceUid?: string) {
     return () => unsubscribe();
   }, [device?.uid]);
 
-  const wsReady = wsStatus === "connected" || wsStatus === "failed";
+  useEffect(() => {
+    if (!deviceUid) return;
+    const normalizedUid = deviceUid.trim().toLowerCase();
+    const unsubscribe = wsManager.on("device", (event: any) => {
+      const payload = event?.data;
+      if (!payload || typeof payload !== "object") return;
+      const payloadUid =
+        typeof (payload as { uid?: string }).uid === "string"
+          ? (payload as { uid?: string }).uid!.toLowerCase()
+          : "";
+      if (!payloadUid || payloadUid !== normalizedUid) return;
+
+      if (event?.type === "delete") {
+        setDevice(null);
+        setDeviceStatus(null);
+        setChartItems([]);
+        setChartLayout([]);
+        setChartError(null);
+        if (deviceUid) {
+          queryClient.setQueryData(["devices", "by-uid", deviceUid], null);
+        }
+        return;
+      }
+
+      if (event?.type === "update" || event?.type === "add") {
+        setDevice((prev) => {
+          const next = payload as Device;
+          if (!prev) return next;
+          return {
+            ...prev,
+            ...next,
+            dashboard_config: next.dashboard_config ?? prev.dashboard_config,
+          };
+        });
+        if (typeof (payload as { is_online?: boolean }).is_online === "boolean") {
+          setDeviceStatus((payload as { is_online: boolean }).is_online ? "online" : "offline");
+        }
+        if (deviceUid) {
+          queryClient.setQueryData(["devices", "by-uid", deviceUid], payload as Device);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [deviceUid, queryClient]);
+
+  useEffect(() => {
+    if (wsStatus !== "connected") return;
+    if (!device?.uid || latestFetched) return;
+    let cancelled = false;
+    devicesApi
+      .latestData(device.uid)
+      .then((payload) => {
+        if (cancelled) return;
+        if (!payload) {
+          setLatestFetched(true);
+          return;
+        }
+        const { data, timestamp } = extractPayloadInfo(payload);
+        if (data && !liveData) {
+          setLiveData(data);
+        }
+        if (timestamp) {
+          updateLastUpdate(timestamp);
+        }
+        setLatestFetched(true);
+      })
+      .catch(() => {
+        if (!cancelled) setLatestFetched(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wsStatus, device?.uid, latestFetched, liveData, updateLastUpdate]);
 
   const handleDeviceUpdate = useCallback((updated: Device) => {
     setDevice(updated);
@@ -199,9 +291,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     device,
     deviceUid,
     liveData,
-    wsReady,
     onDeviceUpdate: handleDeviceUpdate,
-    onLastUpdate: updateLastUpdate,
   });
 
   const chartMutation = useMutation({
@@ -253,7 +343,7 @@ export function useDeviceDashboard(deviceUid?: string) {
   );
 
   const lastUpdateLabel = useMemo(
-    () => (lastUpdate ? lastUpdate.toLocaleString() : "--"),
+    () => (lastUpdate ? formatLastUpdate(lastUpdate) : "--"),
     [lastUpdate]
   );
 

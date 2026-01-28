@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     MONGO_PASSWORD: str = Field(default=None)
     MONGO_AUTH_SOURCE: str = Field(default=None)
     DEVICES_DATA_COLLECTION_NAME: str = Field(default="devices_data")
+    DEVICES_LATEST_COLLECTION_NAME: str = Field(default="devices_latest")
 
     # ==================== MQTT ====================
     MQTT_BROKER_HOST: str = Field(default="localhost")

@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     MONGO_PASSWORD: str
     MONGO_DB_NAME: str
     MONGO_COLLECTION: str
+    MONGO_LATEST_COLLECTION: str
     MONGO_AUTH_SOURCE: str
 
     # MQTT

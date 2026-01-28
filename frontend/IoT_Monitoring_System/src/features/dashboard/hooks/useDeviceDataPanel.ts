@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { devicesApi } from "../api/devicesApi";
-import type { Device } from "@/types/device";
-import { type DevicePayload, extractPayloadInfo, formatValue } from "./deviceDashboardUtils";
+import type { DataFieldType, Device } from "@/types/device";
+import { type DevicePayload, formatValue } from "./deviceDashboardUtils";
 
-type DataPanelConfig = Record<string, { label?: string; unit?: string }>;
+type DataPanelConfig = Record<string, { label?: string; unit?: string; type?: DataFieldType }>;
 
 type UseDeviceDataPanelParams = {
   device: Device | null;
   deviceUid?: string;
   liveData: DevicePayload | null;
-  wsReady: boolean;
   onDeviceUpdate?: (device: Device) => void;
-  onLastUpdate?: (timestamp: Date) => void;
 };
+
+type ChartItemConfig = NonNullable<Device["dashboard_config"]>["data_chart_items"];
+type ChartLayoutConfig = NonNullable<Device["dashboard_config"]>["data_chart_layout"];
 
 const cleanPanelConfig = (fields: string[], config: DataPanelConfig) => {
   const nextEntries = Object.entries(config).filter(([key]) => fields.includes(key));
@@ -47,31 +48,39 @@ export function useDeviceDataPanel({
   device,
   deviceUid,
   liveData,
-  wsReady,
   onDeviceUpdate,
-  onLastUpdate,
 }: UseDeviceDataPanelParams) {
   const queryClient = useQueryClient();
   const [panelFields, setPanelFields] = useState<string[]>([]);
   const [panelConfig, setPanelConfig] = useState<DataPanelConfig>({});
-  const [panelError, setPanelError] = useState<string | null>(null);
-  const [latestSnapshot, setLatestSnapshot] = useState<DevicePayload | null>(null);
-  const [panelLoading, setPanelLoading] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editUnit, setEditUnit] = useState("");
+  const [editType, setEditType] = useState<DataFieldType>("number");
+  const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
+  const [newFieldKey, setNewFieldKey] = useState("");
+  const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [newFieldUnit, setNewFieldUnit] = useState("");
+  const [newFieldType, setNewFieldType] = useState<DataFieldType>("number");
+  const [addFieldError, setAddFieldError] = useState<string | null>(null);
+  const [addFieldSaving, setAddFieldSaving] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
 
   useEffect(() => {
     setPanelFields([]);
     setPanelConfig({});
-    setPanelError(null);
-    setLatestSnapshot(null);
-    setPanelLoading(false);
     setEditingField(null);
     setEditLabel("");
     setEditUnit("");
+    setEditType("number");
+    setIsAddFieldOpen(false);
+    setNewFieldKey("");
+    setNewFieldLabel("");
+    setNewFieldUnit("");
+    setNewFieldType("number");
+    setAddFieldError(null);
+    setAddFieldSaving(false);
     setConfigSaving(false);
     setConfigError(null);
   }, [deviceUid]);
@@ -82,36 +91,13 @@ export function useDeviceDataPanel({
     setPanelConfig(device.dashboard_config?.data_panel_config ?? {});
   }, [device]);
 
-  const latestQuery = useQuery<{ data: DevicePayload | null; timestamp: Date | null }, Error>({
-    queryKey: ["devices", "latest", device?.uid],
-    enabled: Boolean(device?.uid && panelFields.length > 0 && wsReady),
-    queryFn: async () => {
-      if (!device?.uid) return { data: null, timestamp: null };
-      const latest = await devicesApi.latestData(device.uid);
-      return extractPayloadInfo(latest);
-    },
-  });
-
-  useEffect(() => {
-    if (latestQuery.data?.timestamp && onLastUpdate) {
-      onLastUpdate(latestQuery.data.timestamp);
-    }
-    if (latestQuery.data?.data) {
-      setLatestSnapshot(latestQuery.data.data);
-    }
-  }, [latestQuery.data, onLastUpdate]);
-
-  useEffect(() => {
-    if (!latestQuery.error) return;
-    const message = latestQuery.error instanceof Error ? latestQuery.error.message : "Failed to load latest device data";
-    setPanelError(message);
-  }, [latestQuery.error]);
-
   const updateMutation = useMutation({
     mutationFn: (payload: {
       dashboard_config: {
         data_panel_fields?: string[];
         data_panel_config?: DataPanelConfig;
+        data_chart_items?: ChartItemConfig;
+        data_chart_layout?: ChartLayoutConfig;
       };
     }) => {
       if (!device) {
@@ -123,12 +109,17 @@ export function useDeviceDataPanel({
         payload.dashboard_config.data_panel_fields ?? currentConfig.data_panel_fields;
       const nextPanelConfig =
         payload.dashboard_config.data_panel_config ?? currentConfig.data_panel_config;
+      const nextChartItems =
+        payload.dashboard_config.data_chart_items ?? currentConfig.data_chart_items;
+      const nextChartLayout = sanitizeChartLayout(
+        payload.dashboard_config.data_chart_layout ?? sanitizedChartLayout
+      );
       return devicesApi.update(device.id, {
         dashboard_config: {
           data_panel_fields: nextPanelFields,
           data_panel_config: nextPanelConfig,
-          data_chart_items: currentConfig.data_chart_items,
-          data_chart_layout: sanitizedChartLayout,
+          data_chart_items: nextChartItems,
+          data_chart_layout: nextChartLayout,
         },
       });
     },
@@ -146,15 +137,13 @@ export function useDeviceDataPanel({
     if (liveData && Object.prototype.hasOwnProperty.call(liveData, field)) {
       return liveData[field];
     }
-    if (latestSnapshot && Object.prototype.hasOwnProperty.call(latestSnapshot, field)) {
-      return latestSnapshot[field];
-    }
     return undefined;
   };
 
   const getFieldRawValue = (field: string) => getFieldValue(field);
   const getFieldLabel = (field: string) => panelConfig[field]?.label?.trim() || field;
   const getFieldUnit = (field: string) => panelConfig[field]?.unit?.trim() || "";
+  const getFieldType = (field: string) => panelConfig[field]?.type ?? "text";
 
   const getDisplayValue = (field: string) => {
     const value = formatValue(getFieldValue(field));
@@ -167,6 +156,7 @@ export function useDeviceDataPanel({
     setEditingField(field);
     setEditLabel(panelConfig[field]?.label?.trim() || field);
     setEditUnit(panelConfig[field]?.unit?.trim() || "");
+    setEditType(panelConfig[field]?.type ?? "number");
     setConfigError(null);
   };
 
@@ -175,6 +165,7 @@ export function useDeviceDataPanel({
     setConfigError(null);
     setEditLabel("");
     setEditUnit("");
+    setEditType("number");
   };
 
   const handleSaveConfig = async () => {
@@ -186,6 +177,7 @@ export function useDeviceDataPanel({
       [editingField]: {
         label: editLabel.trim() || editingField,
         unit: editUnit.trim() || undefined,
+        type: editType,
       },
     };
     const cleanedConfig = cleanPanelConfig(panelFields, nextConfig);
@@ -206,63 +198,137 @@ export function useDeviceDataPanel({
     }
   };
 
-  const handleGeneratePanel = async () => {
+  const handleRemoveField = async (field: string) => {
     if (!device) return;
-    setPanelLoading(true);
-    setPanelError(null);
+    if (!panelFields.includes(field)) return;
+    const nextFields = panelFields.filter((item) => item !== field);
+    const nextConfig: DataPanelConfig = { ...panelConfig };
+    delete nextConfig[field];
+    const cleanedConfig = cleanPanelConfig(nextFields, nextConfig);
+    const currentConfig = device.dashboard_config ?? {};
+    const existingCharts = (currentConfig.data_chart_items ?? []).slice();
+    const remainingCharts = existingCharts.filter((chart) => {
+      if (!chart) return false;
+      if (chart.field === field) return false;
+      if (Array.isArray(chart.fields) && chart.fields.includes(field)) return false;
+      return true;
+    });
+    const existingLayout = currentConfig.data_chart_layout ?? [];
+    const remainingLayout = existingLayout.filter((item) =>
+      remainingCharts.some((chart) => chart.id === item.i)
+    );
     try {
-      const latestResult = await latestQuery.refetch();
-      const latestInfo = latestResult.data ?? { data: null, timestamp: null };
-      const payload = latestInfo.data;
-      if (!payload || Object.keys(payload).length === 0) {
-        setPanelError("No data available for this device yet.");
-        return;
-      }
-
-      const fields = Object.keys(payload);
-      const cleanedConfig = cleanPanelConfig(fields, panelConfig);
-      setPanelFields(fields);
-      setLatestSnapshot(payload);
-      if (latestInfo.timestamp && onLastUpdate) {
-        onLastUpdate(latestInfo.timestamp);
-      }
-      setPanelConfig(cleanedConfig);
-
       await updateMutation.mutateAsync({
         dashboard_config: {
-          data_panel_fields: fields,
+          data_panel_fields: nextFields,
+          data_panel_config: cleanedConfig,
+          data_chart_items: remainingCharts,
+          data_chart_layout: remainingLayout,
+        },
+      });
+      if (editingField === field) {
+        closeFieldConfig();
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to remove data field";
+      setConfigError(message);
+    }
+  };
+
+  const openAddField = () => {
+    setIsAddFieldOpen(true);
+    setAddFieldError(null);
+  };
+
+  const closeAddField = () => {
+    setIsAddFieldOpen(false);
+    setNewFieldKey("");
+    setNewFieldLabel("");
+    setNewFieldUnit("");
+    setNewFieldType("number");
+    setAddFieldError(null);
+    setAddFieldSaving(false);
+  };
+
+  const handleAddField = async () => {
+    if (!device) return;
+    const trimmedKey = newFieldKey.trim();
+    if (!trimmedKey) {
+      setAddFieldError("Data key is required.");
+      return;
+    }
+    const duplicate = panelFields.some(
+      (field) => field.trim().toLowerCase() === trimmedKey.toLowerCase()
+    );
+    if (duplicate) {
+      setAddFieldError("Data key already exists.");
+      return;
+    }
+
+    setAddFieldSaving(true);
+    setAddFieldError(null);
+    const trimmedLabel = newFieldLabel.trim();
+    const trimmedUnit = newFieldUnit.trim();
+    const nextFields = [...panelFields, trimmedKey];
+    const nextConfig: DataPanelConfig = {
+      ...panelConfig,
+      [trimmedKey]: {
+        label: trimmedLabel || trimmedKey,
+        unit: trimmedUnit || undefined,
+        type: newFieldType,
+      },
+    };
+    const cleanedConfig = cleanPanelConfig(nextFields, nextConfig);
+    try {
+      await updateMutation.mutateAsync({
+        dashboard_config: {
+          data_panel_fields: nextFields,
           data_panel_config: cleanedConfig,
         },
       });
+      closeAddField();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to generate data panel";
-      setPanelError(message);
+      const message = err instanceof Error ? err.message : "Failed to add data field";
+      setAddFieldError(message);
     } finally {
-      setPanelLoading(false);
+      setAddFieldSaving(false);
     }
   };
 
   const panelFieldsSorted = useMemo(() => panelFields.slice(), [panelFields]);
-  const showGenerate = panelFields.length === 0;
   const panelSubtitle = "List of device data";
 
   return {
     panelFields: panelFieldsSorted,
     panelSubtitle,
-    showGenerate,
-    panelLoading,
-    panelError,
     getFieldRawValue,
     getFieldLabel,
     getDisplayValue,
     getFieldUnit,
+    getFieldType,
     openFieldConfig,
-    handleGeneratePanel,
+    handleRemoveField,
+    isAddFieldOpen,
+    openAddField,
+    closeAddField,
+    newFieldKey,
+    setNewFieldKey,
+    newFieldLabel,
+    setNewFieldLabel,
+    newFieldUnit,
+    setNewFieldUnit,
+    newFieldType,
+    setNewFieldType,
+    addFieldError,
+    addFieldSaving,
+    handleAddField,
     editingField,
     editLabel,
     setEditLabel,
     editUnit,
     setEditUnit,
+    editType,
+    setEditType,
     closeFieldConfig,
     handleSaveConfig,
     configSaving,

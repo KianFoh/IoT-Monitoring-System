@@ -7,8 +7,15 @@ import { DeviceDashboardHeader } from "../components/DeviceDashboardHeader";
 import { DeviceDashboardMeta } from "../components/DeviceDashboardMeta";
 import { DeviceDataPanel } from "../components/DeviceDataPanel";
 import { DeviceDataChart } from "../components/DeviceDataChart";
+import DropdownSelect from "../components/DropdownSelect";
 import { useDeviceDashboard } from "../hooks/useDeviceDashboard";
 import styles from "../styles/dashboard.module.css";
+
+const DATA_FIELD_TYPE_OPTIONS: Array<{ value: "number" | "text" | "list"; label: string }> = [
+  { value: "number", label: "Numeric" },
+  { value: "text", label: "Text" },
+  { value: "list", label: "List" },
+];
 
 export function DeviceDashboardPage() {
   const { deviceUid } = useParams<{ deviceUid: string }>();
@@ -24,15 +31,27 @@ export function DeviceDashboardPage() {
     displayOptions,
     panelFields,
     panelSubtitle,
-    showGenerate,
-    panelLoading,
-    panelError,
     getFieldRawValue,
     getFieldLabel,
     getDisplayValue,
     getFieldUnit,
+    getFieldType,
     openFieldConfig,
-    handleGeneratePanel,
+    handleRemoveField,
+    isAddFieldOpen,
+    openAddField,
+    closeAddField,
+    newFieldKey,
+    setNewFieldKey,
+    newFieldLabel,
+    setNewFieldLabel,
+    newFieldUnit,
+    setNewFieldUnit,
+    newFieldType,
+    setNewFieldType,
+    addFieldError,
+    addFieldSaving,
+    handleAddField,
     chartItems,
     chartLayout,
     chartSaving,
@@ -43,6 +62,8 @@ export function DeviceDashboardPage() {
     setEditLabel,
     editUnit,
     setEditUnit,
+    editType,
+    setEditType,
     closeFieldConfig,
     handleSaveConfig,
     configSaving,
@@ -85,7 +106,6 @@ export function DeviceDashboardPage() {
     <div className={styles["devices-container"]}>
       <DeviceDashboardHeader
         title="Device Dashboard"
-        subtitle={device ? `${device.name} - ${device.uid}` : "Device telemetry"}
         backHref="/dashboard/devices"
         backLabel="Back"
         useHistoryBack
@@ -104,14 +124,15 @@ export function DeviceDashboardPage() {
           disabled={!device}
           readOnly={isReadOnly}
           subtitle={panelSubtitle}
-          showGenerate={showGenerate}
-          panelLoading={panelLoading}
-          panelError={panelError}
-          onGenerate={isReadOnly ? () => {} : handleGeneratePanel}
           panelFields={panelFields}
           getFieldLabel={getFieldLabel}
+          getFieldRawValue={getFieldRawValue}
           getFieldValue={getDisplayValue}
+          getFieldType={getFieldType}
+          getFieldUnit={getFieldUnit}
           onOpenFieldConfig={isReadOnly ? () => {} : openFieldConfig}
+          onAddField={isReadOnly ? () => {} : openAddField}
+          onRemoveField={isReadOnly ? () => {} : handleRemoveField}
         />
       )}
 
@@ -141,9 +162,16 @@ export function DeviceDashboardPage() {
         >
           <div className={styles["dashboard-modal-form"]}>
             <Input
+              id="device-field-key"
+              label="Data key"
+              placeholder="Enter data key"
+              value={editingField ?? ""}
+              disabled
+            />
+            <Input
               id="device-field-label"
-              label="Label"
-              placeholder="Enter Data Name"
+              label="Data label"
+              placeholder="Enter display label"
               value={editLabel}
               onChange={(event) => setEditLabel(event.target.value)}
             />
@@ -154,6 +182,13 @@ export function DeviceDashboardPage() {
               value={editUnit}
               onChange={(event) => setEditUnit(event.target.value)}
             />
+            <DropdownSelect
+              id="device-field-type"
+              label="Field type"
+              value={editType}
+              options={DATA_FIELD_TYPE_OPTIONS}
+              onChange={(value) => setEditType(value)}
+            />
             {configError && <p className={styles["dashboard-modal-error"]}>{configError}</p>}
             <div className={styles["dashboard-modal-actions"]}>
               <Button type="button" variant="cancel" onClick={closeFieldConfig} disabled={configSaving}>
@@ -161,6 +196,55 @@ export function DeviceDashboardPage() {
               </Button>
               <Button type="button" onClick={handleSaveConfig} isLoading={configSaving}>
                 Save
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {!isReadOnly && (
+        <Modal isOpen={isAddFieldOpen} onClose={closeAddField} title="Add data field">
+          <div className={styles["dashboard-modal-form"]}>
+            <Input
+              id="device-data-field-key"
+              label="Data key"
+              placeholder="e.g. temperature"
+              value={newFieldKey}
+              onChange={(event) => setNewFieldKey(event.target.value)}
+            />
+            <Input
+              id="device-data-field-label"
+              label="Data label"
+              placeholder="e.g. Temperature"
+              value={newFieldLabel}
+              onChange={(event) => setNewFieldLabel(event.target.value)}
+            />
+            <Input
+              id="device-data-field-unit"
+              label="Unit (optional)"
+              placeholder="e.g. °C"
+              value={newFieldUnit}
+              onChange={(event) => setNewFieldUnit(event.target.value)}
+            />
+            <DropdownSelect
+              id="device-data-field-type"
+              label="Field type"
+              value={newFieldType}
+              options={DATA_FIELD_TYPE_OPTIONS}
+              onChange={(value) => setNewFieldType(value)}
+            />
+            {addFieldError && <p className={styles["dashboard-modal-error"]}>{addFieldError}</p>}
+            <div className={styles["dashboard-modal-actions"]}>
+              <Button type="button" variant="cancel" onClick={closeAddField} disabled={addFieldSaving}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAddField}
+                isLoading={addFieldSaving}
+                disabled={!newFieldKey.trim()}
+              >
+                Add field
               </Button>
             </div>
           </div>

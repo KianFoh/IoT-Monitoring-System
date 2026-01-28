@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from app.core.mongo import get_collection
+from app.core.mongo import get_data_collection, get_latest_collection
 from app.core.postgresql import SessionLocal
 from app.models.device import Device
 from app.services.custom_processing import get_device_processor
@@ -26,7 +26,8 @@ class DevicePipeline:
         self.last_seen = None
         self.status = "offline"
         self.running = False
-        self.collection = get_collection()
+        self.data_collection = get_data_collection()
+        self.latest_collection = get_latest_collection()
         self.custom_processor = get_device_processor(device.uid)
         
     @property
@@ -95,7 +96,10 @@ class DevicePipeline:
         self._publish_processed(device_id, doc["ts"], data)
 
         # Store raw doc in MongoDB.
-        self.collection.insert_one(doc)
+        self.data_collection.insert_one(doc)
+
+        # Update latest snapshot in MongoDB.
+        self._upsert_latest(device_id, doc["ts"], data)
 
         # Update last seen timestamp.
         self.last_seen = doc["ts"]
@@ -110,6 +114,18 @@ class DevicePipeline:
                     "data": data,
                 }
             ),
+        )
+
+    def _upsert_latest(self, device_id: str, timestamp, data: Dict[str, Any]) -> None:
+        update_fields = {f"data.{key}": value for key, value in data.items()}
+        update_fields["ts"] = timestamp
+        self.latest_collection.update_one(
+            {"device_id": device_id},
+            {
+                "$set": update_fields,
+                "$setOnInsert": {"device_id": device_id},
+            },
+            upsert=True,
         )
 
     @staticmethod

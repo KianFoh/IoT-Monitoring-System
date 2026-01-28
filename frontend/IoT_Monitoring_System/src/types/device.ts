@@ -6,7 +6,7 @@ export interface Device {
   data_interval: number;
   dashboard_config?: {
     data_panel_fields?: string[];
-    data_panel_config?: Record<string, { label?: string; unit?: string }>;
+    data_panel_config?: Record<string, { label?: string; unit?: string; type?: DataFieldType }>;
     data_chart_items?: Array<{
       id: string;
       type: "meter" | "line" | "bar";
@@ -14,6 +14,7 @@ export interface Device {
       name?: string | null;
       min?: number | null;
       max?: number | null;
+      fields?: string[] | null;
     }>;
     data_chart_layout?: Array<{
       i: string;
@@ -31,6 +32,8 @@ export interface Device {
   is_active: boolean;
   created_at: string;
 }
+
+export type DataFieldType = "number" | "text" | "list";
 
 export interface DeviceListResponse {
   items: Device[];
