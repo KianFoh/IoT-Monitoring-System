@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, Iterable, Optional
 
 from app.utils.logger import logger
 
+# Type alias for a device data processor function.
 DeviceProcessor = Callable[[Dict[str, Any]], Dict[str, Any]]
 
 # Map device UID (lowercased) -> processor function.

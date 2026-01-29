@@ -14,12 +14,8 @@ _db = _mongo_client[settings.MONGO_DB_NAME]
 _data_collection = _db[settings.MONGO_COLLECTION]
 _latest_collection = _db[settings.MONGO_LATEST_COLLECTION]
 
-def get_collection() -> Collection:
-    """Return the historical device data collection (backwards-compatible alias)."""
-    return _data_collection
-
 def get_data_collection() -> Collection:
-    """Return the collection for historical device data."""
+    """Return the collection for device data."""
     return _data_collection
 
 def get_latest_collection() -> Collection:

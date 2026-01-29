@@ -117,7 +117,7 @@ export function useDeviceActions() {
       payload,
     }: {
       id: number;
-      payload: { name?: string; machine?: string | null; data_interval: number; is_active: boolean };
+      payload: { name?: string; machine?: string | null; data_interval?: number; is_active: boolean };
     }) =>
       devicesApi.update(id, payload),
     onSuccess: () => {
@@ -186,7 +186,7 @@ export function useDeviceActions() {
     e?.preventDefault();
     if (!selectedDevice) return false;
 
-    const payload: { name?: string; machine?: string | null; data_interval: number; is_active: boolean } = {
+    const payload: { name?: string; machine?: string | null; data_interval?: number; is_active: boolean } = {
       is_active: editForm.is_active,
     };
 

@@ -16,7 +16,6 @@ class MQTTClient:
 
         # Set callbacks
         self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
 
     def set_on_connect_handler(self, handler):
@@ -59,11 +58,7 @@ class MQTTClient:
         self.client.publish(topic, payload)
         logger.debug(f"Published message to topic: {topic}")
 
-    def on_message(self, client, userdata, msg):
-        """Callback when a message is received"""
-        logger.debug(f"MQTT message received - Topic: {msg.topic}, QoS: {msg.qos}")
-
-    def on_disconnect(self, client, userdata, rc):
+    def on_disconnect(self, _client, _userdata, rc):
         """Callback when disconnected from broker"""
         if rc != 0:
             logger.warning(f"Unexpected disconnect. Code: {rc}")
@@ -80,10 +75,9 @@ class MQTTClient:
             return False
 
     def start_loop(self):
-        """Start MQTT client loop handle auto reconnects"""
+        """Start MQTT client loop handle auto reconnects block current thread"""
         self.client.loop_forever()
 
     def stop(self):
         """Stop MQTT client"""
         self.client.disconnect()
-        self.client.loop_stop()

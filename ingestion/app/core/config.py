@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     MQTT_USERNAME: str
     MQTT_PASSWORD: str
     MONGO_AUTH_SOURCE: str = "admin"
+    # Maximum period in seconds between communications with the broker before the broker considers the client disconnected
     MQTT_KEEPALIVE: int = 60
     MQTT_DEVICE_RAW_DATA_TOPIC: str = "{customer_name}/json/send/{device_uid}/"
     MQTT_DEVICE_PROCESSED_DATA_TOPIC: str = "internal/devices/processed/{customer_name}/{department_name}/{device_uid}/"
@@ -44,6 +45,5 @@ class Settings(BaseSettings):
         env_file=Path(__file__).resolve().parents[3] / ".env",
         extra="ignore",
     )
-
 
 settings = Settings()
