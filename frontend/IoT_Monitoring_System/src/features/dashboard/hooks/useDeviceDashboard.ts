@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { wsManager } from "@/services/ws";
 import { devicesApi } from "../api/devicesApi";
-import type { Device } from "@/types/device";
+import type { DashboardChartConfig, Device } from "@/types/device";
 import { type DevicePayload, extractPayloadInfo } from "./deviceDashboardUtils";
 import { useDeviceDataPanel } from "./useDeviceDataPanel";
+import { buildDashboardConfig, normalizeDashboardConfig } from "./dashboardConfig";
 
 export type DisplayMode = "data_panel" | "data_chart";
 
@@ -25,10 +26,9 @@ const getSectionIdFromKey = (key: string) => key.replace(SECTION_PREFIX, "");
 const getLayoutMaxY = (layout: Array<{ y: number; h: number }>) =>
   layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
 
-type ChartItemConfig = NonNullable<Device["dashboard_config"]>["data_chart_items"];
-type ChartLayoutConfig = NonNullable<Device["dashboard_config"]>["data_chart_layout"];
-type ChartSection = NonNullable<NonNullable<Device["dashboard_config"]>["data_chart_sections"]>[number];
-type ChartSectionLayouts = NonNullable<Device["dashboard_config"]>["data_chart_section_layouts"];
+type ChartItemConfig = NonNullable<DashboardChartConfig["items"]>;
+type ChartLayoutConfig = NonNullable<DashboardChartConfig["layout"]>;
+type ChartSection = NonNullable<DashboardChartConfig["sections"]>[number];
 
 const normalizeChartItems = (items: ChartItemConfig | undefined) =>
   (items ?? []).map((item) => ({
@@ -105,8 +105,7 @@ const ensureChartLayout = (
 const buildCombinedChartLayout = (
   items: Array<{ id: string; section_id?: string | null }>,
   sections: ChartSection[],
-  layout: ChartLayoutConfig | undefined,
-  sectionLayouts: ChartSectionLayouts | undefined
+  layout: ChartLayoutConfig | undefined
 ) => {
   const normalizedLayout = (layout ?? []).map((item) => normalizeChartLayoutItem(item));
   if (normalizedLayout.some((item) => isSectionKey(item.i))) {
@@ -132,7 +131,9 @@ const buildCombinedChartLayout = (
     });
     nextY += SECTION_ROW_HEIGHT;
     const sectionItems = items.filter((item) => item.section_id === section.id);
-    const baseLayout = sectionLayouts?.[section.id] ?? [];
+    const baseLayout = normalizedLayout.filter((item) =>
+      sectionItems.some((chart) => chart.id === item.i)
+    );
     const sectionLayout = ensureChartLayout(sectionItems, [], baseLayout);
     const offsetItems = sectionLayout.map((item) => ({
       ...item,
@@ -244,13 +245,14 @@ export function useDeviceDashboard(deviceUid?: string) {
       setChartSections([]);
       return;
     }
-    const normalizedItems = normalizeChartItems(device.dashboard_config?.data_chart_items);
-    const sections = device.dashboard_config?.data_chart_sections ?? [];
+    const normalized = normalizeDashboardConfig(device.dashboard_config);
+    const chartConfig = normalized.data_chart;
+    const normalizedItems = normalizeChartItems(chartConfig.items);
+    const sections = chartConfig.sections;
     const normalizedLayout = buildCombinedChartLayout(
       normalizedItems,
       sections,
-      device.dashboard_config?.data_chart_layout,
-      device.dashboard_config?.data_chart_section_layouts ?? {}
+      chartConfig.layout
     );
     setChartItems(normalizedItems);
     setChartLayout(normalizedLayout);
@@ -425,29 +427,32 @@ export function useDeviceDashboard(deviceUid?: string) {
       if (!device) {
         throw new Error("Device not loaded");
       }
-      const currentConfig = device.dashboard_config ?? {};
+      const currentConfig = normalizeDashboardConfig(device.dashboard_config);
       const sanitizedLayout = payload.data_chart_layout.map((item) => sanitizeChartLayoutItem(item));
       const orderedSections = orderSectionsByLayout(payload.data_chart_sections, sanitizedLayout);
-      return devicesApi.update(device.id, {
-        dashboard_config: {
-          data_panel_fields: currentConfig.data_panel_fields,
-          data_panel_config: currentConfig.data_panel_config,
-          data_chart_items: payload.data_chart_items,
-          data_chart_layout: sanitizedLayout,
-          data_chart_sections: orderedSections,
-          data_chart_section_layouts: {},
+      const normalizedConfig = {
+        ...currentConfig,
+        data_chart: {
+          ...currentConfig.data_chart,
+          items: payload.data_chart_items,
+          layout: sanitizedLayout,
+          sections: orderedSections,
         },
+      };
+      return devicesApi.update(device.id, {
+        dashboard_config: buildDashboardConfig(normalizedConfig),
       });
     },
     onSuccess: (updated) => {
       setDevice(updated);
-      const normalizedItems = normalizeChartItems(updated.dashboard_config?.data_chart_items);
-      const sections = updated.dashboard_config?.data_chart_sections ?? [];
+      const normalized = normalizeDashboardConfig(updated.dashboard_config);
+      const chartConfig = normalized.data_chart;
+      const normalizedItems = normalizeChartItems(chartConfig.items);
+      const sections = chartConfig.sections;
       const normalizedLayout = buildCombinedChartLayout(
         normalizedItems,
         sections,
-        updated.dashboard_config?.data_chart_layout,
-        updated.dashboard_config?.data_chart_section_layouts ?? {}
+        chartConfig.layout
       );
       setChartItems(normalizedItems);
       setChartLayout(normalizedLayout);

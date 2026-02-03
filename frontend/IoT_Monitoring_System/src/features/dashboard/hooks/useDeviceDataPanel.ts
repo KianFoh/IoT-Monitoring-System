@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { devicesApi } from "../api/devicesApi";
-import type { DataFieldType, Device } from "@/types/device";
+import type { DataFieldType, DashboardChartConfig, DashboardPanelConfig, Device } from "@/types/device";
 import { type DevicePayload, formatValue } from "./deviceDashboardUtils";
+import { buildDashboardConfig, normalizeDashboardConfig } from "./dashboardConfig";
 
-type DataPanelConfig = Record<
-  string,
-  { label?: string; unit?: string; type?: DataFieldType; section_id?: string | null }
->;
+type DataPanelConfig = NonNullable<DashboardPanelConfig["config"]>;
 
 type UseDeviceDataPanelParams = {
   device: Device | null;
@@ -16,11 +14,10 @@ type UseDeviceDataPanelParams = {
   onDeviceUpdate?: (device: Device) => void;
 };
 
-type ChartItemConfig = NonNullable<Device["dashboard_config"]>["data_chart_items"];
-type ChartLayoutConfig = NonNullable<Device["dashboard_config"]>["data_chart_layout"];
-type PanelLayoutConfig = NonNullable<Device["dashboard_config"]>["data_panel_layout"];
-type PanelSection = NonNullable<NonNullable<Device["dashboard_config"]>["data_panel_sections"]>[number];
-type PanelSectionLayouts = NonNullable<Device["dashboard_config"]>["data_panel_section_layouts"];
+type ChartItemConfig = NonNullable<DashboardChartConfig["items"]>;
+type ChartLayoutConfig = NonNullable<DashboardChartConfig["layout"]>;
+type PanelLayoutConfig = NonNullable<DashboardPanelConfig["layout"]>;
+type PanelSection = NonNullable<DashboardPanelConfig["sections"]>[number];
 
 const DEFAULT_PANEL_SIZE = { w: 3, h: 2, minW: 1, minH: 1 };
 const GRID_COLS = 12;
@@ -285,7 +282,6 @@ const buildCombinedPanelLayout = (
   fields: string[],
   sections: PanelSection[],
   layout: PanelLayoutConfig,
-  sectionLayouts: PanelSectionLayouts | undefined,
   config: DataPanelConfig
 ) => {
   const normalizedLayout = sanitizePanelLayout(layout ?? []) ?? [];
@@ -314,7 +310,7 @@ const buildCombinedPanelLayout = (
     });
     nextY += SECTION_ROW_HEIGHT;
     const sectionFields = fields.filter((field) => config[field]?.section_id === section.id);
-    const baseLayout = (sectionLayouts?.[section.id] ?? []) as PanelLayoutConfig;
+    const baseLayout = normalizedLayout.filter((item) => sectionFields.includes(item.i));
     const sectionItems = ensureLayoutForFields(sectionFields, baseLayout).map((item) => ({
       ...item,
       y: item.y + nextY,
@@ -384,16 +380,16 @@ export function useDeviceDataPanel({
 
   useEffect(() => {
     if (!device) return;
-    const fields = device.dashboard_config?.data_panel_fields ?? [];
-    const config = device.dashboard_config?.data_panel_config ?? {};
-    const sections = device.dashboard_config?.data_panel_sections ?? [];
-    const baseLayout = device.dashboard_config?.data_panel_layout ?? [];
-    const sectionLayouts = device.dashboard_config?.data_panel_section_layouts ?? {};
+    const normalized = normalizeDashboardConfig(device.dashboard_config);
+    const panelConfig = normalized.data_panel;
+    const fields = panelConfig.fields;
+    const config = panelConfig.config;
+    const sections = panelConfig.sections;
+    const baseLayout = panelConfig.layout;
     const combinedLayout = buildCombinedPanelLayout(
       fields,
       sections,
       baseLayout,
-      sectionLayouts,
       config
     );
     setPanelFields(fields);
@@ -405,62 +401,54 @@ export function useDeviceDataPanel({
 
   const updateMutation = useMutation({
     mutationFn: (payload: {
-      dashboard_config: {
-        data_panel_fields?: string[];
-        data_panel_config?: DataPanelConfig;
-        data_panel_layout?: PanelLayoutConfig;
-        data_panel_sections?: PanelSection[];
-        data_chart_items?: ChartItemConfig;
-        data_chart_layout?: ChartLayoutConfig;
-      };
+      data_panel?: Partial<DashboardPanelConfig>;
+      data_chart?: Partial<DashboardChartConfig>;
     }) => {
       if (!device) {
         throw new Error("Device not loaded");
       }
-      const currentConfig = device.dashboard_config ?? {};
-      const sanitizedChartLayout = sanitizeChartLayout(currentConfig.data_chart_layout);
-      const nextPanelFields =
-        payload.dashboard_config.data_panel_fields ?? currentConfig.data_panel_fields;
-      const nextPanelConfig =
-        payload.dashboard_config.data_panel_config ?? currentConfig.data_panel_config;
-      const nextPanelLayout = sanitizePanelLayout(
-        payload.dashboard_config.data_panel_layout ?? currentConfig.data_panel_layout
-      );
-      const nextPanelSections =
-        payload.dashboard_config.data_panel_sections ?? currentConfig.data_panel_sections;
-      const nextChartItems =
-        payload.dashboard_config.data_chart_items ?? currentConfig.data_chart_items;
-      const nextChartLayout = sanitizeChartLayout(
-        payload.dashboard_config.data_chart_layout ?? sanitizedChartLayout
-      );
-      return devicesApi.update(device.id, {
-        dashboard_config: {
-          data_panel_fields: nextPanelFields,
-          data_panel_config: nextPanelConfig,
-          data_panel_layout: nextPanelLayout,
-          data_panel_sections: nextPanelSections,
-          data_chart_items: nextChartItems,
-          data_chart_layout: nextChartLayout,
+      const currentConfig = normalizeDashboardConfig(device.dashboard_config);
+      const nextPanel: Required<DashboardPanelConfig> = {
+        fields: payload.data_panel?.fields ?? currentConfig.data_panel.fields,
+        config: payload.data_panel?.config ?? currentConfig.data_panel.config,
+        layout: payload.data_panel?.layout ?? currentConfig.data_panel.layout,
+        sections: payload.data_panel?.sections ?? currentConfig.data_panel.sections,
+      };
+      const nextChart: Required<DashboardChartConfig> = {
+        items: payload.data_chart?.items ?? currentConfig.data_chart.items,
+        layout: payload.data_chart?.layout ?? currentConfig.data_chart.layout,
+        sections: payload.data_chart?.sections ?? currentConfig.data_chart.sections,
+      };
+      const nextPanelLayout = sanitizePanelLayout(nextPanel.layout) ?? [];
+      const nextChartLayout = sanitizeChartLayout(nextChart.layout) ?? [];
+      const normalizedConfig = {
+        ...currentConfig,
+        data_panel: {
+          ...nextPanel,
+          layout: nextPanelLayout,
         },
+        data_chart: {
+          ...nextChart,
+          layout: nextChartLayout,
+        },
+      };
+      return devicesApi.update(device.id, {
+        dashboard_config: buildDashboardConfig(normalizedConfig),
       });
     },
     onSuccess: (updated) => {
-      const fields = updated.dashboard_config?.data_panel_fields ?? [];
-      const config = updated.dashboard_config?.data_panel_config ?? {};
-      const sections = updated.dashboard_config?.data_panel_sections ?? [];
-      const baseLayout = updated.dashboard_config?.data_panel_layout ?? [];
-      const sectionLayouts = updated.dashboard_config?.data_panel_section_layouts ?? {};
+      const normalized = normalizeDashboardConfig(updated.dashboard_config);
+      const panelConfig = normalized.data_panel;
       const combinedLayout = buildCombinedPanelLayout(
-        fields,
-        sections,
-        baseLayout,
-        sectionLayouts,
-        config
+        panelConfig.fields,
+        panelConfig.sections,
+        panelConfig.layout,
+        panelConfig.config
       );
-      setPanelFields(fields);
-      setPanelConfig(config);
+      setPanelFields(panelConfig.fields);
+      setPanelConfig(panelConfig.config);
       setPanelLayout(combinedLayout);
-      setPanelSections(sections);
+      setPanelSections(panelConfig.sections);
       onDeviceUpdate?.(updated);
       if (deviceUid) {
         queryClient.setQueryData(["devices", "by-uid", deviceUid], updated);
@@ -697,8 +685,8 @@ export function useDeviceDataPanel({
         ];
       })
     ) as DataPanelConfig;
-    const currentConfig = device.dashboard_config ?? {};
-    const chartItems = (currentConfig.data_chart_items ?? []).filter(Boolean);
+    const currentConfig = normalizeDashboardConfig(device.dashboard_config);
+    const chartItems = currentConfig.data_chart.items.filter(Boolean);
     const fieldSet = new Set(panelFields);
     const remainingCharts = chartItems.filter((chart) => {
       if (chart.field && !fieldSet.has(chart.field)) return false;
@@ -707,20 +695,21 @@ export function useDeviceDataPanel({
       }
       return true;
     });
-    const chartLayout = currentConfig.data_chart_layout ?? [];
+    const chartLayout = currentConfig.data_chart.layout;
     const remainingLayout = chartLayout.filter((item) =>
       remainingCharts.some((chart) => chart.id === item.i)
     );
     try {
       await updateMutation.mutateAsync({
-        dashboard_config: {
-          data_panel_fields: panelFields,
-          data_panel_config: normalizedConfig,
-          data_panel_layout: sanitizedLayout,
-          data_panel_sections: orderedSections,
-          data_panel_section_layouts: {},
-          data_chart_items: remainingCharts,
-          data_chart_layout: remainingLayout,
+        data_panel: {
+          fields: panelFields,
+          config: normalizedConfig,
+          layout: sanitizedLayout,
+          sections: orderedSections,
+        },
+        data_chart: {
+          items: remainingCharts,
+          layout: remainingLayout,
         },
       });
       panelSnapshotRef.current = null;

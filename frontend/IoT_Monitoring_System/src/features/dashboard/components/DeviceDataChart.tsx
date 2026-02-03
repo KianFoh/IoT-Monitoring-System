@@ -365,13 +365,12 @@ export function DeviceDataChart<T extends string>({
   const [editMin, setEditMin] = useState("");
   const [editMax, setEditMax] = useState("");
   const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
-  const { width, containerRef, mounted, measureWidth } = useContainerWidth({
-    initialWidth: 0,
-    measureBeforeMount: true,
+  const { width, containerRef, measureWidth } = useContainerWidth({
+    initialWidth: 1200,
+    measureBeforeMount: false,
   });
   const gridWidth = Math.max(width, 1);
   const resizeHandles = isEditing && !disabled && !readOnly ? RESIZE_HANDLES : [];
-  const dragBounded = !(isEditing && sectionsForRender.length > 0);
   const renderResizeHandle = (axis: ResizeHandleAxis, ref: Ref<HTMLSpanElement>) => (
     <span
       ref={ref}
@@ -388,6 +387,7 @@ export function DeviceDataChart<T extends string>({
   );
 
   const sectionsForRender = isEditing ? draftSections : viewSections;
+  const dragBounded = !(isEditing && sectionsForRender.length > 0);
   const chartsForRender = isEditing ? draftCharts : normalizedSavedCharts;
   const savedAssignments = useMemo(() => {
     const map: Record<string, string | null> = {};
@@ -480,10 +480,8 @@ export function DeviceDataChart<T extends string>({
   }, [draftCharts, draftSections, isEditing]);
 
   useEffect(() => {
-    if (!mounted) return;
     measureWidth();
   }, [
-    mounted,
     draftCharts.length,
     normalizedSavedCharts.length,
     draftSections.length,
@@ -702,7 +700,6 @@ export function DeviceDataChart<T extends string>({
     );
   };
 
-
   const handleToggleLineField = (field: string) => {
     setSelectedLineFields((prev) =>
       prev.includes(field) ? prev.filter((item) => item !== field) : [...prev, field]
@@ -856,13 +853,14 @@ export function DeviceDataChart<T extends string>({
 
   const handleDragStop = (
     nextLayout: Layout,
-    _oldItem: LayoutItem,
-    newItem: LayoutItem
+    _oldItem: LayoutItem | null,
+    newItem: LayoutItem | null
   ) => {
     if (!isEditing || readOnly || disabled) return;
     isUserInteraction.current = false;
     const normalized = (nextLayout as ChartLayoutItem[]).map((item) => normalizeLayoutItem(item));
     setDraftLayout((prev) => mergeLayout(prev, normalized));
+    if (!newItem) return;
     if (isSectionKey(newItem.i)) {
       return;
     }
@@ -1004,7 +1002,16 @@ export function DeviceDataChart<T extends string>({
 
   const renderSectionRow = (sectionId: string) => {
     const section = sectionsForRender.find((item) => item.id === sectionId);
-    if (!section) return null;
+    if (!section) {
+      return (
+        <div
+          key={getSectionKey(sectionId)}
+          className={styles["device-section-row"]}
+          style={{ visibility: "hidden" }}
+          aria-hidden="true"
+        />
+      );
+    }
     const isCollapsed = Boolean(section.collapsed);
     const chartCount = chartsBySection[section.id]?.length ?? 0;
     return (

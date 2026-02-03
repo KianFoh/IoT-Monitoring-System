@@ -643,7 +643,16 @@ export function DeviceDataPanel<T extends string>({
 
   const renderSectionRow = (sectionId: string) => {
     const section = panelSections.find((item) => item.id === sectionId);
-    if (!section) return null;
+    if (!section) {
+      return (
+        <div
+          key={getSectionKey(sectionId)}
+          className={styles["device-section-row"]}
+          style={{ visibility: "hidden" }}
+          aria-hidden="true"
+        />
+      );
+    }
     const isCollapsed = Boolean(section.collapsed);
     const fieldsInSection = fieldsBySection[section.id] ?? [];
     return (
