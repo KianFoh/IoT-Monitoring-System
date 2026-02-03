@@ -15,9 +15,20 @@ const DISPLAY_OPTIONS: Array<{ value: DisplayMode; label: string }> = [
 ];
 
 const DEFAULT_CHART_LAYOUT = { w: 4, h: 3, minW: 3, minH: 3 };
+const GRID_COLS = 12;
+const SECTION_PREFIX = "section:";
+const SECTION_ROW_HEIGHT = 1;
+
+const getSectionKey = (sectionId: string) => `${SECTION_PREFIX}${sectionId}`;
+const isSectionKey = (key: string) => key.startsWith(SECTION_PREFIX);
+const getSectionIdFromKey = (key: string) => key.replace(SECTION_PREFIX, "");
+const getLayoutMaxY = (layout: Array<{ y: number; h: number }>) =>
+  layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
 
 type ChartItemConfig = NonNullable<Device["dashboard_config"]>["data_chart_items"];
 type ChartLayoutConfig = NonNullable<Device["dashboard_config"]>["data_chart_layout"];
+type ChartSection = NonNullable<NonNullable<Device["dashboard_config"]>["data_chart_sections"]>[number];
+type ChartSectionLayouts = NonNullable<Device["dashboard_config"]>["data_chart_section_layouts"];
 
 const normalizeChartItems = (items: ChartItemConfig | undefined) =>
   (items ?? []).map((item) => ({
@@ -25,25 +36,42 @@ const normalizeChartItems = (items: ChartItemConfig | undefined) =>
     name: item.name?.trim() || "New panel",
   }));
 
-const sanitizeChartLayoutItem = (item: NonNullable<ChartLayoutConfig>[number]) => ({
-  i: item.i,
-  x: item.x,
-  y: item.y,
-  w: item.w,
-  h: item.h,
-  minW: item.minW,
-  minH: item.minH,
-});
+const normalizeChartLayoutItem = (item: NonNullable<ChartLayoutConfig>[number]) =>
+  isSectionKey(item.i)
+    ? {
+        i: item.i,
+        x: 0,
+        y: item.y,
+        w: GRID_COLS,
+        h: SECTION_ROW_HEIGHT,
+        minW: GRID_COLS,
+        minH: SECTION_ROW_HEIGHT,
+      }
+    : {
+        i: item.i,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        minW: item.minW,
+        minH: item.minH,
+      };
 
-const normalizeChartLayout = (
+const sanitizeChartLayoutItem = (item: NonNullable<ChartLayoutConfig>[number]) =>
+  normalizeChartLayoutItem(item);
+
+const ensureChartLayout = (
   items: Array<{ id: string }>,
+  sections: ChartSection[],
   layout: ChartLayoutConfig | undefined
 ) => {
-  const nextLayout = (layout ?? [])
-    .filter((item) => items.some((chart) => chart.id === item.i))
-    .map((item) => sanitizeChartLayoutItem(item));
+  const chartIds = new Set(items.map((item) => item.id));
+  const sectionKeys = new Set(sections.map((section) => getSectionKey(section.id)));
+  let nextLayout = (layout ?? [])
+    .filter((item) => chartIds.has(item.i) || sectionKeys.has(item.i))
+    .map((item) => normalizeChartLayoutItem(item));
   const usedIds = new Set(nextLayout.map((item) => item.i));
-  let nextY = nextLayout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+  let nextY = getLayoutMaxY(nextLayout);
   items.forEach((item) => {
     if (usedIds.has(item.id)) return;
     nextLayout.push({
@@ -57,7 +85,82 @@ const normalizeChartLayout = (
     });
     nextY += DEFAULT_CHART_LAYOUT.h;
   });
-  return nextLayout;
+  sections.forEach((section) => {
+    const key = getSectionKey(section.id);
+    if (usedIds.has(key)) return;
+    nextLayout.push({
+      i: key,
+      x: 0,
+      y: nextY,
+      w: GRID_COLS,
+      h: SECTION_ROW_HEIGHT,
+      minW: GRID_COLS,
+      minH: SECTION_ROW_HEIGHT,
+    });
+    nextY += SECTION_ROW_HEIGHT;
+  });
+  return nextLayout.map((item) => normalizeChartLayoutItem(item));
+};
+
+const buildCombinedChartLayout = (
+  items: Array<{ id: string; section_id?: string | null }>,
+  sections: ChartSection[],
+  layout: ChartLayoutConfig | undefined,
+  sectionLayouts: ChartSectionLayouts | undefined
+) => {
+  const normalizedLayout = (layout ?? []).map((item) => normalizeChartLayoutItem(item));
+  if (normalizedLayout.some((item) => isSectionKey(item.i))) {
+    return ensureChartLayout(items, sections, normalizedLayout);
+  }
+
+  const validSectionIds = new Set(sections.map((section) => section.id));
+  const unsectionedItems = items.filter(
+    (item) => !item.section_id || !validSectionIds.has(item.section_id)
+  );
+  let combined = ensureChartLayout(unsectionedItems, [], normalizedLayout);
+  let nextY = getLayoutMaxY(combined);
+
+  sections.forEach((section) => {
+    combined.push({
+      i: getSectionKey(section.id),
+      x: 0,
+      y: nextY,
+      w: GRID_COLS,
+      h: SECTION_ROW_HEIGHT,
+      minW: GRID_COLS,
+      minH: SECTION_ROW_HEIGHT,
+    });
+    nextY += SECTION_ROW_HEIGHT;
+    const sectionItems = items.filter((item) => item.section_id === section.id);
+    const baseLayout = sectionLayouts?.[section.id] ?? [];
+    const sectionLayout = ensureChartLayout(sectionItems, [], baseLayout);
+    const offsetItems = sectionLayout.map((item) => ({
+      ...item,
+      y: item.y + nextY,
+    }));
+    combined = combined.concat(offsetItems);
+    nextY = getLayoutMaxY(combined);
+  });
+
+  return ensureChartLayout(items, sections, combined);
+};
+
+const orderSectionsByLayout = (sections: ChartSection[], layout: ChartLayoutConfig) => {
+  const positions = new Map<string, number>();
+  layout.forEach((item) => {
+    if (isSectionKey(item.i)) {
+      positions.set(getSectionIdFromKey(item.i), item.y);
+    }
+  });
+  return [...sections].sort((a, b) => {
+    const posA = positions.get(a.id);
+    const posB = positions.get(b.id);
+    if (posA == null && posB == null) return 0;
+    if (posA == null) return 1;
+    if (posB == null) return -1;
+    if (posA === posB) return 0;
+    return posA - posB;
+  });
 };
 
 const formatLastUpdate = (value: Date) => {
@@ -71,6 +174,15 @@ const formatLastUpdate = (value: Date) => {
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 };
 
+const mergeLiveData = (prev: DevicePayload | null, next: DevicePayload) => {
+  const filteredEntries = Object.entries(next).filter(([, value]) => value !== null && value !== undefined);
+  if (filteredEntries.length === 0) {
+    return prev ?? next;
+  }
+  const filtered = Object.fromEntries(filteredEntries);
+  return prev ? { ...prev, ...filtered } : filtered;
+};
+
 export function useDeviceDashboard(deviceUid?: string) {
   const { access_token } = useAuth();
   const queryClient = useQueryClient();
@@ -82,6 +194,7 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [deviceStatus, setDeviceStatus] = useState<"online" | "offline" | null>(null);
   const [chartItems, setChartItems] = useState<NonNullable<ChartItemConfig>>([]);
   const [chartLayout, setChartLayout] = useState<NonNullable<ChartLayoutConfig>>([]);
+  const [chartSections, setChartSections] = useState<ChartSection[]>([]);
   const [chartError, setChartError] = useState<string | null>(null);
   const [latestFetched, setLatestFetched] = useState(false);
 
@@ -93,6 +206,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     setDeviceStatus(null);
     setChartItems([]);
     setChartLayout([]);
+    setChartSections([]);
     setChartError(null);
     setLatestFetched(false);
   }, [deviceUid]);
@@ -127,12 +241,20 @@ export function useDeviceDashboard(deviceUid?: string) {
     if (!device) {
       setChartItems([]);
       setChartLayout([]);
+      setChartSections([]);
       return;
     }
     const normalizedItems = normalizeChartItems(device.dashboard_config?.data_chart_items);
-    const normalizedLayout = normalizeChartLayout(normalizedItems, device.dashboard_config?.data_chart_layout);
+    const sections = device.dashboard_config?.data_chart_sections ?? [];
+    const normalizedLayout = buildCombinedChartLayout(
+      normalizedItems,
+      sections,
+      device.dashboard_config?.data_chart_layout,
+      device.dashboard_config?.data_chart_section_layouts ?? {}
+    );
     setChartItems(normalizedItems);
     setChartLayout(normalizedLayout);
+    setChartSections(sections);
   }, [device]);
 
   const deviceError = useMemo(() => {
@@ -164,7 +286,7 @@ export function useDeviceDashboard(deviceUid?: string) {
         updateLastUpdate(timestamp);
       }
       if (data) {
-        setLiveData((prev) => (prev ? { ...prev, ...data } : data));
+        setLiveData((prev) => mergeLiveData(prev, data));
       }
     });
 
@@ -298,27 +420,38 @@ export function useDeviceDashboard(deviceUid?: string) {
     mutationFn: (payload: {
       data_chart_items: NonNullable<ChartItemConfig>;
       data_chart_layout: NonNullable<ChartLayoutConfig>;
+      data_chart_sections: ChartSection[];
     }) => {
       if (!device) {
         throw new Error("Device not loaded");
       }
       const currentConfig = device.dashboard_config ?? {};
       const sanitizedLayout = payload.data_chart_layout.map((item) => sanitizeChartLayoutItem(item));
+      const orderedSections = orderSectionsByLayout(payload.data_chart_sections, sanitizedLayout);
       return devicesApi.update(device.id, {
         dashboard_config: {
           data_panel_fields: currentConfig.data_panel_fields,
           data_panel_config: currentConfig.data_panel_config,
           data_chart_items: payload.data_chart_items,
           data_chart_layout: sanitizedLayout,
+          data_chart_sections: orderedSections,
+          data_chart_section_layouts: {},
         },
       });
     },
     onSuccess: (updated) => {
       setDevice(updated);
       const normalizedItems = normalizeChartItems(updated.dashboard_config?.data_chart_items);
-      const normalizedLayout = normalizeChartLayout(normalizedItems, updated.dashboard_config?.data_chart_layout);
+      const sections = updated.dashboard_config?.data_chart_sections ?? [];
+      const normalizedLayout = buildCombinedChartLayout(
+        normalizedItems,
+        sections,
+        updated.dashboard_config?.data_chart_layout,
+        updated.dashboard_config?.data_chart_section_layouts ?? {}
+      );
       setChartItems(normalizedItems);
       setChartLayout(normalizedLayout);
+      setChartSections(sections);
       if (deviceUid) {
         queryClient.setQueryData(["devices", "by-uid", deviceUid], updated);
       }
@@ -328,11 +461,16 @@ export function useDeviceDashboard(deviceUid?: string) {
   const saveChartConfig = useCallback(
     async (
       items: NonNullable<ChartItemConfig>,
-      layout: NonNullable<ChartLayoutConfig>
+      layout: NonNullable<ChartLayoutConfig>,
+      sections: ChartSection[]
     ) => {
       setChartError(null);
       try {
-        await chartMutation.mutateAsync({ data_chart_items: items, data_chart_layout: layout });
+        await chartMutation.mutateAsync({
+          data_chart_items: items,
+          data_chart_layout: layout,
+          data_chart_sections: sections,
+        });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Failed to save chart layout";
         setChartError(message);
@@ -358,6 +496,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     ...panel,
     chartItems,
     chartLayout,
+    chartSections,
     chartSaving: chartMutation.isPending,
     chartError,
     saveChartConfig,

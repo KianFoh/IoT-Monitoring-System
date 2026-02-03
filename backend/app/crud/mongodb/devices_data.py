@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from app.core.database import devices_data_collection
+from app.core.database import devices_data_collection, devices_latest_collection
 
 _FORMAT_BY_GRANULARITY = {
     "sec": "%Y-%m-%dT%H:%M:%S",
@@ -108,11 +108,4 @@ def get_by_uid(
 
 
 def get_latest_by_uid(uid: str):
-    cursor = (
-        devices_data_collection
-        .find({"device_id": uid})
-        .sort("ts", -1)
-        .limit(1)
-    )
-    items = list(cursor)
-    return items[0] if items else None
+    return devices_latest_collection.find_one({"device_id": uid})

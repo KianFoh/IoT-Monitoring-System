@@ -27,6 +27,7 @@ def get_db():
 # ==================== MongoDB ====================
 mongo_client = MongoClient(settings.mongo_uri_computed)
 devices_data_collection = mongo_client[settings.MONGO_DB_NAME][settings.DEVICES_DATA_COLLECTION_NAME]
+devices_latest_collection = mongo_client[settings.MONGO_DB_NAME][settings.DEVICES_LATEST_COLLECTION_NAME]
 
 def get_mongo_client():
     """Return the shared MongoDB client"""

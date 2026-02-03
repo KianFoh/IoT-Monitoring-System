@@ -36,7 +36,36 @@ export const devicesApi = {
       is_active: boolean;
       dashboard_config: {
         data_panel_fields?: string[];
-        data_panel_config?: Record<string, { label?: string; unit?: string; type?: "number" | "text" | "list" }>;
+        data_panel_config?: Record<
+          string,
+          { label?: string; unit?: string; type?: "number" | "text" | "list"; section_id?: string | null }
+        >;
+        data_panel_layout?: Array<{
+          i: string;
+          x: number;
+          y: number;
+          w: number;
+          h: number;
+          minW?: number;
+          minH?: number;
+        }>;
+        data_panel_sections?: Array<{
+          id: string;
+          name: string;
+          collapsed?: boolean;
+        }>;
+        data_panel_section_layouts?: Record<
+          string,
+          Array<{
+            i: string;
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+            minW?: number;
+            minH?: number;
+          }>
+        >;
         data_chart_items?: Array<{
           id: string;
           type: "meter" | "line" | "bar";
@@ -45,6 +74,7 @@ export const devicesApi = {
           min?: number | null;
           max?: number | null;
           fields?: string[] | null;
+          section_id?: string | null;
         }>;
         data_chart_layout?: Array<{
           i: string;
@@ -55,6 +85,23 @@ export const devicesApi = {
           minW?: number;
           minH?: number;
         }>;
+        data_chart_sections?: Array<{
+          id: string;
+          name: string;
+          collapsed?: boolean;
+        }>;
+        data_chart_section_layouts?: Record<
+          string,
+          Array<{
+            i: string;
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+            minW?: number;
+            minH?: number;
+          }>
+        >;
       } | null;
     }>
   ) {

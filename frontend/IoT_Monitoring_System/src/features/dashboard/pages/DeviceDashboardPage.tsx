@@ -30,12 +30,24 @@ export function DeviceDashboardPage() {
     setDisplayMode,
     displayOptions,
     panelFields,
+    panelLayout,
+    panelSections,
     panelSubtitle,
     getFieldRawValue,
     getFieldLabel,
     getDisplayValue,
     getFieldUnit,
     getFieldType,
+    getFieldSectionId,
+    addSection,
+    renameSection,
+    deleteSection,
+    toggleSection,
+    beginPanelEdit,
+    cancelPanelEdit,
+    savePanelLayout,
+    panelLayoutSaving,
+    panelLayoutError,
     openFieldConfig,
     handleRemoveField,
     isAddFieldOpen,
@@ -54,6 +66,7 @@ export function DeviceDashboardPage() {
     handleAddField,
     chartItems,
     chartLayout,
+    chartSections,
     chartSaving,
     chartError,
     saveChartConfig,
@@ -125,7 +138,10 @@ export function DeviceDashboardPage() {
           readOnly={isReadOnly}
           subtitle={panelSubtitle}
           panelFields={panelFields}
+          panelLayout={panelLayout}
+          panelSections={panelSections}
           getFieldLabel={getFieldLabel}
+          getFieldSectionId={getFieldSectionId}
           getFieldRawValue={getFieldRawValue}
           getFieldValue={getDisplayValue}
           getFieldType={getFieldType}
@@ -133,6 +149,15 @@ export function DeviceDashboardPage() {
           onOpenFieldConfig={isReadOnly ? () => {} : openFieldConfig}
           onAddField={isReadOnly ? () => {} : openAddField}
           onRemoveField={isReadOnly ? () => {} : handleRemoveField}
+          onAddSection={isReadOnly ? () => {} : addSection}
+          onRenameSection={isReadOnly ? () => {} : renameSection}
+          onDeleteSection={isReadOnly ? () => {} : deleteSection}
+          onToggleSection={toggleSection}
+          onStartEdit={isReadOnly ? undefined : beginPanelEdit}
+          onCancelEdit={isReadOnly ? undefined : cancelPanelEdit}
+          onSaveLayout={isReadOnly ? undefined : savePanelLayout}
+          layoutSaving={panelLayoutSaving}
+          layoutError={panelLayoutError}
         />
       )}
 
@@ -148,6 +173,7 @@ export function DeviceDashboardPage() {
           getChartUnit={getFieldUnit}
           savedCharts={chartItems}
           savedLayout={chartLayout}
+          savedSections={chartSections}
           onSave={isReadOnly ? undefined : saveChartConfig}
           saving={chartSaving}
           saveError={chartError}

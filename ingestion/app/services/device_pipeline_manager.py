@@ -37,17 +37,13 @@ class DeviceRepository:
 
         devices: List[DeviceInfo] = []
         for uid, data_interval, is_active, department_name, customer_name, distributor_name in rows:
-            if not customer_name or not department_name:
-                logger.warning(f"Device {uid} missing customer or department; skipping")
-                continue
-            interval_value = data_interval if data_interval is not None else 60
             devices.append(
                 DeviceInfo(
                     uid=uid,
                     customer_name=customer_name,
                     department_name=department_name,
                     distributor_name=distributor_name,
-                    data_interval=interval_value,
+                    data_interval=data_interval,
                     is_active=is_active,
                 )
             )
@@ -55,10 +51,10 @@ class DeviceRepository:
 
 
 class DevicePipelineManager:
-    def __init__(self, mqtt_client, repository: Optional[DeviceRepository] = None):
+    def __init__(self, mqtt_client):
         """Manage device pipelines based on MQTT events"""
         self._mqtt_client = mqtt_client
-        self._repository = repository or DeviceRepository()
+        self._repository = DeviceRepository()
         self._pipelines: Dict[str, DevicePipeline] = {}
         self._processing_dir = Path(custom_processing.__file__).resolve().parent
         self._processing_snapshot = self._build_processing_snapshot()
