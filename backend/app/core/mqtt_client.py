@@ -87,6 +87,18 @@ class MQTTClient:
             logging.error("Failed to publish MQTT message: %s", exc)
             return False
 
+    def publish_raw(self, topic: str, payload: str | bytes) -> bool:
+        try:
+            payload_bytes = payload.encode("utf-8") if isinstance(payload, str) else payload
+            result = self.client.publish(topic, payload_bytes)
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                logging.error("MQTT publish failed with code: %s", result.rc)
+                return False
+            return True
+        except Exception as exc:
+            logging.error("Failed to publish raw MQTT message: %s", exc)
+            return False
+
     def start(self):
         self.client.loop_start()
 

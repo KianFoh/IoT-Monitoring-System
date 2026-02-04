@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.mqtt_client import MQTTClient
 from app.services.device_processed_bridge import DeviceProcessedBridge
+from app.services.device_response_bridge import DeviceResponseBridge
 from app.services.device_status_bridge import DeviceStatusBridge
 from app.services.device_stream_manager import DeviceStreamManager
 from app.routes import health, user, auth, customer, distributor, department, device, mqtt_user, ws
@@ -38,10 +39,16 @@ async def lifespan(app: FastAPI):
         loop,
         app.state.device_stream_manager,
     )
+    app.state.device_response_bridge = DeviceResponseBridge(
+        _mqtt_client,
+        loop,
+        app.state.device_stream_manager,
+    )
     if _mqtt_client.connect():
         _mqtt_client.start()
         app.state.device_status_bridge.start()
         app.state.device_processed_bridge.start()
+        app.state.device_response_bridge.start()
         
     else:
         logging.error("MQTT connection failed; backend will continue without broker connection.")
@@ -51,6 +58,7 @@ async def lifespan(app: FastAPI):
     app.state.mqtt_client = None
     app.state.device_status_bridge = None
     app.state.device_processed_bridge = None
+    app.state.device_response_bridge = None
     app.state.device_stream_manager = None
 
 # Initialize FastAPI app
