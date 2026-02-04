@@ -8,6 +8,7 @@ import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { Modal } from "@/components/Modal/Modal";
 import PageSizeSelect from "../components/PageSizeSelect";
+import DropdownSelect from "../components/DropdownSelect";
 import { FaPlus } from "react-icons/fa";
 import styles from "../styles/dashboard.module.css";
 import { useAuth } from "@/features/auth/context/AuthContext";
@@ -21,7 +22,12 @@ import { departmentsApi } from "../api/departmentsApi";
 import { devicesApi } from "../api/devicesApi";
 import type { CustomerSearch } from "@/types/customer";
 import type { DepartmentSearch } from "@/types/department";
-import type { Device } from "@/types/device";
+import type { Device, DeviceConnectivity } from "@/types/device";
+
+const CONNECTIVITY_OPTIONS: Array<{ value: DeviceConnectivity; label: string }> = [
+  { value: "wifi", label: "Wi-Fi" },
+  { value: "cellular", label: "Cellular" },
+];
 
 const findCustomerId = (name: string, options: CustomerSearch[]) => {
   const normalized = name.trim().toLowerCase();
@@ -613,6 +619,43 @@ function SuperuserDevicesPage() {
             value={editForm.machine}
             onChange={(e) => setEditForm((prev) => ({ ...prev, machine: e.target.value }))}
           />
+          <DropdownSelect
+            id="edit-device-connectivity"
+            label="Connectivity"
+            value={editForm.connectivity}
+            options={CONNECTIVITY_OPTIONS}
+            onChange={(value) =>
+              setEditForm((prev) => ({
+                ...prev,
+                connectivity: value,
+                ...(value === "cellular" ? {} : { mobile_number: "", sim_id: "" }),
+              }))
+            }
+          />
+          {editForm.connectivity === "cellular" && (
+            <div className={styles["dashboard-readonly-group"]}>
+              <div className={styles["dashboard-readonly-item"]}>
+                <span className={styles["dashboard-readonly-label"]}>Mobile Number</span>
+                <span
+                  className={`${styles["dashboard-readonly-value"]} ${
+                    editForm.mobile_number?.trim() ? "" : styles["dashboard-readonly-muted"]
+                  }`}
+                >
+                  {editForm.mobile_number?.trim() || "Waiting for device response..."}
+                </span>
+              </div>
+              <div className={styles["dashboard-readonly-item"]}>
+                <span className={styles["dashboard-readonly-label"]}>SIM ID</span>
+                <span
+                  className={`${styles["dashboard-readonly-value"]} ${
+                    editForm.sim_id?.trim() ? "" : styles["dashboard-readonly-muted"]
+                  }`}
+                >
+                  {editForm.sim_id?.trim() || "Waiting for device response..."}
+                </span>
+              </div>
+            </div>
+          )}
           <div className={styles["dashboard-checkbox-row"]}>
             <Switch
               checked={editForm.is_active}

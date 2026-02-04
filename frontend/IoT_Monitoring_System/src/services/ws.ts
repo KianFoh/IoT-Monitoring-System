@@ -370,6 +370,22 @@ class WebSocketManager {
     this.streamListeners.get(key)!.add(listener as StreamListener);
     return () => this.streamListeners.get(key)?.delete(listener as StreamListener);
   }
+
+  sendStream(key: string, payload: unknown) {
+    const ws = this.streamConnections.get(key);
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn(`[WS] Stream not open for ${key}`);
+      return false;
+    }
+    try {
+      const message = typeof payload === "string" ? payload : JSON.stringify(payload);
+      ws.send(message);
+      return true;
+    } catch (err) {
+      console.error(`[WS] Failed to send on stream ${key}`, err);
+      return false;
+    }
+  }
 }
 
 export const wsManager = new WebSocketManager();

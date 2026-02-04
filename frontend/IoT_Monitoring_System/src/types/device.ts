@@ -64,11 +64,16 @@ export type LegacyDashboardConfig = {
 
 export type DeviceDashboardConfig = DashboardConfig | LegacyDashboardConfig;
 
+export type DeviceConnectivity = "wifi" | "cellular";
+
 export interface Device {
   id: number;
   name: string;
   uid: string;
   machine?: string | null;
+  connectivity: DeviceConnectivity;
+  mobile_number?: string | null;
+  sim_id?: string | null;
   data_interval: number;
   dashboard_config?: DeviceDashboardConfig | null;
   is_online: boolean;

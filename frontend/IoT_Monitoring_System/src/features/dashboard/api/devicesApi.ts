@@ -21,7 +21,16 @@ export const devicesApi = {
     return api.get<DeviceListResponse>(`/devices/?${params.toString()}`);
   },
 
-  async create(payload: { name: string; uid: string; department_id: number; machine?: string | null; data_interval: number }) {
+  async create(payload: {
+    name: string;
+    uid: string;
+    department_id: number;
+    machine?: string | null;
+    data_interval: number;
+    connectivity?: "wifi" | "cellular";
+    mobile_number?: string | null;
+    sim_id?: string | null;
+  }) {
     return api.post<Device>("/devices/", payload);
   },
 
@@ -35,6 +44,9 @@ export const devicesApi = {
       is_online: boolean;
       is_active: boolean;
       dashboard_config: DeviceDashboardConfig | null;
+      connectivity: "wifi" | "cellular";
+      mobile_number: string | null;
+      sim_id: string | null;
     }>
   ) {
     return api.patch<Device>(`/devices/${deviceId}`, payload);
