@@ -3,6 +3,8 @@ export type UserRole = "superuser" | "admin" | "user";
 export interface User {
   id: number;
   email: string;
+  username?: string | null;
+  profile_picture?: string | null;
   department_id?: number | null;
   department_name?: string | null;
   customer_name?: string | null;

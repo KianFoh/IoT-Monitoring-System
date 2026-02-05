@@ -9,9 +9,26 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   onRightIconClick?: () => void;
   rightIconLabel?: string;
   error?: string;
+  groupClassName?: string;
+  labelClassName?: string;
+  containerClassName?: string;
+  inputClassName?: string;
 }
 
-export const Input = ({ label, icon, rightIcon, onRightIconClick, rightIconLabel, error, id, ...props }: InputProps) => {
+export const Input = ({
+  label,
+  icon,
+  rightIcon,
+  onRightIconClick,
+  rightIconLabel,
+  error,
+  id,
+  groupClassName,
+  labelClassName,
+  containerClassName,
+  inputClassName,
+  ...props
+}: InputProps) => {
   const renderIcon = () => {
     if (!icon) return null;
     if (React.isValidElement(icon)) return icon;
@@ -33,13 +50,16 @@ export const Input = ({ label, icon, rightIcon, onRightIconClick, rightIconLabel
   };
 
   return (
-    <div className={styles["gen-inputGroup"]}>
+    <div className={[styles["gen-inputGroup"], groupClassName].filter(Boolean).join(" ")}>
       {label && (
-        <label htmlFor={id} className={styles["gen-inputLabel"]}>
+        <label
+          htmlFor={id}
+          className={[styles["gen-inputLabel"], labelClassName].filter(Boolean).join(" ")}
+        >
           {label}
         </label>
       )}
-      <div className={styles["gen-inputContainer"]}>
+      <div className={[styles["gen-inputContainer"], containerClassName].filter(Boolean).join(" ")}>
         {icon && <span className={styles["gen-inputIconLeft"]}>{renderIcon()}</span>}
         {rightIcon && (
           onRightIconClick ? (
@@ -58,7 +78,13 @@ export const Input = ({ label, icon, rightIcon, onRightIconClick, rightIconLabel
         )}
         <input
           id={id}
-          className={`${styles["gen-inputField"]} ${icon ? styles.withIcon : ""} ${rightIcon ? styles.withRightIcon : ""} ${error ? styles.inputError : ""}`}
+          className={[
+            styles["gen-inputField"],
+            icon ? styles.withIcon : "",
+            rightIcon ? styles.withRightIcon : "",
+            error ? styles.inputError : "",
+            inputClassName ?? "",
+          ].filter(Boolean).join(" ")}
           {...props}
         />
       </div>

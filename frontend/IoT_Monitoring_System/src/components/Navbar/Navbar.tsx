@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useMemo } from "react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import type { ReactElement } from "react";
 import {
@@ -6,13 +7,13 @@ import {
   FaNetworkWired,
   FaUsers,
   FaCog,
-  FaUserCircle,
   FaUserCog,
   FaUserAlt ,
   FaBuilding,
   FaSitemap ,
 } from "react-icons/fa";
 import styles from"./Navbar.module.css";
+import { config } from "@/config";
 
 export interface NavItem {
   to: string;
@@ -22,6 +23,23 @@ export interface NavItem {
 
 const Navbar = () => {
   const { logout, user } = useAuth();
+  const displayName = user?.username?.trim() || user?.email || "User";
+  const initials = useMemo(() => {
+    const trimmedUsername = user?.username?.trim() || "";
+    if (trimmedUsername) {
+      const parts = trimmedUsername.split(/[\s@._-]+/).filter(Boolean);
+      const letters = parts.slice(0, 3).map((part) => part[0]?.toUpperCase() ?? "");
+      return letters.join("") || "U";
+    }
+    const email = (user?.email || "").trim();
+    return email ? email[0]?.toUpperCase() ?? "U" : "U";
+  }, [user?.email, user?.username]);
+
+  const profileSrc = useMemo(() => {
+    const value = user?.profile_picture;
+    if (!value) return null;
+    return value.startsWith("http") ? value : `${config.api.baseUrl}${value}`;
+  }, [user?.profile_picture]);
 
   const navItems: NavItem[] = [
     { to: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
@@ -44,10 +62,18 @@ const Navbar = () => {
       {/* Profile */}
       <div className={styles["gen-navbar-profile"]}>
         <div className={styles["gen-navbar-profile-avatar"]}>
-          <FaUserCircle size={48} />
+          {profileSrc ? (
+            <img
+              src={profileSrc}
+              alt={displayName}
+              className={styles["gen-navbar-profile-avatar-img"]}
+            />
+          ) : (
+            <span className={styles["gen-navbar-profile-avatar-placeholder"]}>{initials}</span>
+          )}
         </div>
         <div>
-          <h3 className={styles["gen-navbar-profile-email"]}>{user?.email || 'User'}</h3>
+          <h3 className={styles["gen-navbar-profile-email"]}>{displayName}</h3>
           <p className={styles["gen-navbar-profile-role"]}>{user?.role || 'Role'}</p>
         </div>
       </div>

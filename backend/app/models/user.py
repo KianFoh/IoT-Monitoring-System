@@ -9,6 +9,8 @@ class User(Base):
 
     id = Column(BigInteger, primary_key=True)
     email = Column(String, unique=True, nullable=False)
+    username = Column(String, nullable=True)
+    profile_picture = Column(String, nullable=True)
     password = Column(String, nullable=True)
     department_id = Column(BigInteger, ForeignKey("department.id"), nullable=True)
     role = Column(

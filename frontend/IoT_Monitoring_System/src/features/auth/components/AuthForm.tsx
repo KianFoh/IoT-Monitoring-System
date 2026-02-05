@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode, ElementType } from "react";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import styles from "../styles/auth.module.css";
@@ -8,6 +8,9 @@ export interface AuthFormField {
   type: "text" | "email" | "password";
   label: string;
   icon?: string;
+  rightIcon?: ReactNode | ElementType;
+  rightIconLabel?: string;
+  onRightIconClick?: () => void;
   placeholder?: string;
   value: string;
   onChange: (value: string) => void;
@@ -49,6 +52,9 @@ export const AuthForm = ({
           type={field.type}
           label={field.label}
           icon={field.icon}
+          rightIcon={field.rightIcon}
+          rightIconLabel={field.rightIconLabel}
+          onRightIconClick={field.onRightIconClick}
           value={field.value}
           onChange={(e) => field.onChange(e.target.value)}
           placeholder={field.placeholder}

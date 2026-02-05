@@ -125,9 +125,11 @@ def reset_password(
 ):
     
     user = user_crud.get_user(db, current_user.id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     user_update = UserUpdate(password=reset_password_request.new_password)
-    user_crud.update_user(db, current_user.id, user_update)
+    user_crud.update_user(db, user, user_update)
     update_one_time_token(db, current_user)
             
     return {"message": f"Password reset successfully"}

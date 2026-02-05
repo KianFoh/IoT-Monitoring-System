@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm";
@@ -6,11 +7,13 @@ import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/Card/Card";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import styles from "@/features/auth/styles/auth.module.css";
 
 
 export function LoginPage() {
   const { email, setEmail, password, setPassword, handleSubmit, loading, error } = useLogin();
+  const [showPassword, setShowPassword] = useState(false);
 
   const fields: AuthFormField[] = [
     {
@@ -24,12 +27,15 @@ export function LoginPage() {
     },
     {
       id: "password",
-      type: "password",
+      type: showPassword ? "text" : "password",
       label: "Password",
-      icon: "🔒",
+      icon: "\u{1F512}",
       value: password,
       onChange: setPassword,
       placeholder: "Enter your password",
+      rightIcon: showPassword ? FaEyeSlash : FaEye,
+      rightIconLabel: showPassword ? "Hide password" : "Show password",
+      onRightIconClick: () => setShowPassword((prev) => !prev),
     },
   ];
 

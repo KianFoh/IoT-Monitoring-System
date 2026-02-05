@@ -19,6 +19,8 @@ def create_user(db: Session, user: UserCreate):
         email=user.email,
         department_id=user.department_id,
         role=user.role,
+        username=user.username,
+        profile_picture=user.profile_picture,
     )
     db.add(db_user)
     db.commit()
@@ -87,6 +89,8 @@ def get_users(
             {
                 "id": user.id,
                 "email": user.email,
+                "username": user.username,
+                "profile_picture": user.profile_picture,
                 "department_id": user.department_id,
                 "department_name": department_name,
                 "customer_name": customer_name,
@@ -108,6 +112,8 @@ def get_user_with_relations(db: Session, user_id: int):
     return {
         "id": user.id,
         "email": user.email,
+        "username": user.username,
+        "profile_picture": user.profile_picture,
         "department_id": user.department_id,
         "department_name": department_name,
         "customer_name": customer_name,

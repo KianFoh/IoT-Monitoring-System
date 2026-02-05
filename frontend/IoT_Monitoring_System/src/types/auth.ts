@@ -17,6 +17,8 @@ export interface LoginFormData {
 
 export interface User {
   email: string;
+  username?: string | null;
+  profile_picture?: string | null;
   department_id: number | null;
   role: "admin" | "user" | "superuser";
   id: number;

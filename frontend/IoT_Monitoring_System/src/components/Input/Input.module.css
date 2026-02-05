@@ -85,6 +85,11 @@
   border-color: var(--color-error-500);
 }
 
+.gen-inputField[type="password"]::-ms-reveal,
+.gen-inputField[type="password"]::-ms-clear {
+  display: none;
+}
+
 .gen-inputErrorMessage {
   font-size: var(--font-size-xs);
   color: var(--color-error-600);

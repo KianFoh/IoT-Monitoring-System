@@ -21,8 +21,39 @@ export const usersApi = {
     return api.post<User>("/users/", payload);
   },
 
-  async update(id: number, payload: { email?: string; role?: UserRole; is_verified?: boolean; is_active?: boolean }) {
+  async update(
+    id: number,
+    payload: {
+      email?: string;
+      role?: UserRole;
+      is_verified?: boolean;
+      is_active?: boolean;
+      username?: string | null;
+      profile_picture?: string | null;
+      password?: string;
+    }
+  ) {
     return api.patch<User>(`/users/${id}`, payload);
+  },
+
+  async changePassword(payload: {
+    old_password: string;
+    new_password: string;
+    confirm_password: string;
+  }) {
+    return api.post<{ message: string }>("/users/me/change-password", payload);
+  },
+
+  async uploadProfilePicture(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<User>("/users/me/profile-picture", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  async removeProfilePicture() {
+    return api.delete<User>("/users/me/profile-picture");
   },
 
   async remove(id: number) {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useResetPasswordConfirm } from "@/features/auth/hooks/useResetPasswordConfirm";
 import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm";
@@ -5,6 +6,7 @@ import { AuthSuccess } from "@/features/auth/components/AuthSuccess";
 import { AuthError } from "@/features/auth/components/AuthError";
 import { AuthContainer } from "@/features/auth/components/AuthContainer";
 import { Card} from "@/components/Card/Card";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthLinks } from "@/features/auth/components/AuthLinks";
 import { AuthFooter } from "@/features/auth/components/AuthFooter";
@@ -25,24 +27,33 @@ export function ResetPasswordConfirmPage() {
     handleSubmit,
   } = useResetPasswordConfirm();
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const fields: AuthFormField[] = [
     {
       id: "password",
-      type: "password",
+      type: showPassword ? "text" : "password",
       label: "Password",
-      icon: "🔒",
+      icon: "\u{1F512}",
       value: password,
       onChange: setPassword,
-      placeholder: "Enter your password (min 8 characters)",
+      placeholder: "Enter your password",
+      rightIcon: showPassword ? FaEyeSlash : FaEye,
+      rightIconLabel: showPassword ? "Hide password" : "Show password",
+      onRightIconClick: () => setShowPassword((prev) => !prev),
     },
     {
       id: "confirmPassword",
-      type: "password",
+      type: showConfirmPassword ? "text" : "password",
       label: "Confirm Password",
-      icon: "🔒",
+      icon: "\u{1F512}",
       value: confirmPassword,
       onChange: setConfirmPassword,
       placeholder: "Confirm your password",
+      rightIcon: showConfirmPassword ? FaEyeSlash : FaEye,
+      rightIconLabel: showConfirmPassword ? "Hide password" : "Show password",
+      onRightIconClick: () => setShowConfirmPassword((prev) => !prev),
     },
   ];
 
