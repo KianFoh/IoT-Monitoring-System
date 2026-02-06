@@ -17,7 +17,8 @@ export default defineConfig(({ mode }) => {
     envDir: repoRoot,
     server: {
       port: parseInt(env.VITE_PORT),
-      open: true,
+      open: false,
+      host: false,
     },
   }
 })

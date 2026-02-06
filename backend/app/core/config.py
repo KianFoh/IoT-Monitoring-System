@@ -51,6 +51,7 @@ class Settings(BaseSettings):
 
     # ==================== Server ====================
     FASTAPI_PORT: int = Field(default=8000)
+    FASTAPI_HOST: str = Field(default="127.0.0.1")
     ENVIRONMENT: str = Field(default="development")
     DEBUG: bool = True if os.getenv("ENVIRONMENT", "development") == "development" else False
     

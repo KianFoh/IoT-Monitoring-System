@@ -122,9 +122,10 @@ app.include_router(ws.router)
 
 if __name__ == "__main__":
     import uvicorn
+    is_production = settings.ENVIRONMENT.lower() == "production"
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host=settings.FASTAPI_HOST,
         port=settings.FASTAPI_PORT,
-        reload=settings.DEBUG
+        reload=False if is_production else settings.DEBUG,
     )
