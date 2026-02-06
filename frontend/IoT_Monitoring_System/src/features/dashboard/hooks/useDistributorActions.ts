@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { Distributor } from "@/types/distributor";
 import { distributorsApi } from "../api/distributorsApi";
+import { getApiErrorDetail } from "@/utils/apiErrors";
 
 export function useDistributorActions() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -61,9 +62,8 @@ export function useDistributorActions() {
     onSuccess: () => {
       closeAddModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to add distributor";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to add distributor"));
     },
   });
 
@@ -78,9 +78,8 @@ export function useDistributorActions() {
     onSuccess: () => {
       closeEditModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to update distributor";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to update distributor"));
     },
   });
 
@@ -89,9 +88,8 @@ export function useDistributorActions() {
     onSuccess: () => {
       closeDeleteModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to delete distributor";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to delete distributor"));
     },
   });
 
@@ -110,9 +108,8 @@ export function useDistributorActions() {
         phone_no: phone ? phone : null,
       });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add distributor";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to add distributor"));
       return false;
     }
   };
@@ -133,9 +130,8 @@ export function useDistributorActions() {
       setActionError(null);
       await editMutation.mutateAsync({ id: selectedDistributor.id, payload });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update distributor";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to update distributor"));
       return false;
     }
   };
@@ -150,9 +146,8 @@ export function useDistributorActions() {
       setActionError(null);
       await deleteMutation.mutateAsync(selectedDistributor.id);
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete distributor";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to delete distributor"));
       return false;
     }
   };

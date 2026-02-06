@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { Department } from "@/types/department";
 import { departmentsApi } from "../api/departmentsApi";
+import { getApiErrorDetail } from "@/utils/apiErrors";
 
 export function useDepartmentActions() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -60,9 +61,8 @@ export function useDepartmentActions() {
     onSuccess: () => {
       closeAddModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to add department";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to add department"));
     },
   });
 
@@ -72,9 +72,8 @@ export function useDepartmentActions() {
     onSuccess: () => {
       closeEditModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to update department";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to update department"));
     },
   });
 
@@ -83,9 +82,8 @@ export function useDepartmentActions() {
     onSuccess: () => {
       closeDeleteModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to delete department";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to delete department"));
     },
   });
 
@@ -107,9 +105,8 @@ export function useDepartmentActions() {
         customer_id: addForm.customer_id,
       });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add department";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to add department"));
       return false;
     }
   };
@@ -128,9 +125,8 @@ export function useDepartmentActions() {
       setActionError(null);
       await editMutation.mutateAsync({ id: selectedDepartment.id, payload });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update department";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to update department"));
       return false;
     }
   };
@@ -145,9 +141,8 @@ export function useDepartmentActions() {
       setActionError(null);
       await deleteMutation.mutateAsync(selectedDepartment.id);
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete department";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to delete department"));
       return false;
     }
   };

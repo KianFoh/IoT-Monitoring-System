@@ -13,7 +13,7 @@ npm run build
 npm install -g serve 
 
 # Start Server
-serve -s build
+serve -s dist
 
 # Linxu install typescript
 npm install -D typescript

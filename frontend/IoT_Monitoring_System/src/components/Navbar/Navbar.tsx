@@ -28,7 +28,7 @@ const Navbar = () => {
     const trimmedUsername = user?.username?.trim() || "";
     if (trimmedUsername) {
       const parts = trimmedUsername.split(/[\s@._-]+/).filter(Boolean);
-      const letters = parts.slice(0, 3).map((part) => part[0]?.toUpperCase() ?? "");
+      const letters = parts.slice(0, 3).map((part: string) => part[0]?.toUpperCase() ?? "");
       return letters.join("") || "U";
     }
     const email = (user?.email || "").trim();

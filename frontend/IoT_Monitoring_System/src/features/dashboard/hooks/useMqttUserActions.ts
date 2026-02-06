@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { MqttUser } from "@/types/mqttUser";
 import { mqttUsersApi } from "../api/mqttUsersApi";
+import { getApiErrorDetail } from "@/utils/apiErrors";
 
 export function useMqttUserActions() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -73,9 +74,8 @@ export function useMqttUserActions() {
     onSuccess: () => {
       closeAddModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to add MQTT user";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to add MQTT user"));
     },
   });
 
@@ -85,9 +85,8 @@ export function useMqttUserActions() {
     onSuccess: () => {
       closeEditModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to update MQTT user";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to update MQTT user"));
     },
   });
 
@@ -96,9 +95,8 @@ export function useMqttUserActions() {
     onSuccess: () => {
       closeDeleteModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to delete MQTT user";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to delete MQTT user"));
     },
   });
 
@@ -125,9 +123,8 @@ export function useMqttUserActions() {
         customer_id: addForm.customer_id,
       });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add MQTT user";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to add MQTT user"));
       return false;
     }
   };
@@ -155,9 +152,8 @@ export function useMqttUserActions() {
       setActionError(null);
       await editMutation.mutateAsync({ id: selectedUser.id, payload });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update MQTT user";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to update MQTT user"));
       return false;
     }
   };
@@ -168,9 +164,8 @@ export function useMqttUserActions() {
       setActionError(null);
       await deleteMutation.mutateAsync(selectedUser.id);
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete MQTT user";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to delete MQTT user"));
       return false;
     }
   };

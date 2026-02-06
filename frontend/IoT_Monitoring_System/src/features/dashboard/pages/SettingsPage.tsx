@@ -5,8 +5,10 @@ import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import { Modal } from "@/components/Modal/Modal";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import type { User } from "@/types/user";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { config } from "@/config";
+import { getApiErrorDetail } from "@/utils/apiErrors";
 import { usersApi } from "../api/usersApi";
 import styles from "../styles/dashboard.module.css";
 
@@ -42,21 +44,6 @@ export function SettingsPage() {
     return `${config.api.baseUrl}${value}`;
   };
 
-  const getApiErrorDetail = (err: unknown, fallback: string) => {
-    if (err && typeof err === "object") {
-      const response = (err as { response?: { data?: { detail?: unknown } } }).response;
-      const detail = response?.data?.detail;
-      if (typeof detail === "string" && detail.trim()) return detail;
-      if (Array.isArray(detail) && detail.length > 0) {
-        const first = detail[0] as { msg?: string };
-        if (first?.msg) return first.msg;
-      }
-      const message = (err as { message?: string }).message;
-      if (message) return message;
-    }
-    return fallback;
-  };
-
   useEffect(() => {
     if (profileObjectUrl) {
       URL.revokeObjectURL(profileObjectUrl);
@@ -83,14 +70,14 @@ export function SettingsPage() {
     const trimmedUsername = username.trim();
     if (trimmedUsername) {
       const parts = trimmedUsername.split(/[\s@._-]+/).filter(Boolean);
-      const letters = parts.slice(0, 3).map((part) => part[0]?.toUpperCase() ?? "");
+      const letters = parts.slice(0, 3).map((part: string) => part[0]?.toUpperCase() ?? "");
       return letters.join("") || "U";
     }
     const email = (user?.email || "").trim();
     return email ? email[0]?.toUpperCase() ?? "U" : "U";
   }, [username, user?.email]);
 
-  const displayUsername = user?.username?.trim() || "Not set";
+  const displayUsername = user?.username?.trim() || "-";
   const displayEmail = user?.email || "-";
   const displayRole = user?.role || "-";
 
@@ -215,7 +202,7 @@ export function SettingsPage() {
         });
       }
 
-      setUser((prev) => (prev ? { ...prev, ...updatedUser } : (updatedUser as any)));
+      setUser((prev: User | null) => (prev ? { ...prev, ...updatedUser } : updatedUser));
       setProfileFile(null);
       setRemoveProfile(false);
       setSaveSuccess("Profile updated.");

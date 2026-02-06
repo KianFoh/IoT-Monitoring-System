@@ -8,6 +8,17 @@ export type StreamListener<T = unknown> = (data: T) => void;
 
 export const ALL_CHANNELS: WSChannel[] = ["customer", "distributor", "department", "device", "mqtt_user", "user", "device_status"];
 
+const isProd = import.meta.env.MODE === "production";
+const wsLog = (...args: unknown[]) => {
+  if (!isProd) console.log(...args);
+};
+const wsWarn = (...args: unknown[]) => {
+  if (!isProd) console.warn(...args);
+};
+const wsError = (...args: unknown[]) => {
+  if (!isProd) console.error(...args);
+};
+
 type AuthHandlers = {
   refreshToken?: () => Promise<string | null>;
   onAuthFailure?: () => void;
@@ -163,7 +174,7 @@ class WebSocketManager {
       this.shouldReconnect.set(channel, true);
       const token = this.tokenGetter?.();
       if (!token) {
-        console.warn(`[WS] No token, skip connect for ${channel}`);
+        wsWarn(`[WS] No token, skip connect for ${channel}`);
         return reject("No token");
       }
 
@@ -189,7 +200,7 @@ class WebSocketManager {
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
-        console.log(`[WS] Connected: ${channel}`);
+        wsLog(`[WS] Connected: ${channel}`);
         const seen = this.hasConnected.get(channel) ?? false;
         this.hasConnected.set(channel, true);
         if (seen) {
@@ -202,18 +213,18 @@ class WebSocketManager {
           const evt: WSEvent = JSON.parse(e.data);
           this.listeners.get(channel)?.forEach((fn) => fn(evt));
         } catch (err) {
-          console.error(`[WS] Parse error on ${channel}`, err);
+          wsError(`[WS] Parse error on ${channel}`, err);
         }
       };
       ws.onclose = (event) => {
-        console.log(
+        wsLog(
           `[WS] Closed: ${channel} (code ${event.code}, reason: ${event.reason || "n/a"}, clean: ${event.wasClean})`
         );
         this.connections.delete(channel);
         this.handleReconnect(channel, event).catch(() => {});
       };
       ws.onerror = (e) => {
-        console.error(`[WS] Error on ${channel}`, e);
+        wsError(`[WS] Error on ${channel}`, e);
         reject(e);
       };
 
@@ -227,7 +238,7 @@ class WebSocketManager {
       this.streamPaths.set(key, path);
       const token = this.tokenGetter?.();
       if (!token) {
-        console.warn(`[WS] No token, skip stream connect for ${key}`);
+        wsWarn(`[WS] No token, skip stream connect for ${key}`);
         return reject("No token");
       }
 
@@ -251,7 +262,7 @@ class WebSocketManager {
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
-        console.log(`[WS] Connected stream: ${key}`);
+        wsLog(`[WS] Connected stream: ${key}`);
         resolve();
       };
       ws.onmessage = (e) => {
@@ -266,14 +277,14 @@ class WebSocketManager {
         this.streamListeners.get(key)?.forEach((fn) => fn(payload));
       };
       ws.onclose = (event) => {
-        console.log(
+        wsLog(
           `[WS] Closed stream: ${key} (code ${event.code}, reason: ${event.reason || "n/a"}, clean: ${event.wasClean})`
         );
         this.streamConnections.delete(key);
         this.handleStreamReconnect(key, event).catch(() => {});
       };
       ws.onerror = (e) => {
-        console.error(`[WS] Error on stream ${key}`, e);
+        wsError(`[WS] Error on stream ${key}`, e);
         reject(e);
       };
 
@@ -374,7 +385,7 @@ class WebSocketManager {
   sendStream(key: string, payload: unknown) {
     const ws = this.streamConnections.get(key);
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn(`[WS] Stream not open for ${key}`);
+      wsWarn(`[WS] Stream not open for ${key}`);
       return false;
     }
     try {
@@ -382,7 +393,7 @@ class WebSocketManager {
       ws.send(message);
       return true;
     } catch (err) {
-      console.error(`[WS] Failed to send on stream ${key}`, err);
+      wsError(`[WS] Failed to send on stream ${key}`, err);
       return false;
     }
   }

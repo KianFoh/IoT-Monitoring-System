@@ -207,7 +207,7 @@ async def update_device(
     db: Session = Depends(get_db)
 ):
     """Update device"""
-    require_role(current_user, [UserRole.superuser])
+    require_role(current_user, [UserRole.superuser, UserRole.user])
     
     # Check if device exists
     existing_device = device_crud.get_device(db, device_id)

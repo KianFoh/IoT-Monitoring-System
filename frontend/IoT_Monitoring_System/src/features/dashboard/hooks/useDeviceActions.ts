@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { Device, DeviceConnectivity } from "@/types/device";
 import { devicesApi } from "../api/devicesApi";
 import { wsManager } from "@/services/ws";
+import { getApiErrorDetail } from "@/utils/apiErrors";
 
 const DEFAULT_DATA_INTERVAL = 60;
 
@@ -120,9 +121,8 @@ export function useDeviceActions() {
     onSuccess: () => {
       closeAddModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to add device";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to add device"));
     },
   });
 
@@ -146,9 +146,8 @@ export function useDeviceActions() {
     onSuccess: () => {
       closeEditModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to update device";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to update device"));
     },
   });
 
@@ -157,9 +156,8 @@ export function useDeviceActions() {
     onSuccess: () => {
       closeDeleteModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to delete device";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to delete device"));
     },
   });
 
@@ -198,9 +196,8 @@ export function useDeviceActions() {
         data_interval: intervalValue,
       });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add device";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to add device"));
       return false;
     }
   };
@@ -249,9 +246,8 @@ export function useDeviceActions() {
       setActionError(null);
       await editMutation.mutateAsync({ id: selectedDevice.id, payload });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update device";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to update device"));
       return false;
     }
   };
@@ -262,9 +258,8 @@ export function useDeviceActions() {
       setActionError(null);
       await deleteMutation.mutateAsync(selectedDevice.id);
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete device";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to delete device"));
       return false;
     }
   };
@@ -355,9 +350,8 @@ export function useDeviceActions() {
           wsManager.sendStream(cmdKey, "chkiccid");
           wsManager.sendStream(cmdKey, "chkcellnum");
         })
-        .catch((err) => {
-          const message = err instanceof Error ? err.message : "Failed to fetch cellular info";
-          setActionError(message);
+        .catch((err: unknown) => {
+          setActionError(getApiErrorDetail(err, "Failed to fetch cellular info"));
         });
     }
     previousConnectivityRef.current = editForm.connectivity;

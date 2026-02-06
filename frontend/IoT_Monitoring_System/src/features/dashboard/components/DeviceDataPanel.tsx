@@ -490,14 +490,18 @@ export function DeviceDataPanel<T extends string>({
 
   const handleDragStop = (
     nextLayout: Layout,
-    _oldItem: LayoutItem,
-    newItem: LayoutItem
+    _oldItem: LayoutItem | null,
+    newItem: LayoutItem | null
   ) => {
     if (!isLayoutEditing || readOnly || disabled) return;
     isUserInteraction.current = false;
     const normalized = (nextLayout as PanelLayoutItem[]).map((item) =>
       normalizeLayoutItem(item)
     );
+    if (!newItem) {
+      setDraftLayout((prev) => mergeLayout(prev, normalized));
+      return;
+    }
     if (isSectionKey(newItem.i)) {
       setDraftLayout((prev) => mergeLayout(prev, normalized));
       return;

@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { Customer } from "@/types/customer";
 import { customersApi } from "../api/customersApi";
+import { getApiErrorDetail } from "@/utils/apiErrors";
 
 export function useCustomerActions() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -82,9 +83,8 @@ export function useCustomerActions() {
     onSuccess: () => {
       closeAddModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to add customer";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to add customer"));
     },
   });
 
@@ -100,9 +100,8 @@ export function useCustomerActions() {
     onSuccess: () => {
       closeEditModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to update customer";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to update customer"));
     },
   });
 
@@ -111,9 +110,8 @@ export function useCustomerActions() {
     onSuccess: () => {
       closeDeleteModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to delete customer";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to delete customer"));
     },
   });
 
@@ -133,9 +131,8 @@ export function useCustomerActions() {
         distributor_id: addForm.distributor_id ?? null,
       });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add customer";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to add customer"));
       return false;
     }
   };
@@ -157,9 +154,8 @@ export function useCustomerActions() {
       setActionError(null);
       await editMutation.mutateAsync({ id: selectedCustomer.id, payload });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update customer";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to update customer"));
       return false;
     }
   };
@@ -174,9 +170,8 @@ export function useCustomerActions() {
       setActionError(null);
       await deleteMutation.mutateAsync(selectedCustomer.id);
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete customer";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to delete customer"));
       return false;
     }
   };

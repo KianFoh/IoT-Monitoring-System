@@ -14,8 +14,6 @@ type UseDeviceDataPanelParams = {
   onDeviceUpdate?: (device: Device) => void;
 };
 
-type ChartItemConfig = NonNullable<DashboardChartConfig["items"]>;
-type ChartLayoutConfig = NonNullable<DashboardChartConfig["layout"]>;
 type PanelLayoutConfig = NonNullable<DashboardPanelConfig["layout"]>;
 type PanelSection = NonNullable<DashboardPanelConfig["sections"]>[number];
 

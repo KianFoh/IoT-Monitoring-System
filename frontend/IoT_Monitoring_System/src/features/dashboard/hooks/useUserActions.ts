@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { User, UserRole } from "@/types/user";
 import { usersApi } from "../api/usersApi";
+import { getApiErrorDetail } from "@/utils/apiErrors";
 
 export function useUserActions() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -82,9 +83,8 @@ export function useUserActions() {
     onSuccess: () => {
       closeAddModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to add user";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to add user"));
     },
   });
 
@@ -99,9 +99,8 @@ export function useUserActions() {
     onSuccess: () => {
       closeEditModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to update user";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to update user"));
     },
   });
 
@@ -110,9 +109,8 @@ export function useUserActions() {
     onSuccess: () => {
       closeDeleteModal();
     },
-    onError: (err: any) => {
-      const message = err instanceof Error ? err.message : "Failed to delete user";
-      setActionError(message);
+    onError: (err: unknown) => {
+      setActionError(getApiErrorDetail(err, "Failed to delete user"));
     },
   });
 
@@ -139,9 +137,8 @@ export function useUserActions() {
         role: addForm.role,
       });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add user";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to add user"));
       return false;
     }
   };
@@ -166,9 +163,8 @@ export function useUserActions() {
       setActionError(null);
       await editMutation.mutateAsync({ id: selectedUser.id, payload });
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update user";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to update user"));
       return false;
     }
   };
@@ -179,9 +175,8 @@ export function useUserActions() {
       setActionError(null);
       await deleteMutation.mutateAsync(selectedUser.id);
       return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete user";
-      setActionError(message);
+    } catch (err: unknown) {
+      setActionError(getApiErrorDetail(err, "Failed to delete user"));
       return false;
     }
   };

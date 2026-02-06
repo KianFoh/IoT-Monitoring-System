@@ -1,4 +1,6 @@
-import type { Dispatch, FormEvent, SetStateAction } from "react"; 
+import type { Dispatch, FormEvent, SetStateAction } from "react";
+import type { User } from "@/types/user";
+export type { User } from "@/types/user";
 
 export interface LoginFormProps {
   email: string;
@@ -13,19 +15,6 @@ export interface LoginFormProps {
 export interface LoginFormData {
   email: string;
   password: string;
-}
-
-export interface User {
-  email: string;
-  username?: string | null;
-  profile_picture?: string | null;
-  department_id: number | null;
-  role: "admin" | "user" | "superuser";
-  id: number;
-  is_verified: boolean;
-  is_active: boolean;
-  last_login: string;
-  created_at: string;
 }
 
 export interface AuthContextType {
