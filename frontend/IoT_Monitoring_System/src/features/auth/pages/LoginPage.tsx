@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { AuthHeader } from "@/features/auth/components/AuthHeader";
 import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm";
@@ -9,11 +9,38 @@ import { Link } from "react-router-dom";
 import { Card } from "@/components/Card/Card";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import styles from "@/features/auth/styles/auth.module.css";
+import nexevaLogo from "@/assets/logo/nexeva_logo.png";
+import { fetchBranding } from "@/services/branding";
+import { config } from "@/config";
 
 
 export function LoginPage() {
   const { email, setEmail, password, setPassword, handleSubmit, loading, error } = useLogin();
   const [showPassword, setShowPassword] = useState(false);
+  const [logoSrc, setLogoSrc] = useState<string>(nexevaLogo);
+
+  useEffect(() => {
+    const host = window.location.hostname.toLowerCase();
+    if (host === "manage.nexeva.io") {
+      setLogoSrc(nexevaLogo);
+      return;
+    }
+
+    fetchBranding(host)
+      .then((branding) => {
+        if (branding?.logo_url) {
+          const resolved = branding.logo_url.startsWith("http")
+            ? branding.logo_url
+            : `${config.api.baseUrl}${branding.logo_url}`;
+          setLogoSrc(resolved);
+        } else {
+          setLogoSrc(nexevaLogo);
+        }
+      })
+      .catch(() => {
+        setLogoSrc(nexevaLogo);
+      });
+  }, []);
 
   const fields: AuthFormField[] = [
     {
@@ -42,7 +69,7 @@ export function LoginPage() {
   return (
     <AuthContainer>
       <Card>
-        <AuthHeader title="Sign In" subtitle="Welcome back!" />
+        <AuthHeader title="Sign In" subtitle="Welcome back!" logoSrc={logoSrc} />
         <AuthForm
           fields={fields}
           onSubmit={handleSubmit}

@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
+from pathlib import Path
+from uuid import uuid4
 from app.core.database import get_db
+from app.core.config import get_settings
 from app.core.security import get_current_user, require_role
 from app.utils.ws_events import broadcast_distributor_event
 from app.crud.postgres import distributor as distributor_crud
@@ -12,9 +15,39 @@ from app.schemas.distributor import (
     DistributorUpdate,
     DistributorOut,
     DistributorListResponse,
+    DistributorBrandingOut,
 )
 
 router = APIRouter(prefix="/distributors", tags=["distributors"])
+settings = get_settings()
+UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads"
+LOGOS_DIR = UPLOADS_DIR / "distributor-logos"
+LOGOS_DIR.mkdir(parents=True, exist_ok=True)
+MAX_LOGO_BYTES = 2 * 1024 * 1024
+
+
+def _normalize_host(host: str) -> str:
+    return host.split(":", 1)[0].strip().lower()
+
+
+def _extract_subdomain(host: str) -> str | None:
+    labels = [label for label in host.split(".") if label]
+    if len(labels) < 3:
+        return None
+    return labels[0]
+
+
+def _delete_logo_file(logo_path: str | None) -> None:
+    if not logo_path:
+        return
+    if not logo_path.startswith("/uploads/distributor-logos/"):
+        return
+    filename = Path(logo_path).name
+    file_path = LOGOS_DIR / filename
+    if file_path.exists():
+        file_path.unlink()
+
+
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)
@@ -50,6 +83,10 @@ async def create_distributor(
             "id": db_distributor.id,
             "name": db_distributor.name,
             "phone_no": db_distributor.phone_no,
+            "logo_url": db_distributor.logo_url,
+            "logo_url_table": db_distributor.logo_url_table,
+            "logo_url_login": db_distributor.logo_url_login,
+            "logo_url_favicon": db_distributor.logo_url_favicon,
             "is_active": db_distributor.is_active,
             "created_at": db_distributor.created_at,
             "is_deletable": True,
@@ -83,6 +120,44 @@ def list_distributors(
         page=page,
         page_size=page_size,
     )
+
+
+# ==================== Branding (Public) ====================
+@router.get("/branding", response_model=DistributorBrandingOut)
+def get_distributor_branding(
+    host: str = Query(..., min_length=1, description="Full hostname, e.g. va.nexeva.io"),
+    db: Session = Depends(get_db),
+):
+    """Get distributor branding by host. Falls back to default branding if not found."""
+    normalized_host = _normalize_host(host)
+    subdomain = _extract_subdomain(normalized_host)
+    if not subdomain:
+        return DistributorBrandingOut(
+            distributor_id=None,
+            distributor_name=settings.PROJECT_NAME,
+            logo_url=None,
+            logo_url_login=None,
+            logo_url_favicon=None,
+            is_default=True,
+        )
+
+    distributor = distributor_crud.get_distributor_by_name_ci(db, subdomain)
+    if not distributor or not distributor.logo_url:
+        return DistributorBrandingOut(
+            distributor_id=None,
+            distributor_name=settings.PROJECT_NAME,
+            logo_url=None,
+            is_default=True,
+        )
+
+    return DistributorBrandingOut(
+        distributor_id=distributor.id,
+        distributor_name=distributor.name,
+        logo_url=distributor.logo_url,
+        is_default=False,
+    )
+
+
 
 
 # ==================== Search (Autocomplete) ====================
@@ -153,6 +228,94 @@ async def update_distributor(
             "id": updated.id,
             "name": updated.name,
             "phone_no": updated.phone_no,
+            "logo_url": updated.logo_url,
+            "logo_url_table": updated.logo_url_table,
+            "logo_url_login": updated.logo_url_login,
+            "logo_url_favicon": updated.logo_url_favicon,
+            "is_active": updated.is_active,
+            "created_at": updated.created_at,
+            "is_deletable": True,
+        }
+    )
+    await broadcast_distributor_event("update", distributor_out)
+    return distributor_out
+
+
+# ==================== Logo Upload ====================
+@router.post("/{distributor_id}/logo", response_model=DistributorOut)
+async def upload_distributor_logo(
+    distributor_id: int,
+    file: UploadFile = File(...),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload a logo for a distributor."""
+    require_role(current_user, [UserRole.superuser])
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please upload an image file")
+
+    data = await file.read()
+    if len(data) > MAX_LOGO_BYTES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image must be 2MB or smaller")
+
+    db_distributor = distributor_crud.get_distributor(db, distributor_id)
+    if not db_distributor:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Distributor not found")
+
+    base_name = uuid4().hex
+    original_filename = f"{base_name}.png"
+    original_path = LOGOS_DIR / original_filename
+    original_path.write_bytes(data)
+
+    _delete_logo_file(db_distributor.logo_url)
+
+    logo_path = f"/uploads/distributor-logos/{original_filename}"
+    updated = distributor_crud.update_distributor(
+        db,
+        distributor_id,
+        DistributorUpdate(logo_url=logo_path),
+    )
+    distributor_out = distributor_crud.get_distributor_with_references(db, distributor_id) or DistributorOut.model_validate(
+        {
+            "id": updated.id,
+            "name": updated.name,
+            "phone_no": updated.phone_no,
+            "logo_url": updated.logo_url,
+            "is_active": updated.is_active,
+            "created_at": updated.created_at,
+            "is_deletable": True,
+        }
+    )
+    await broadcast_distributor_event("update", distributor_out)
+    return distributor_out
+
+
+@router.delete("/{distributor_id}/logo", response_model=DistributorOut)
+async def remove_distributor_logo(
+    distributor_id: int,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove distributor logo."""
+    require_role(current_user, [UserRole.superuser])
+
+    db_distributor = distributor_crud.get_distributor(db, distributor_id)
+    if not db_distributor:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Distributor not found")
+
+    _delete_logo_file(db_distributor.logo_url)
+    updated = distributor_crud.update_distributor(
+        db,
+        distributor_id,
+        DistributorUpdate(logo_url=None),
+    )
+    distributor_out = distributor_crud.get_distributor_with_references(db, distributor_id) or DistributorOut.model_validate(
+        {
+            "id": updated.id,
+            "name": updated.name,
+            "phone_no": updated.phone_no,
+            "logo_url": updated.logo_url,
             "is_active": updated.is_active,
             "created_at": updated.created_at,
             "is_deletable": True,

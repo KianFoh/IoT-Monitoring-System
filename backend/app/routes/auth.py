@@ -59,7 +59,7 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db), response: Re
     
     user_crud.update_last_login(db, user.id)
     
-    access_token = create_access_token(db, user)
+    access_token = create_access_token(user)
     refresh_token = create_refresh_token(db, user)
 
     # Set HttpOnly cookie
@@ -169,7 +169,7 @@ def refresh_jwt_token(
     if not user or user.refresh_token_version != token_version:
         raise HTTPException(status_code=401, detail="Token revoked")
 
-    access_token = create_access_token(db, user)
+    access_token = create_access_token(user)
     new_refresh_token = create_refresh_token(db, user)
 
     response.set_cookie(

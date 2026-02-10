@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from app.models.distributor import Distributor as DistributorModel
 from app.models.customer import Customer as CustomerModel
 from app.schemas.distributor import DistributorCreate, DistributorUpdate, DistributorOut
@@ -26,6 +26,7 @@ def _serialize_distributor_row(row) -> DistributorOut:
             "id": distributor.id,
             "name": distributor.name,
             "phone_no": distributor.phone_no,
+            "logo_url": distributor.logo_url,
             "is_active": distributor.is_active,
             "created_at": distributor.created_at,
             "is_deletable": is_deletable,
@@ -87,6 +88,11 @@ def get_distributor_by_name(db: Session, name: str):
     return db.query(DistributorModel).filter(DistributorModel.name == name).first()
 
 
+def get_distributor_by_name_ci(db: Session, name: str):
+    """Get a distributor by name (case-insensitive exact match)."""
+    return db.query(DistributorModel).filter(func.lower(DistributorModel.name) == name.lower()).first()
+
+
 def get_distributor_by_name_excluding_id(db: Session, name: str, exclude_id: int):
     """Get a distributor by name, excluding a specific ID (useful for update uniqueness checks)."""
     return (
@@ -109,7 +115,11 @@ def distributor_has_references(db: Session, distributor_id: int) -> bool:
 # ==================== Create ====================
 def create_distributor(db: Session, distributor: DistributorCreate):
     """Create a new distributor."""
-    db_distributor = DistributorModel(name=distributor.name, phone_no=distributor.phone_no)
+    db_distributor = DistributorModel(
+        name=distributor.name,
+        phone_no=distributor.phone_no,
+        logo_url=distributor.logo_url,
+    )
     db.add(db_distributor)
     db.commit()
     db.refresh(db_distributor)

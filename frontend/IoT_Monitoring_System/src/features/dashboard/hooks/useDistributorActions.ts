@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { Distributor } from "@/types/distributor";
 import { distributorsApi } from "../api/distributorsApi";
 import { getApiErrorDetail } from "@/utils/apiErrors";
+import { config } from "@/config";
 
 export function useDistributorActions() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -15,15 +16,41 @@ export function useDistributorActions() {
 
   const [addForm, setAddForm] = useState({ name: "", phone_no: "" });
   const [editForm, setEditForm] = useState({ name: "", phone_no: "", is_active: true });
+  const [addLogoFile, setAddLogoFile] = useState<File | null>(null);
+  const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
+  const [addLogoPreview, setAddLogoPreview] = useState<string | null>(null);
+  const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
+  const [addLogoObjectUrl, setAddLogoObjectUrl] = useState<string | null>(null);
+  const [editLogoObjectUrl, setEditLogoObjectUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+  const resolveLogoUrl = (value?: string | null) => {
+    if (!value) return null;
+    return value.startsWith("http") ? value : `${config.api.baseUrl}${value}`;
+  };
 
   const openAddModal = () => {
     setAddForm({ name: "", phone_no: "" });
+    if (addLogoObjectUrl) {
+      URL.revokeObjectURL(addLogoObjectUrl);
+      setAddLogoObjectUrl(null);
+    }
+    setAddLogoFile(null);
+    setAddLogoPreview(null);
     setActionError(null);
     setShowAddModal(true);
   };
 
   const closeAddModal = () => {
     setShowAddModal(false);
+    if (addLogoObjectUrl) {
+      URL.revokeObjectURL(addLogoObjectUrl);
+      setAddLogoObjectUrl(null);
+    }
+    setAddLogoFile(null);
+    setAddLogoPreview(null);
     setActionError(null);
   };
 
@@ -34,6 +61,12 @@ export function useDistributorActions() {
       phone_no: distributor.phone_no || "",
       is_active: !!distributor.is_active,
     });
+    if (editLogoObjectUrl) {
+      URL.revokeObjectURL(editLogoObjectUrl);
+      setEditLogoObjectUrl(null);
+    }
+    setEditLogoFile(null);
+    setEditLogoPreview(resolveLogoUrl(distributor.logo_url));
     setActionError(null);
     setShowEditModal(true);
   };
@@ -41,6 +74,12 @@ export function useDistributorActions() {
   const closeEditModal = () => {
     setShowEditModal(false);
     setSelectedDistributor(null);
+    if (editLogoObjectUrl) {
+      URL.revokeObjectURL(editLogoObjectUrl);
+      setEditLogoObjectUrl(null);
+    }
+    setEditLogoFile(null);
+    setEditLogoPreview(null);
     setActionError(null);
   };
 
@@ -54,6 +93,58 @@ export function useDistributorActions() {
     setShowDeleteModal(false);
     setSelectedDistributor(null);
     setActionError(null);
+  };
+
+  const setLogoPreview = (
+    file: File | null,
+    opts: {
+      setFile: (value: File | null) => void;
+      setPreview: (value: string | null) => void;
+      objectUrl: string | null;
+      setObjectUrl: (value: string | null) => void;
+    }
+  ) => {
+    if (opts.objectUrl) {
+      URL.revokeObjectURL(opts.objectUrl);
+      opts.setObjectUrl(null);
+    }
+    if (!file) {
+      opts.setFile(null);
+      opts.setPreview(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setActionError("Please select an image file.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setActionError("Logo must be 2MB or smaller.");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    opts.setObjectUrl(objectUrl);
+    opts.setFile(file);
+    opts.setPreview(objectUrl);
+  };
+
+  const handleAddLogoChange = (file: File | null) => {
+    setActionError(null);
+    setLogoPreview(file, {
+      setFile: setAddLogoFile,
+      setPreview: setAddLogoPreview,
+      objectUrl: addLogoObjectUrl,
+      setObjectUrl: setAddLogoObjectUrl,
+    });
+  };
+
+  const handleEditLogoChange = (file: File | null) => {
+    setActionError(null);
+    setLogoPreview(file, {
+      setFile: setEditLogoFile,
+      setPreview: setEditLogoPreview,
+      objectUrl: editLogoObjectUrl,
+      setObjectUrl: setEditLogoObjectUrl,
+    });
   };
 
   const addMutation = useMutation({
@@ -103,10 +194,18 @@ export function useDistributorActions() {
     const phone = addForm.phone_no.trim();
     try {
       setActionError(null);
-      await addMutation.mutateAsync({
+      const created = await addMutation.mutateAsync({
         name: addForm.name.trim(),
         phone_no: phone ? phone : null,
       });
+      if (addLogoFile && created?.id) {
+        setLogoUploading(true);
+        try {
+          await distributorsApi.uploadLogo(created.id, addLogoFile);
+        } finally {
+          setLogoUploading(false);
+        }
+      }
       return true;
     } catch (err: unknown) {
       setActionError(getApiErrorDetail(err, "Failed to add distributor"));
@@ -129,6 +228,14 @@ export function useDistributorActions() {
     try {
       setActionError(null);
       await editMutation.mutateAsync({ id: selectedDistributor.id, payload });
+      if (editLogoFile) {
+        setLogoUploading(true);
+        try {
+          await distributorsApi.uploadLogo(selectedDistributor.id, editLogoFile);
+        } finally {
+          setLogoUploading(false);
+        }
+      }
       return true;
     } catch (err: unknown) {
       setActionError(getApiErrorDetail(err, "Failed to update distributor"));
@@ -152,7 +259,8 @@ export function useDistributorActions() {
     }
   };
 
-  const actionLoading = addMutation.isPending || editMutation.isPending || deleteMutation.isPending;
+  const actionLoading =
+    addMutation.isPending || editMutation.isPending || deleteMutation.isPending || logoUploading;
 
   return {
     showAddModal,
@@ -165,6 +273,12 @@ export function useDistributorActions() {
     setAddForm,
     editForm,
     setEditForm,
+    addLogoFile,
+    editLogoFile,
+    addLogoPreview,
+    editLogoPreview,
+    handleAddLogoChange,
+    handleEditLogoChange,
     openAddModal,
     closeAddModal,
     openEditModal,

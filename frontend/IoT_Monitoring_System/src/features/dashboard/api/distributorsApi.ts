@@ -27,12 +27,26 @@ export const distributorsApi = {
     return api.get<DistributorSearch[]>(`/distributors/search?${params.toString()}`);
   },
 
-  async create(payload: { name: string; phone_no?: string | null }) {
+  async create(payload: { name: string; phone_no?: string | null; logo_url?: string | null }) {
     return api.post<Distributor>("/distributors/", payload);
   },
 
-  async update(id: number, payload: { name?: string; phone_no?: string | null; is_active?: boolean }) {
+  async update(id: number, payload: { name?: string; phone_no?: string | null; logo_url?: string | null; is_active?: boolean }) {
     return api.patch<Distributor>(`/distributors/${id}`, payload);
+  },
+
+  async uploadLogo(id: number, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<Distributor>(`/distributors/${id}/logo`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  },
+
+  async removeLogo(id: number) {
+    return api.delete<Distributor>(`/distributors/${id}/logo`);
   },
 
   async remove(id: number) {

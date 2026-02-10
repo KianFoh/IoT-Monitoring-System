@@ -3,6 +3,15 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { Distributor } from "@/types/distributor";
 import { TableActions } from "../components/TableActions";
 import styles from "../styles/dashboard.module.css";
+import { config } from "@/config";
+
+const getInitials = (name: string) => {
+  const trimmed = name.trim();
+  if (!trimmed) return "D";
+  const parts = trimmed.split(/[\s@._-]+/).filter(Boolean);
+  const letters = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "");
+  return letters.join("") || "D";
+};
 
 export function useDistributorColumns(
   onEdit: (d: Distributor) => void,
@@ -11,14 +20,42 @@ export function useDistributorColumns(
   const columns = useMemo<ColumnDef<Distributor>[]>(
     () => [
       {
+        id: "logo",
+        header: "Logo",
+        meta: { width: 300, align: "center" },
+        cell: (info) => {
+          const distributor = info.row.original;
+          const logoSrc = distributor.logo_url
+            ? (distributor.logo_url.startsWith("http")
+              ? distributor.logo_url
+              : `${config.api.baseUrl}${distributor.logo_url}`)
+            : null;
+          return (
+            <div className={styles["dashboard-logo-badge"]}>
+              {logoSrc ? (
+                <img
+                  src={logoSrc}
+                  alt={distributor.name}
+                  className={styles["dashboard-logo-img"]}
+                />
+              ) : (
+                <span className={styles["dashboard-logo-placeholder"]}>
+                  {getInitials(distributor.name)}
+                </span>
+              )}
+            </div>
+          );
+        },
+      },
+      {
         accessorKey: "name",
         header: "Name",
-        meta: { width: 200 },
+        meta: { width: 220 },
       },
       {
         accessorKey: "phone_no",
         header: "Phone",
-        meta: { width: 180 },
+        meta: { width: 160 },
         cell: (info) => info.getValue<string | null>() || "-",
       },
       {

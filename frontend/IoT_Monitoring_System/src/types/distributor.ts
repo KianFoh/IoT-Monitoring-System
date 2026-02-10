@@ -2,6 +2,7 @@ export interface Distributor {
   id: number;
   name: string;
   phone_no: string | null;
+  logo_url?: string | null;
   is_active: boolean;
   created_at: string;
   is_deletable: boolean;

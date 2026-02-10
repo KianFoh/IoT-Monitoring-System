@@ -11,6 +11,7 @@ import { useDistributorsTable } from "../hooks/useDistributorsTable";
 import { useDistributorActions } from "../hooks/useDistributorActions";
 import { useDistributorColumns } from "../hooks/useDistributorColumns";
 import styles from "../styles/dashboard.module.css";
+import { useRef } from "react";
 
 export function DistributorsPage() {
   const {
@@ -37,6 +38,10 @@ export function DistributorsPage() {
     setAddForm,
     editForm,
     setEditForm,
+    addLogoPreview,
+    editLogoPreview,
+    handleAddLogoChange,
+    handleEditLogoChange,
     openAddModal,
     closeAddModal,
     openEditModal,
@@ -50,6 +55,15 @@ export function DistributorsPage() {
 
   const columns = useDistributorColumns(openEditModal, openDeleteModal);
   const deleteDisabled = !!selectedDistributor && !selectedDistributor.is_deletable;
+  const addLogoInputRef = useRef<HTMLInputElement | null>(null);
+  const editLogoInputRef = useRef<HTMLInputElement | null>(null);
+  const getInitials = (value: string) => {
+    const name = value.trim();
+    if (!name) return "D";
+    const parts = name.split(/[\s@._-]+/).filter(Boolean);
+    const letters = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "");
+    return letters.join("") || "D";
+  };
 
   return (
     <div className={styles["devices-container"]}>
@@ -96,6 +110,44 @@ export function DistributorsPage() {
 
       <Modal isOpen={showAddModal} onClose={closeAddModal} title="Add Distributor">
         <form className={styles["dashboard-modal-form"]} onSubmit={handleAddSubmit}>
+          <div className={styles["dashboard-modal-field"]}>
+            <label className={styles["dashboard-modal-label"]}>Logo (optional)</label>
+            <div className={styles["dashboard-modal-logo-row"]}>
+              <input
+                ref={addLogoInputRef}
+                id="add-distributor-logo"
+                type="file"
+                accept="image/*"
+                className={styles["dashboard-file-input"]}
+                onChange={(e) => handleAddLogoChange(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                className={[
+                  styles["dashboard-logo-preview"],
+                  styles["dashboard-logo-editable"],
+                ].join(" ")}
+                onClick={() => addLogoInputRef.current?.click()}
+                aria-label="Upload distributor logo"
+              >
+                {addLogoPreview ? (
+                  <img
+                    src={addLogoPreview}
+                    alt="Distributor logo preview"
+                    className={styles["dashboard-logo-preview-img"]}
+                  />
+                ) : (
+                  <div className={styles["dashboard-logo-empty"]}>
+                    <span className={styles["dashboard-logo-empty-title"]}>Upload Logo</span>
+                    <span className={styles["dashboard-logo-empty-subtitle"]}>PNG, JPG up to 2MB</span>
+                  </div>
+                )}
+                <span className={styles["dashboard-logo-overlay"]}>
+                  {addLogoPreview ? "Change" : "Upload"}
+                </span>
+              </button>
+            </div>
+          </div>
           <Input
             id="add-distributor-name"
             label="Distributor Name"
@@ -124,6 +176,44 @@ export function DistributorsPage() {
 
       <Modal isOpen={showEditModal} onClose={closeEditModal} title="Edit Distributor">
         <form className={styles["dashboard-modal-form"]} onSubmit={handleEditSubmit}>
+          <div className={styles["dashboard-modal-field"]}>
+            <label className={styles["dashboard-modal-label"]}>Logo (optional)</label>
+            <div className={styles["dashboard-modal-logo-row"]}>
+              <input
+                ref={editLogoInputRef}
+                id="edit-distributor-logo"
+                type="file"
+                accept="image/*"
+                className={styles["dashboard-file-input"]}
+                onChange={(e) => handleEditLogoChange(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                className={[
+                  styles["dashboard-logo-preview"],
+                  styles["dashboard-logo-editable"],
+                ].join(" ")}
+                onClick={() => editLogoInputRef.current?.click()}
+                aria-label="Change distributor logo"
+              >
+                {editLogoPreview ? (
+                  <img
+                    src={editLogoPreview}
+                    alt="Distributor logo preview"
+                    className={styles["dashboard-logo-preview-img"]}
+                  />
+                ) : (
+                  <div className={styles["dashboard-logo-empty"]}>
+                    <span className={styles["dashboard-logo-empty-title"]}>Upload Logo</span>
+                    <span className={styles["dashboard-logo-empty-subtitle"]}>PNG, JPG up to 2MB</span>
+                  </div>
+                )}
+                <span className={styles["dashboard-logo-overlay"]}>
+                  {editLogoPreview ? "Change" : "Upload"}
+                </span>
+              </button>
+            </div>
+          </div>
           <Input
             id="edit-distributor-name"
             label="Distributor Name"
