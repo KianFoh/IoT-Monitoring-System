@@ -57,13 +57,6 @@ export function DistributorsPage() {
   const deleteDisabled = !!selectedDistributor && !selectedDistributor.is_deletable;
   const addLogoInputRef = useRef<HTMLInputElement | null>(null);
   const editLogoInputRef = useRef<HTMLInputElement | null>(null);
-  const getInitials = (value: string) => {
-    const name = value.trim();
-    if (!name) return "D";
-    const parts = name.split(/[\s@._-]+/).filter(Boolean);
-    const letters = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "");
-    return letters.join("") || "D";
-  };
 
   return (
     <div className={styles["devices-container"]}>
