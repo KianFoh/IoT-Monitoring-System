@@ -73,7 +73,13 @@ class Settings(BaseSettings):
 
     @property
     def mongo_uri_computed(self) -> str:
-        return f"mongodb://{self.MONGO_USER}:{self.MONGO_PASSWORD}@{self.MONGO_HOST}:{self.MONGO_PORT}/?authSource={self.MONGO_AUTH_SOURCE}"
+        auth = ""
+        if self.MONGO_USER and self.MONGO_PASSWORD:
+            auth = f"{self.MONGO_USER}:{self.MONGO_PASSWORD}@"
+        query = ""
+        if self.MONGO_AUTH_SOURCE:
+            query = f"/?authSource={self.MONGO_AUTH_SOURCE}"
+        return f"mongodb://{auth}{self.MONGO_HOST}:{self.MONGO_PORT}{query}"
 
     @property
     def allowed_origins_list(self) -> list[str]:

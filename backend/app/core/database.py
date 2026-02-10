@@ -1,15 +1,16 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pymongo import MongoClient
-from app.core.config import Settings
+from app.core.config import get_settings
 
-settings = Settings()
+settings = get_settings()
 
 
 # ==================== PostgreSQL ====================
 engine = create_engine(
     settings.database_url,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {}
+    # Enable multi-threading support for SQLite 
+    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

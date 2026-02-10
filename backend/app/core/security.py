@@ -21,8 +21,11 @@ settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
 
 # MQTT Password Encryption Setup
-key = settings.MQTT_ENCRYPTION_KEY
-cipher = Fernet(key)
+def _get_cipher() -> Fernet:
+    try:
+        return Fernet(settings.MQTT_ENCRYPTION_KEY)
+    except Exception as exc:
+        raise RuntimeError("Invalid MQTT_ENCRYPTION_KEY; expected a urlsafe base64-encoded 32-byte key.") from exc
 
 
 # ==================== Password Hashing ====================
@@ -41,6 +44,7 @@ def encrypt_password(password: str) -> str:
     """
     Encrypt a password using Fernet symmetric encryption.
     """
+    cipher = _get_cipher()
     encrypted_bytes = cipher.encrypt(password.encode())
     return encrypted_bytes.decode()
 
@@ -48,6 +52,7 @@ def decrypt_password(encrypted_password: str) -> str:
     """
     Decrypt an encrypted password.
     """
+    cipher = _get_cipher()
     decrypted_bytes = cipher.decrypt(encrypted_password.encode())
     return decrypted_bytes.decode()
 
@@ -70,7 +75,7 @@ def create_token(data: dict, expires_delta: timedelta = None) -> str:
     )
     return encoded_jwt
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str) -> Optional[dict]:
     """Decode token"""
     try:
         payload = jwt.decode(
@@ -83,7 +88,7 @@ def decode_token(token: str) -> dict:
         return None
     
 # ======================= Access Token ====================
-def create_access_token(db: Session, user: UserModel) -> str:
+def create_access_token(user: UserModel) -> str:
     return create_token(
         data={
             "sub": str(user.id),
@@ -128,6 +133,7 @@ def create_one_time_token_by_email(db: Session, email: str, token_type: str) -> 
             token_type=token_type,
             expires_delta=timedelta(hours=settings.EMAIL_TOKEN_EXPIRE_HOURS)
         )
+    return None
 
 def update_one_time_token(db: Session, user: UserModel):
     """Invalidate all existing one-time tokens by incrementing the version"""
@@ -272,8 +278,16 @@ def get_one_time_user(token_type: str):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload",
             )
-        
-        user = db.query(UserModel).filter(UserModel.id == int(user_id)).first()
+
+        try:
+            user_id_int = int(user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token format",
+            )
+
+        user = db.query(UserModel).filter(UserModel.id == user_id_int).first()
 
         if not user:
             raise HTTPException(

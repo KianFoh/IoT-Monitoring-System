@@ -20,5 +20,10 @@ export default defineConfig(({ mode }) => {
       open: false,
       host: false,
     },
+
+    build: {
+      outDir: '/var/www/myapp',
+      emptyOutDir: true,
+    },
   }
 })
