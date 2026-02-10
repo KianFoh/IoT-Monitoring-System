@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
     },
 
     build: {
-      outDir: '/var/www/myapp',
+      outDir: '/var/www/iot-monitoring-system',
       emptyOutDir: true,
     },
   }
