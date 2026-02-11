@@ -166,6 +166,10 @@
   justify-content: center;
   align-items: center;
   padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, #f5f7fb 0%, #eef2f7 100%);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
 }
 
 .auth-Branding img {
