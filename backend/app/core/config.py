@@ -1,10 +1,13 @@
 import os
+from pathlib import Path
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from dotenv import load_dotenv
 
-load_dotenv()
+_current_file = Path(__file__).resolve()
+_root_env = _current_file.parents[3] / ".env"
+load_dotenv(_root_env)
 
 
 class Settings(BaseSettings):
