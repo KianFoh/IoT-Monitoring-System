@@ -1,4 +1,9 @@
+const isProd = import.meta.env.MODE === "production";
+
 export const getApiErrorDetail = (err: unknown, fallback: string) => {
+  if (isProd) {
+    return fallback;
+  }
   if (err && typeof err === "object") {
     const response = (err as { response?: { data?: { detail?: unknown } } }).response;
     const detail = response?.data?.detail;

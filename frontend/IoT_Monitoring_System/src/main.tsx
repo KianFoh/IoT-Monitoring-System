@@ -4,6 +4,15 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import "./index.css";
 import App from "./App.tsx";
 
+const isProd = import.meta.env.MODE === "production";
+if (isProd) {
+  console.log = () => {};
+  console.info = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+  console.debug = () => {};
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -16,6 +25,6 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
     <App />
-    <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+    {!isProd && <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />}
   </QueryClientProvider>
 );

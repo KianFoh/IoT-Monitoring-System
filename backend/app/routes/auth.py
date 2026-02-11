@@ -100,7 +100,7 @@ def resend_verification_email(
 ):
     email = payload.email
     set_password_reset_token = create_one_time_token_by_email(db, email, "email_verification")
-    send_verification_email(email, set_password_reset_token)
+    send_verification_email(db, email, set_password_reset_token)
 
     return {"message": "Verification email has been sent"}
 
@@ -112,7 +112,7 @@ def request_password_reset(
 ):
     email = payload.email
     set_password_reset_token = create_one_time_token_by_email(db, email, "reset_password")
-    send_reset_password_email(email, set_password_reset_token)
+    send_reset_password_email(db, email, set_password_reset_token)
 
     return {"message": "Password reset email has been sent"}
 

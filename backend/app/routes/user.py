@@ -68,7 +68,7 @@ async def create_user(
 
     try:
         token = create_one_time_token_by_email(db, db_user.email, "email_verification")
-        send_verification_email(db_user.email, token)
+        send_verification_email(db, db_user.email, token)
     except Exception as e:
         logging.error(f"Failed to send verification email: {e}")
     user_out = user_crud.get_user_with_relations(db, db_user.id) or UserOut.model_validate(
@@ -170,7 +170,7 @@ async def update_user(
         try:
             token = create_one_time_token_by_email(db, db_user.email, "email_verification")
             if token:
-                send_verification_email(db_user.email, token)
+                send_verification_email(db, db_user.email, token)
         except Exception as e:
             logging.error(f"Failed to send verification email: {e}")
 
