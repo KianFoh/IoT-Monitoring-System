@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     SMTP_PORT: str = os.getenv("SMTP_PORT", "587")
     SMTP_USER: str = os.getenv("SMTP_USER", "email")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "password")
+    FRONTEND_BASE_DOMAIN: str | None = Field(default=None)
+    FRONTEND_DEFAULT_SUBDOMAIN: str = Field(default="manage")
 
     @property
     def database_url(self) -> str:
