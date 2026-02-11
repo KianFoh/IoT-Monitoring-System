@@ -91,14 +91,16 @@ def send_verification_email(db: Session, to_email: str, token: str) -> bool:
     html = f"""
     <html>
       <body>
-        <p>Welcome! to {settings.PROJECT_NAME}</p>
-        <p>Please verify your email and set your password:</p>
+        <p>Dear User,</p>
+        <p>You have been invited to access {settings.PROJECT_NAME}.</p>
+        <p>To activate your account, please verify your email address by clicking the link below:</p>
         <p><a href="{link}">Verify Email</a></p>
-        <p>If you didn’t request this, ignore this email.</p>
+        <p>If you did not expect this invitation, you can safely ignore this email.</p>
+        <p>Regards,<br>{settings.PROJECT_NAME} Team</p>
       </body>
     </html>
     """
-    return _send_email_smtp(to_email, "Verify your email", html)
+    return _send_email_smtp(to_email, f"Email Verification - {settings.PROJECT_NAME}", html)
 
 # ==================== Send Reset Password Email ====================
 def send_reset_password_email(db: Session, to_email: str, token: str) -> bool:
@@ -113,11 +115,13 @@ def send_reset_password_email(db: Session, to_email: str, token: str) -> bool:
     html = f"""
     <html>
       <body>
-        <p>You requested a password reset for {settings.PROJECT_NAME}.</p>
-        <p>Click the link below to reset your password:</p>
+        <p>Dear User,</p>
+        <p>We received a request to reset the password for your {settings.PROJECT_NAME} account.</p>
+        <p>Please click the link below to reset your password:</p>
         <p><a href="{link}">Reset Password</a></p>
-        <p>If you didn’t request this, ignore this email.</p>
+        <p>If you did not request this, you can safely ignore this email.</p>
+        <p>Regards,<br>{settings.PROJECT_NAME} Team</p>
       </body>
     </html>
     """
-    return _send_email_smtp(to_email, "Reset your password", html)
+    return _send_email_smtp(to_email, f"Password Reset - {settings.PROJECT_NAME}", html)

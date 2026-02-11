@@ -68,8 +68,11 @@ export function LoginPage() {
 
   return (
     <AuthContainer>
+      <div className={styles["auth-Branding"]}>
+        <img src={logoSrc} alt="Brand logo" />
+      </div>
       <Card>
-        <AuthHeader title="Sign In" subtitle="Welcome back!" logoSrc={logoSrc} />
+        <AuthHeader title="Sign In" subtitle="Welcome back!" />
         <AuthForm
           fields={fields}
           onSubmit={handleSubmit}
