@@ -10,7 +10,6 @@ load_dotenv()
 class Settings(BaseSettings):
     # ==================== Application ====================
     PROJECT_NAME: str = Field(default="project-name")
-    FRONTEND_URL: str = Field(default="http://localhost:3000")
 
     # ==================== PostgreSQL ====================
     DB_DRIVER: str = Field(default="postgresql")
@@ -47,7 +46,7 @@ class Settings(BaseSettings):
     EMAIL_TOKEN_EXPIRE_HOURS: int = Field(default=24)
 
     # ==================== CORS ====================
-    ALLOWED_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:3001")
+    ALLOWED_ORIGIN_REGEX: str | None = Field(default=None)
 
     # ==================== Server ====================
     FASTAPI_PORT: int = Field(default=8000)
@@ -80,11 +79,6 @@ class Settings(BaseSettings):
         if self.MONGO_AUTH_SOURCE:
             query = f"/?authSource={self.MONGO_AUTH_SOURCE}"
         return f"mongodb://{auth}{self.MONGO_HOST}:{self.MONGO_PORT}{query}"
-
-    @property
-    def allowed_origins_list(self) -> list[str]:
-        """Return CORS origins as list"""
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
 
     class Config:
         env_file = ".env"
