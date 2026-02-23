@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+"""Custom device processing registry.
+
+Modules in this package can define:
+- DEVICE_UID (str) or DEVICE_UIDS (list/tuple/set of str)
+- process(data: dict) -> dict
+
+At import, we scan modules here and map device UID -> process function.
+The DevicePipeline uses get_device_processor(uid) to apply device-specific logic.
+"""
+
 import importlib
 import sys
 import pkgutil
@@ -18,7 +28,7 @@ def _normalize_uid(device_uid: str) -> str:
     return str(device_uid or "").strip().lower()
 
 def register_device_processor(device_uid: str, processor: DeviceProcessor, registry: Optional[Dict[str, DeviceProcessor]] = None) -> None:
-    """Register a processor for a device UID."""
+    """Register a processor for a device UID (manual API)."""
     normalized = _normalize_uid(device_uid)
     if not normalized or not callable(processor):
         return
@@ -61,37 +71,33 @@ def _iter_module_names() -> Iterable[str]:
             continue
         yield name
 
-def load_processors() -> int:
-    """Load processors from modules in this package."""
+def _load_registry(reload: bool) -> Dict[str, DeviceProcessor]:
     registry: Dict[str, DeviceProcessor] = {}
     importlib.invalidate_caches()
     for module_name in _iter_module_names():
         full_name = f"{__name__}.{module_name}"
         try:
-            module = importlib.import_module(full_name)
+            if reload and full_name in sys.modules:
+                module = importlib.reload(sys.modules[full_name])
+            else:
+                module = importlib.import_module(full_name)
         except Exception as exc:
-            logger.warning(f"Failed to import custom processing module {full_name}: {exc}")
+            action = "reload" if reload else "import"
+            logger.warning(f"Failed to {action} custom processing module {full_name}: {exc}")
             continue
         _register_from_module(module, registry)
+    return registry
+
+def load_processors() -> int:
+    """Load processors from modules in this package."""
+    registry = _load_registry(reload=False)
     _DEVICE_PROCESSORS.clear()
     _DEVICE_PROCESSORS.update(registry)
     return len(_DEVICE_PROCESSORS)
 
 def reload_processors() -> int:
     """Reload processors after code changes."""
-    registry: Dict[str, DeviceProcessor] = {}
-    importlib.invalidate_caches()
-    for module_name in _iter_module_names():
-        full_name = f"{__name__}.{module_name}"
-        try:
-            if full_name in sys.modules:
-                module = importlib.reload(sys.modules[full_name])
-            else:
-                module = importlib.import_module(full_name)
-        except Exception as exc:
-            logger.warning(f"Failed to reload custom processing module {full_name}: {exc}")
-            continue
-        _register_from_module(module, registry)
+    registry = _load_registry(reload=True)
     _DEVICE_PROCESSORS.clear()
     _DEVICE_PROCESSORS.update(registry)
     return len(_DEVICE_PROCESSORS)

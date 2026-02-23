@@ -10,6 +10,7 @@ from app.models.department import Department
 from app.models.device import Device
 from app.services import custom_processing
 from app.services.device_pipeline import DeviceInfo, DevicePipeline
+from app.utils.coercion import coerce_bool, coerce_int
 from app.utils.logger import logger
 
 
@@ -126,27 +127,6 @@ class DevicePipelineManager:
                 restarted,
             )
 
-    @staticmethod
-    def _coerce_int(value) -> Optional[int]:
-        if value is None:
-            return None
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return None
-
-    @staticmethod
-    def _coerce_bool(value) -> bool:
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if normalized == "true":
-                return True
-            if normalized == "false":
-                return False
-        return False
-
     def start_pipeline(self, device_info: DeviceInfo) -> bool:
         if device_info.uid in self._pipelines:
             return False
@@ -206,14 +186,14 @@ class DevicePipelineManager:
             return
 
         raw_interval = data.get("data_interval")
-        data_interval = self._coerce_int(raw_interval)
+        data_interval = coerce_int(raw_interval)
         if raw_interval is not None and data_interval is None:
             logger.warning("Invalid data_interval in device event payload")
         if data_interval is None:
             existing = self._pipelines.get(device_uid)
             data_interval = existing.device.data_interval if existing else 60
 
-        is_active = self._coerce_bool(data.get("is_active"))
+        is_active = coerce_bool(data.get("is_active"))
 
         distributor_name = data.get("distributor_name")
         if not distributor_name:
