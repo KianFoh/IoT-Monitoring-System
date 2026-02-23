@@ -12,7 +12,7 @@ class Customer(Base):
     distributor_id = Column(BigInteger, ForeignKey("distributor.id", ondelete="SET NULL"), nullable=True)
 
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     distributor = relationship("Distributor", back_populates="customers")

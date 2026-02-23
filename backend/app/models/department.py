@@ -12,7 +12,7 @@ class Department(Base):
     name = Column(String, nullable=False)
 
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         UniqueConstraint('customer_id', 'name', name='uq_customer_department'),

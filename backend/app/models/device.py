@@ -25,7 +25,7 @@ class Device(Base):
     dashboard_config = Column(JSON, nullable=True, default=dict) # JSON field for dashboard configuration
 
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     # Relationships
     department = relationship("Department", back_populates="devices")
