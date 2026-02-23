@@ -5,6 +5,7 @@ from fastapi import WebSocket
 
 
 class DeviceStreamManager:
+    """Thread-safe topic -> websocket connection registry for device streams."""
     def __init__(self) -> None:
         self._connections: Dict[str, Set[WebSocket]] = {}
         self._lock = threading.Lock()
@@ -32,6 +33,7 @@ class DeviceStreamManager:
             connections = list(self._connections.get(topic, set()))
         if not connections:
             return
+        # Remove sockets that raise during send_json (client closed or network error).
         dead: list[WebSocket] = []
         for websocket in connections:
             try:

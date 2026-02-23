@@ -24,6 +24,7 @@ def _parse_payload(payload: bytes) -> dict:
 
 
 class DeviceProcessedBridge:
+    """Bridge MQTT 'processed device data' topics into live WebSocket streams."""
     def __init__(
         self,
         mqtt_client: MQTTClient,
@@ -35,9 +36,9 @@ class DeviceProcessedBridge:
         self._stream_manager = stream_manager
 
     def start(self) -> None:
+        # Subscribe to all processed device topics and relay to WS listeners.
         self._mqtt_client.add_message_handler(self._handle_message)
         self._mqtt_client.subscribe(PROCESSED_TOPIC_WILDCARD)
-        logging.info("Subscribed to device processed topic: %s", PROCESSED_TOPIC_WILDCARD)
 
     def _handle_message(self, topic: str, payload: bytes) -> None:
         if not topic.startswith(f"{PROCESSED_TOPIC_PREFIX}/"):

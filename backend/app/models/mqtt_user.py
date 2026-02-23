@@ -4,7 +4,7 @@ from sqlalchemy.sql import func
 from app.core.database import Base
 
 
-class Mqtt_User(Base):
+class MqttUser(Base):
     __tablename__ = "mqtt_user"
 
     id = Column(BigInteger, primary_key=True)

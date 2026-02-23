@@ -17,4 +17,4 @@ class Customer(Base):
     # Relationships
     distributor = relationship("Distributor", back_populates="customers")
     departments = relationship("Department", back_populates="customer")
-    mqtt_user = relationship("Mqtt_User", back_populates="customer", uselist=False)
+    mqtt_user = relationship("MqttUser", back_populates="customer", uselist=False)

@@ -84,9 +84,6 @@ async def create_distributor(
             "name": db_distributor.name,
             "phone_no": db_distributor.phone_no,
             "logo_url": db_distributor.logo_url,
-            "logo_url_table": db_distributor.logo_url_table,
-            "logo_url_login": db_distributor.logo_url_login,
-            "logo_url_favicon": db_distributor.logo_url_favicon,
             "is_active": db_distributor.is_active,
             "created_at": db_distributor.created_at,
             "is_deletable": True,
@@ -136,8 +133,6 @@ def get_distributor_branding(
             distributor_id=None,
             distributor_name=settings.PROJECT_NAME,
             logo_url=None,
-            logo_url_login=None,
-            logo_url_favicon=None,
             is_default=True,
         )
 
@@ -229,9 +224,6 @@ async def update_distributor(
             "name": updated.name,
             "phone_no": updated.phone_no,
             "logo_url": updated.logo_url,
-            "logo_url_table": updated.logo_url_table,
-            "logo_url_login": updated.logo_url_login,
-            "logo_url_favicon": updated.logo_url_favicon,
             "is_active": updated.is_active,
             "created_at": updated.created_at,
             "is_deletable": True,

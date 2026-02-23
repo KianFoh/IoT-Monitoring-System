@@ -10,7 +10,7 @@ from app.core.security import create_one_time_token_by_email, get_current_user, 
 from app.crud.postgres import user as user_crud
 from app.crud.postgres import department as department_crud
 from app.models.user import User as UserModel
-from app.schemas.user import UserCreate, UserUpdate, UserOut, UserListResponse, ChangePasswordRequest
+from app.schemas.user import UserCreate, UserProfilePictureUpdate, UserUpdate, UserOut, UserListResponse, ChangePasswordRequest
 from app.schemas.auth import MessageResponse
 from app.models.enum.user_role import UserRole
 from app.services.send_email import send_verification_email
@@ -136,7 +136,14 @@ async def update_user(
     """Update user"""
     if current_user.id != user_id:
         require_role(current_user, [UserRole.superuser])
-    
+
+    # Only superuser can change email.
+    if user_update.email and current_user.role != UserRole.superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only superuser can change email",
+        )
+
     # Only superuser can change roles
     if user_update.role and current_user.role != UserRole.superuser:
         raise HTTPException(
@@ -203,7 +210,11 @@ async def upload_profile_picture(
     _delete_avatar_file(current_user.profile_picture)
     profile_path = f"/uploads/avatars/{filename}"
 
-    db_user = user_crud.update_user(db, current_user, UserUpdate(profile_picture=profile_path))
+    db_user = user_crud.update_user(
+        db,
+        current_user,
+        UserProfilePictureUpdate(profile_picture=profile_path),
+    )
     user_out = user_crud.get_user_with_relations(db, db_user.id) or UserOut.model_validate(
         db_user, from_attributes=True
     )
@@ -218,7 +229,11 @@ async def remove_profile_picture(
 ):
     """Remove current user's profile picture."""
     _delete_avatar_file(current_user.profile_picture)
-    db_user = user_crud.update_user(db, current_user, UserUpdate(profile_picture=None))
+    db_user = user_crud.update_user(
+        db,
+        current_user,
+        UserProfilePictureUpdate(profile_picture=None),
+    )
     user_out = user_crud.get_user_with_relations(db, db_user.id) or UserOut.model_validate(
         db_user, from_attributes=True
     )
@@ -286,7 +301,7 @@ def activate_user(
     db: Session = Depends(get_db)
 ):
     """Activate user account"""
-    require_role(current_user, [UserRole.admin, UserRole.superuser])
+    require_role(current_user, [UserRole.superuser])
     
     user = user_crud.activate_user(db, user_id)
     if not user:

@@ -33,10 +33,6 @@ def get_device(db: Session, device_id: int):
     """Get device by ID"""
     return db.query(DeviceModel).filter(DeviceModel.id == device_id).first()
 
-def get_device_by_name(db: Session, name: str):
-    """Get device by name"""
-    return db.query(DeviceModel).filter(DeviceModel.name == name).first()
-
 def get_device_by_uid(db: Session, uid: str):
     """Get device by UID"""
     return db.query(DeviceModel).filter(DeviceModel.uid == uid).first()

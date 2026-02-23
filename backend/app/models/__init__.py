@@ -1,8 +1,8 @@
-# models packagefrom .customer import Customer
+# models package
 from .customer import Customer
 from .distributor import Distributor
 from .user import User
 from .department import Department
 from .device import Device
-from .mqtt_user import Mqtt_User
+from .mqtt_user import MqttUser
 

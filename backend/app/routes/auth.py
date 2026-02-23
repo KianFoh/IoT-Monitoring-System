@@ -35,7 +35,11 @@ settings = get_settings()
 
 # ==================== Login ====================
 @router.post("/login", response_model=LoginResponse)
-def login(credentials: LoginRequest, db: Session = Depends(get_db), response: Response = None):
+def login(
+    credentials: LoginRequest,
+    db: Session = Depends(get_db),
+    response: Response = None,
+):
     """Login with email and password and receive JWT token."""
     user = authenticate_user(db, credentials.email, credentials.password)
     if not user:
@@ -96,7 +100,7 @@ def set_password(
 @router.post("/send-verification", response_model=MessageResponse)
 def resend_verification_email(
     payload: SendVerificationRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     email = payload.email
     set_password_reset_token = create_one_time_token_by_email(db, email, "email_verification")
@@ -108,7 +112,7 @@ def resend_verification_email(
 @router.post("/request-password-reset", response_model=MessageResponse)
 def request_password_reset(
     payload: SendResetPasswordRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     email = payload.email
     set_password_reset_token = create_one_time_token_by_email(db, email, "reset_password")

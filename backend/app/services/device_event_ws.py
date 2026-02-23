@@ -1,15 +1,22 @@
-from typing import Any, Dict, Optional, Set
+from typing import Any, Optional, Set, TypedDict
 from fastapi import WebSocket
 
 from app.models.enum.user_role import UserRole
 
 
+class DeviceEventMeta(TypedDict, total=False):
+    role: UserRole
+    customer: str
+    department: str
+    distributor: str
+
+
 class DeviceEventConnectionManager:
     def __init__(self) -> None:
         self._connections: Set[WebSocket] = set()
-        self._meta: Dict[WebSocket, Dict[str, Any]] = {}
+        self._meta: dict[WebSocket, DeviceEventMeta] = {}
 
-    async def connect(self, websocket: WebSocket, meta: Optional[Dict[str, Any]] = None) -> None:
+    async def connect(self, websocket: WebSocket, meta: Optional[DeviceEventMeta] = None) -> None:
         await websocket.accept()
         self._connections.add(websocket)
         if meta is not None:
@@ -26,7 +33,7 @@ class DeviceEventConnectionManager:
         normalized = str(value).strip().lower()
         return normalized or None
 
-    def _extract_scope(self, payload: dict) -> Optional[Dict[str, Optional[str]]]:
+    def _extract_scope(self, payload: dict) -> Optional[dict[str, Optional[str]]]:
         customer = self._normalize(payload.get("customer_name"))
         department = self._normalize(payload.get("department_name"))
         distributor = self._normalize(payload.get("distributor_name"))
@@ -38,7 +45,7 @@ class DeviceEventConnectionManager:
             "distributor": distributor,
         }
 
-    def _matches_scope(self, meta: Dict[str, Any], scope: Optional[Dict[str, Optional[str]]]) -> bool:
+    def _matches_scope(self, meta: DeviceEventMeta, scope: Optional[dict[str, Optional[str]]]) -> bool:
         role = meta.get("role")
         if role == UserRole.superuser:
             return True
@@ -56,6 +63,7 @@ class DeviceEventConnectionManager:
     async def broadcast(self, message: dict) -> None:
         payload = message.get("data")
         scope = self._extract_scope(payload) if isinstance(payload, dict) else None
+        # Only send to sockets whose scope matches the event payload.
         connections = list(self._connections)
         dead: list[WebSocket] = []
         for websocket in connections:

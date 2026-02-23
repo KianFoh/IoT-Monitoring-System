@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     SMTP_PORT: str = os.getenv("SMTP_PORT", "587")
     SMTP_USER: str = os.getenv("SMTP_USER", "email")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "password")
+    SMTP_TIMEOUT: int = int(os.getenv("SMTP_TIMEOUT", "10"))
     FRONTEND_BASE_DOMAIN: str | None = Field(default=None)
     FRONTEND_DEFAULT_SUBDOMAIN: str = Field(default="manage")
 

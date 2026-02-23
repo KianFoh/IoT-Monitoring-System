@@ -387,7 +387,7 @@ def fetch_device_data(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
-    if current_user == UserRole.user:
+    if current_user.role == UserRole.user:
         if device.department_id != current_user.department_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

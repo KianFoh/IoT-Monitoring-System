@@ -45,6 +45,7 @@ def _parse_status_payload(payload: bytes) -> str:
 
 
 class DeviceStatusBridge:
+    """Bridge MQTT device status topics into WS broadcasts and optional stream updates."""
     def __init__(
         self,
         mqtt_client: MQTTClient,
@@ -56,11 +57,13 @@ class DeviceStatusBridge:
         self._stream_manager = stream_manager
 
     def start(self) -> None:
+        # Subscribe to status updates from MQTT broker.
         self._mqtt_client.add_message_handler(self._handle_message)
         self._mqtt_client.subscribe(STATUS_TOPIC_WILDCARD)
-        logging.info("Subscribed to device status topic: %s", STATUS_TOPIC_WILDCARD)
 
     def _handle_message(self, topic: str, payload: bytes) -> None:
+        # Topic format: internal/devices/status/<customer>/<department>/<uid>
+        # or internal/devices/status/<distributor>/<customer>/<department>/<uid>
         customer_path, device_uid, distributor, customer, department = _parse_status_topic(topic)
         if not customer_path or not device_uid or not customer or not department:
             return

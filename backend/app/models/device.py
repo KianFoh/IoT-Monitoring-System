@@ -11,7 +11,7 @@ class Device(Base):
     id = Column(BigInteger, primary_key=True)
     uid = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
-    department_id = Column(BigInteger, ForeignKey("department.id", ondelete="SET NULL"), nullable=False)
+    department_id = Column(BigInteger, ForeignKey("department.id", ondelete="SET NULL"), nullable=True)
     is_online = Column(Boolean, default=False, nullable=False)
     machine = Column(String, nullable=True)
     connectivity = Column(
@@ -23,33 +23,6 @@ class Device(Base):
     sim_id = Column(String, nullable=True)
     data_interval = Column(Integer, default=60, nullable=False) # in seconds
     dashboard_config = Column(JSON, nullable=True, default=dict) # JSON field for dashboard configuration
-    # Example config:
-    '''
-    {
-        "data_panel": {
-            "temperature": {"unit": "°C"},
-            "humidity": {"unit": "%"}
-        },
-        "fields": {
-            "temperature": {
-                "unit": "°C",
-                "min": 20,
-                "max": 80,
-                "visualization": "line",
-                "granularity": {
-                    "unit": "minute",
-                    "step": 3
-                }
-            }
-            "humidity": {
-                "unit": "%",
-                "min": 0,
-                "max": 100,
-                "visualization": "gauge",
-            }
-        }
-    }
-    '''
 
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

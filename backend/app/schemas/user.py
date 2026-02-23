@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
 from app.models.enum.user_role import UserRole
 
@@ -10,15 +10,18 @@ class UserCreate(BaseModel):
     username: Optional[str] = None
     profile_picture: Optional[str] = None
 
+class UserProfilePictureUpdate(BaseModel):
+    profile_picture: Optional[str] = None
+
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     department_id: Optional[int] = None
     role: Optional[UserRole] = None
     is_verified: Optional[bool] = None
-    is_active: bool = None
+    is_active: Optional[bool] = None
     username: Optional[str] = None
-    profile_picture: Optional[str] = None
 
 class UserOut(BaseModel):
     id: int

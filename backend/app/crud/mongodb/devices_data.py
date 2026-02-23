@@ -30,7 +30,9 @@ def get_by_uid(
     granularity: Optional[str] = None,
     limit: Optional[int] = None,
 ):
+    """Fetch device data with optional time window and aggregation by granularity."""
     pipeline: list[dict] = [
+        # Filter by device id and normalize ts into a Date for downstream ops.
         {"$match": {"device_id": uid}},
         {
             "$addFields": {
@@ -47,6 +49,7 @@ def get_by_uid(
     ]
 
     if start or end:
+        # Apply time range filter.
         time_filter: dict = {}
         if start:
             time_filter["$gte"] = start
@@ -55,6 +58,7 @@ def get_by_uid(
         pipeline.append({"$match": {"_ts": time_filter}})
 
     if granularity:
+        # Bucket by time and average numeric fields across each bucket.
         group_id = _build_group_id(granularity)
         pipeline.extend([
             {
@@ -96,11 +100,14 @@ def get_by_uid(
             {"$sort": {"ts": -1}},
         ])
     else:
+        # No aggregation: return raw docs newest-first.
         pipeline.append({"$sort": {"_ts": -1}})
 
     if limit:
+        # Limit final result size if requested.
         pipeline.append({"$limit": limit})
 
+    # Drop internal _ts field from output.
     pipeline.append({"$project": {"_ts": 0}})
 
     cursor = devices_data_collection.aggregate(pipeline)

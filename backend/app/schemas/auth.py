@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from app.schemas.user import UserOut
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     
 class LoginResponse(BaseModel):

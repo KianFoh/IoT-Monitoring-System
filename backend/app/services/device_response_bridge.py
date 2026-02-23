@@ -27,6 +27,7 @@ def _parse_payload(payload: bytes) -> dict:
 
 
 class DeviceResponseBridge:
+    """Bridge MQTT device response topics into live WebSocket streams."""
     def __init__(
         self,
         mqtt_client: MQTTClient,
@@ -38,14 +39,15 @@ class DeviceResponseBridge:
         self._stream_manager = stream_manager
 
     def start(self) -> None:
+        # Subscribe to device response topics and relay to WS listeners.
         self._mqtt_client.add_message_handler(self._handle_message)
         for topic in RESPONSE_TOPIC_WILDCARDS:
             self._mqtt_client.subscribe(topic)
-            logging.info("Subscribed to device response topic: %s", topic)
 
     def _handle_message(self, topic: str, payload: bytes) -> None:
         if RESPONSE_TOPIC_MATCH not in topic:
             return
+        # Expect topics like "<customer>/json/resp/<uid>/" or "<distributor>/<customer>/json/resp/<uid>/"
         parts = [part for part in topic.split("/") if part]
         if len(parts) == 4:
             if parts[1] != "json" or parts[2] != "resp":

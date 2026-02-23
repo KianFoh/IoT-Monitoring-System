@@ -29,9 +29,9 @@ def health_check(db: Session = Depends(get_db), mdb = Depends(get_mongo_db), cur
     # Check Postgres Database
     try:
         db.execute(text("SELECT 1"))
-        health_status["sql"] = "ok"
+        health_status["postgres"] = "ok"
     except Exception as e:
-        health_status["sql"] = f"error: {str(e)}"
+        health_status["postgres"] = f"error: {str(e)}"
     
     # Check MongoDB
     try:

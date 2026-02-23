@@ -2,7 +2,8 @@ from typing import Dict, Set
 from fastapi import WebSocket
 
 
-ALLOWED_CHANNELS = {"customer", "distributor", "department", "device", "device_status", "mqtt_user", "user"}
+# Canonical set of channels this server supports.
+ALLOWED_CHANNELS = frozenset({"customer", "distributor", "department", "device", "device_status", "mqtt_user", "user"})
 
 
 class ConnectionManager:
@@ -19,6 +20,7 @@ class ConnectionManager:
 
     async def broadcast(self, channel: str, message: dict) -> None:
         connections = list(self.active_connections.get(channel, []))
+        # If send_json raises, the socket is considered dead and removed.
         dead: list[WebSocket] = []
         for websocket in connections:
             try:

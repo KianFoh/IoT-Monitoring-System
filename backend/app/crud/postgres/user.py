@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.models.user import User as UserModel
 from app.models.department import Department as DepartmentModel
 from app.models.customer import Customer as CustomerModel
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import UserCreate, UserProfilePictureUpdate, UserUpdate
+from pydantic import BaseModel
 from app.core.security import get_password_hash
 from passlib.context import CryptContext
 from app.utils.time import utc_now
@@ -126,7 +127,7 @@ def get_user_with_relations(db: Session, user_id: int):
 
 
 # ==================== Update ====================
-def update_user(db: Session, db_user: UserModel, user_update: UserUpdate):
+def update_user(db: Session, db_user: UserModel, user_update: UserUpdate | UserProfilePictureUpdate | BaseModel):
     """Update user"""
     
     update_data = user_update.model_dump(exclude_unset=True)

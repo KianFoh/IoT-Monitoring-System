@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
         app.state.device_response_bridge.start()
         
     else:
-        logging.error("MQTT connection failed; backend will continue without broker connection.")
+        logging.error("MQTT connection failed, backend will continue without broker connection.")
     yield
     if _mqtt_client:
         _mqtt_client.stop()
@@ -78,6 +78,7 @@ app = FastAPI(
 # Serve uploaded files
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
+
 # ==================== Exception Handlers ====================
 # Commment to show default validation errors
 @app.exception_handler(RequestValidationError)
@@ -99,16 +100,17 @@ async def validation_exception_handler(
     )
 
 # Add CORS middleware
+allowed_origin_regex = settings.ALLOWED_ORIGIN_REGEX
+if not allowed_origin_regex:
+    logging.warning("ALLOWED_ORIGIN_REGEX is not set, CORS will block all origins.")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[],
-    allow_origin_regex=settings.ALLOWED_ORIGIN_REGEX,
+    allow_origin_regex=allowed_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
 
 # Include routers
 app.include_router(auth.router)

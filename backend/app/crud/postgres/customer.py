@@ -3,7 +3,7 @@ from sqlalchemy import or_
 from app.models.customer import Customer as CustomerModel
 from app.models.department import Department as DepartmentModel
 from app.models.distributor import Distributor as DistributorModel
-from app.models.mqtt_user import Mqtt_User as MqttUserModel
+from app.models.mqtt_user import MqttUser as MqttUserModel
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerOut
 
 def _base_customer_query(db: Session):

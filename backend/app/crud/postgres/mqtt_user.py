@@ -1,7 +1,7 @@
 from typing import Optional
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
-from app.models.mqtt_user import Mqtt_User as MqttUserModel
+from app.models.mqtt_user import MqttUser as MqttUserModel
 from app.models.customer import Customer as CustomerModel
 from app.schemas.mqtt_user import MqttUserCreate, MqttUserUpdate, MqttUserOut
 from app.core.security import encrypt_password
