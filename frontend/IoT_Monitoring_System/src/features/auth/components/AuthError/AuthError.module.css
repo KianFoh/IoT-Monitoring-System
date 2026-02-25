@@ -1,0 +1,31 @@
+.auth-Error {
+  text-align: center;
+}
+
+.auth-ErrorTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.auth-ErrorMessage {
+  color: var(--text-secondary);
+  margin: 0 0 var(--spacing-lg) 0;
+  font-size: var(--font-size-md);
+}
+
+.auth-ErrorLink {
+  color: var(--color-primary-500);
+  text-decoration: none;
+  transition: color var(--transition-normal);
+  font-weight: 600;
+}
+
+.auth-ErrorLink:hover {
+  color: var(--color-primary-600);
+}
+
+.auth-ErrorLink:active {
+  color: var(--color-primary-700);
+}

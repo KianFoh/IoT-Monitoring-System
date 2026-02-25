@@ -1,7 +1,7 @@
 import type { FormEvent, ReactNode, ElementType } from "react";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
-import styles from "../styles/auth.module.css";
+import styles from "./AuthForm.module.css";
 
 export interface AuthFormField {
   id: string;
@@ -64,7 +64,7 @@ export const AuthForm = ({
       ))}
 
       <Button type="submit" isLoading={loading} disabled={isSuccess}>
-        {isSuccess ? "✓ Success" : buttonText}
+        {isSuccess ? "\u2713 Success" : buttonText}
       </Button>
     </form>
   );

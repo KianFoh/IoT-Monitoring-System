@@ -11,4 +11,4 @@ pip install --no-deps -r requirements.txt
 python main.py
 
 # Backend Create first superuser scripts
-python -m app.scripts.create_superadmin
+python -m app.scripts.create_superadmin      

@@ -1,18 +1,18 @@
-import React from "react";
+import { useId } from "react";
+import type { ReactNode } from "react";
 import styles from "./Switch.module.css";
 
 interface SwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   id?: string;
-  label?: React.ReactNode;
+  label?: ReactNode;
   className?: string;
   disabled?: boolean;
 }
 
 export const Switch = ({ checked, onChange, id, label, className = "", disabled }: SwitchProps) => {
-  const generatedId = React.useId ? React.useId() : `gen-switch-${Math.random().toString(36).slice(2,9)}`;
-  const inputId = id ?? generatedId;
+  const inputId = id ?? useId();
 
   return (
     <div className={`${styles["gen-switch-wrapper"]} ${className}`}>
@@ -20,8 +20,6 @@ export const Switch = ({ checked, onChange, id, label, className = "", disabled 
         id={inputId}
         className={styles["gen-switch-input"]}
         type="checkbox"
-        role="switch"
-        aria-checked={checked}
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}

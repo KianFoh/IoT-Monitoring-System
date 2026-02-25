@@ -4,16 +4,25 @@
   box-shadow: var(--shadow-xl);
   padding: var(--spacing-xl);
   animation: gen-slideUp 1s ease;
-  min-width: 350px;
+  min-width: min(400px, 100%);
+  box-sizing: border-box;
 }
 
 @keyframes gen-slideUp {
   from {
     opacity: 0;
-    transform: translateY(20);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .gen-card {
+    min-width: 0;
+    width: calc(100% - (2 * var(--spacing-md)));
+    margin: 0 var(--spacing-md);
   }
 }

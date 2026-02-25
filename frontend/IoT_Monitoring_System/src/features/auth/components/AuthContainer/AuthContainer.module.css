@@ -1,0 +1,12 @@
+.auth-Container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, var(--color-dark-700), var(--color-dark-800));
+  padding: var(--spacing-md);
+  margin: 0;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}

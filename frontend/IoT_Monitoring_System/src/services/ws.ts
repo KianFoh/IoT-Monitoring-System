@@ -19,6 +19,9 @@ const wsError = (...args: unknown[]) => {
   if (!isProd) console.error(...args);
 };
 
+// Convert http(s) API base into ws(s) base for WebSocket URLs.
+const getWsBaseUrl = () => config.api.baseUrl.replace(/^http/, "ws");
+
 type AuthHandlers = {
   refreshToken?: () => Promise<string | null>;
   onAuthFailure?: () => void;
@@ -27,16 +30,19 @@ type AuthHandlers = {
 class WebSocketManager {
   private tokenGetter?: () => string | null;
   private authHandlers?: AuthHandlers;
+  // Channel mode: fixed set of server channels.
   private connections = new Map<WSChannel, WebSocket>();
   private listeners = new Map<WSChannel, Set<Listener>>();
   private shouldReconnect = new Map<WSChannel, boolean>();
   private hasConnected = new Map<WSChannel, boolean>();
+  // Stream mode: dynamic keys/paths (e.g., per-device streams).
   private streamConnections = new Map<string, WebSocket>();
   private streamListeners = new Map<string, Set<StreamListener>>();
   private streamShouldReconnect = new Map<string, boolean>();
   private streamPaths = new Map<string, string>();
   private reconnectListeners = new Set<() => void>();
   private reconnectNotifyScheduled = false;
+  // Shared refresh promise to avoid multiple concurrent refresh calls.
   private refreshPromise: Promise<string | null> | null = null;
   private manualReconnect = false;
   private readonly RECONNECT_DELAY = 2000;
@@ -56,6 +62,7 @@ class WebSocketManager {
     return () => this.reconnectListeners.delete(listener);
   }
 
+  // Notify reconnect listeners once per tick to avoid spamming.
   private notifyReconnect() {
     if (this.reconnectNotifyScheduled) return;
     this.reconnectNotifyScheduled = true;
@@ -162,41 +169,63 @@ class WebSocketManager {
     this.connectStream(key, path).catch(() => {});
   }
 
+  private getTokenOrReject(reject: (reason?: unknown) => void, label: string) {
+    const token = this.tokenGetter?.();
+    if (!token) {
+      wsWarn(`[WS] No token, skip ${label}`);
+      reject("No token");
+      return null;
+    }
+    return token;
+  }
+
+  // If a socket already exists, reuse or wait for it to open.
+  private handleExistingSocket(
+    existing: WebSocket | undefined,
+    resolve: () => void,
+    reject: (reason?: unknown) => void
+  ) {
+    if (existing?.readyState === WebSocket.OPEN) {
+      resolve();
+      return true;
+    }
+    if (existing?.readyState === WebSocket.CONNECTING) {
+      const onOpen = () => {
+        existing.removeEventListener("error", onError);
+        resolve();
+      };
+      const onError = (err: Event) => {
+        existing.removeEventListener("open", onOpen);
+        reject(err);
+      };
+      existing.addEventListener("open", onOpen, { once: true });
+      existing.addEventListener("error", onError, { once: true });
+      return true;
+    }
+    return false;
+  }
+
   private buildStreamUrl(path: string, token: string) {
-    const base = config.api.baseUrl.replace(/^http/, "ws");
+    const base = getWsBaseUrl();
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const separator = normalizedPath.includes("?") ? "&" : "?";
     return `${base}${normalizedPath}${separator}token=${encodeURIComponent(token)}`;
   }
 
+  private buildChannelUrl(channel: WSChannel, token: string) {
+    return `${getWsBaseUrl()}/ws/${channel}?token=${encodeURIComponent(token)}`;
+  }
+
   connect(channel: WSChannel): Promise<void> {
     return new Promise((resolve, reject) => {
       this.shouldReconnect.set(channel, true);
-      const token = this.tokenGetter?.();
-      if (!token) {
-        wsWarn(`[WS] No token, skip connect for ${channel}`);
-        return reject("No token");
-      }
+      const token = this.getTokenOrReject(reject, `connect for ${channel}`);
+      if (!token) return;
 
       const existing = this.connections.get(channel);
-      if (existing?.readyState === WebSocket.OPEN) return resolve();
-      if (existing?.readyState === WebSocket.CONNECTING) {
-        const onOpen = () => {
-          existing.removeEventListener("error", onError);
-          resolve();
-        };
-        const onError = (err: Event) => {
-          existing.removeEventListener("open", onOpen);
-          reject(err);
-        };
-        existing.addEventListener("open", onOpen, { once: true });
-        existing.addEventListener("error", onError, { once: true });
-        return;
-      }
+      if (this.handleExistingSocket(existing, resolve, reject)) return;
 
-      const url =
-        config.api.baseUrl.replace(/^http/, "ws") +
-        `/ws/${channel}?token=${encodeURIComponent(token)}`;
+      const url = this.buildChannelUrl(channel, token);
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
@@ -236,27 +265,11 @@ class WebSocketManager {
     return new Promise((resolve, reject) => {
       this.streamShouldReconnect.set(key, true);
       this.streamPaths.set(key, path);
-      const token = this.tokenGetter?.();
-      if (!token) {
-        wsWarn(`[WS] No token, skip stream connect for ${key}`);
-        return reject("No token");
-      }
+      const token = this.getTokenOrReject(reject, `stream connect for ${key}`);
+      if (!token) return;
 
       const existing = this.streamConnections.get(key);
-      if (existing?.readyState === WebSocket.OPEN) return resolve();
-      if (existing?.readyState === WebSocket.CONNECTING) {
-        const onOpen = () => {
-          existing.removeEventListener("error", onError);
-          resolve();
-        };
-        const onError = (err: Event) => {
-          existing.removeEventListener("open", onOpen);
-          reject(err);
-        };
-        existing.addEventListener("open", onOpen, { once: true });
-        existing.addEventListener("error", onError, { once: true });
-        return;
-      }
+      if (this.handleExistingSocket(existing, resolve, reject)) return;
 
       const url = this.buildStreamUrl(path, token);
       const ws = new WebSocket(url);
@@ -265,6 +278,8 @@ class WebSocketManager {
         wsLog(`[WS] Connected stream: ${key}`);
         resolve();
       };
+      // Channel messages are JSON events; broadcast to listeners.
+      // Stream messages can be JSON or raw strings; forward as-is if not JSON.
       ws.onmessage = (e) => {
         let payload: unknown = e.data;
         if (typeof e.data === "string") {
@@ -370,12 +385,14 @@ class WebSocketManager {
     }
   }
 
+  // Subscribe to a channel; returns an unsubscribe function.
   on<T = any>(channel: WSChannel, listener: Listener<T>): () => void {
     if (!this.listeners.has(channel)) this.listeners.set(channel, new Set());
     this.listeners.get(channel)!.add(listener as Listener);
     return () => this.listeners.get(channel)?.delete(listener as Listener);
   }
 
+  // Subscribe to a stream key; returns an unsubscribe function.
   onStream<T = any>(key: string, listener: StreamListener<T>): () => void {
     if (!this.streamListeners.has(key)) this.streamListeners.set(key, new Set());
     this.streamListeners.get(key)!.add(listener as StreamListener);

@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { LoginPage, EmailVerificationPage, ResendVerificationPage, ResetPasswordPage, ResetPasswordConfirmPage } from "@/features/auth";
 import { ProtectedRoute } from "./ProtectedRoute";
-import { SuperuserRoute } from "./SuperuserRoute";
+import { RoleRoute } from "./RoleRoute";
 import { GuestRoute } from "./GuestRoute";
 import { DashboardLayout, DashboardHome, CustomersPage, DistributorsPage, DepartmentPage, DevicesPage, DeviceDashboardPage, MqttUserPage, SettingsPage, UsersPage } from "@/features/dashboard";
 
@@ -27,7 +27,7 @@ export default function AppRoutes() {
           <Route path="devices" element={<DevicesPage />} />
           <Route path="devices/:deviceUid" element={<DeviceDashboardPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route element={<SuperuserRoute />}>
+          <Route element={<RoleRoute allowedRoles={["superuser"]} />}>
             <Route path="distributors" element={<DistributorsPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="departments" element={<DepartmentPage />} />

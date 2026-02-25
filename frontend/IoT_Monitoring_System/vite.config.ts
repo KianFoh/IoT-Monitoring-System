@@ -5,6 +5,8 @@ import path from 'path'
 export default defineConfig(({ mode }) => {
   const repoRoot = path.resolve(__dirname, '../../');
   const env = loadEnv(mode, repoRoot);
+  const port = Number(env.VITE_PORT) || 3000;
+  const outDir = env.VITE_BUILD_OUTDIR || 'dist';
   
   return {
     plugins: [react()],
@@ -16,13 +18,13 @@ export default defineConfig(({ mode }) => {
     // Load env files from the repository root directory
     envDir: repoRoot,
     server: {
-      port: parseInt(env.VITE_PORT),
+      port,
       open: false,
       host: false,
     },
 
     build: {
-      outDir: '/var/www/iot-monitoring-system',
+      outDir,
       emptyOutDir: true,
     },
   }

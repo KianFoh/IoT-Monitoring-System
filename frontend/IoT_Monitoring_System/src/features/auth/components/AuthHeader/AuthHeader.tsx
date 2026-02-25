@@ -1,4 +1,4 @@
-import styles from "@/features/auth/styles/auth.module.css";
+import styles from "./AuthHeader.module.css";
 
 interface Props {
   title: string;

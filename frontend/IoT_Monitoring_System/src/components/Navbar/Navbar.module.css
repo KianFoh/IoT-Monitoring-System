@@ -127,7 +127,9 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: background var(--transition-normal),
+    border-color var(--transition-normal),
+    color var(--transition-normal);
 }
 
 .gen-navbar-logout-btn:hover {

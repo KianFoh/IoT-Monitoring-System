@@ -58,8 +58,11 @@
   background: var(--bg-secondary);
   border: 2px solid var(--border-light);
   border-radius: var(--radius-md);
-  transition: all var(--transition-slow);
+  transition: background var(--transition-slow),
+    border-color var(--transition-slow),
+    box-shadow var(--transition-slow);
   outline: none;
+  box-sizing: border-box;
 }
 
 .gen-inputField.withIcon {

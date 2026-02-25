@@ -10,6 +10,17 @@ type AuthHandlers = {
   onRefreshFailure?: () => void;
 };
 
+const AUTH_EXCLUDE_PATHS = [
+  "/auth/refresh-token",
+  "/auth/login",
+  "/auth/send-verification",
+  "/auth/request-password-reset",
+  "/auth/check-verify-password-token",
+  "/auth/check-reset-password-token",
+  "/auth/set-password",
+  "/auth/reset-password",
+];
+
 class ApiClient {
   private client: AxiosInstance;
   private authHandlers: AuthHandlers | null = null;
@@ -34,13 +45,7 @@ class ApiClient {
         if (
           !originalRequest ||
           originalRequest._retry ||
-          originalRequest.url?.includes("/auth/refresh") ||
-          originalRequest.url?.includes("/auth/login") ||
-          originalRequest.url?.includes("/auth/register") ||
-          originalRequest.url?.includes("/auth/reset-password") ||
-          originalRequest.url?.includes("/auth/resend-verification") ||
-          originalRequest.url?.includes("/auth/verify-email") ||
-          originalRequest.url?.includes("/auth/verify-reset-password")
+          AUTH_EXCLUDE_PATHS.some((path) => originalRequest.url?.includes(path))
         ) {
           return Promise.reject(error);
         }

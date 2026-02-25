@@ -1,0 +1,15 @@
+.auth-Link {
+  color: var(--color-primary-500);
+  text-decoration: none;
+  margin: var(--spacing-xs) 0;
+  transition: color var(--transition-normal);
+  font-size: var(--font-size-sm);
+}
+
+.auth-Link:hover {
+  color: var(--color-primary-600);
+}
+
+.auth-Link:active {
+  color: var(--color-primary-700);
+}

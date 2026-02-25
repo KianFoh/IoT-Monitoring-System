@@ -29,24 +29,14 @@ export const Input = ({
   inputClassName,
   ...props
 }: InputProps) => {
-  const renderIcon = () => {
-    if (!icon) return null;
-    if (React.isValidElement(icon)) return icon;
-    if (typeof icon === "function" || typeof icon === "object") {
-      const IconComp = icon as React.ElementType;
+  const renderIconNode = (node?: React.ReactNode | React.ElementType) => {
+    if (!node) return null;
+    if (React.isValidElement(node)) return node;
+    if (typeof node === "function") {
+      const IconComp = node as React.ElementType;
       return <IconComp />;
     }
-    return icon;
-  };
-
-  const renderRightIcon = () => {
-    if (!rightIcon) return null;
-    if (React.isValidElement(rightIcon)) return rightIcon;
-    if (typeof rightIcon === "function" || typeof rightIcon === "object") {
-      const IconComp = rightIcon as React.ElementType;
-      return <IconComp />;
-    }
-    return rightIcon;
+    return node;
   };
 
   return (
@@ -60,7 +50,7 @@ export const Input = ({
         </label>
       )}
       <div className={[styles["gen-inputContainer"], containerClassName].filter(Boolean).join(" ")}>
-        {icon && <span className={styles["gen-inputIconLeft"]}>{renderIcon()}</span>}
+        {icon && <span className={styles["gen-inputIconLeft"]}>{renderIconNode(icon)}</span>}
         {rightIcon && (
           onRightIconClick ? (
             <button
@@ -70,10 +60,10 @@ export const Input = ({
               aria-label={rightIconLabel || "Toggle input"}
               disabled={props.disabled}
             >
-              <span className={styles["gen-inputIconRight"]}>{renderRightIcon()}</span>
+              <span className={styles["gen-inputIconRight"]}>{renderIconNode(rightIcon)}</span>
             </button>
           ) : (
-            <span className={styles["gen-inputIconRight"]}>{renderRightIcon()}</span>
+            <span className={styles["gen-inputIconRight"]}>{renderIconNode(rightIcon)}</span>
           )
         )}
         <input

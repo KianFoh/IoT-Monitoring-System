@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useLogin } from "@/features/auth/hooks/useLogin";
-import { AuthHeader } from "@/features/auth/components/AuthHeader";
-import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm";
-import { AuthContainer } from "@/features/auth/components/AuthContainer";
-import { AuthLinks } from "@/features/auth/components/AuthLinks";
-import { AuthFooter } from "@/features/auth/components/AuthFooter";
+import { AuthHeader } from "@/features/auth/components/AuthHeader/AuthHeader";
+import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm/AuthForm";
+import { AuthContainer } from "@/features/auth/components/AuthContainer/AuthContainer";
+import { AuthLinks } from "@/features/auth/components/AuthLinks/AuthLinks";
+import { AuthFooter } from "@/features/auth/components/AuthFooter/AuthFooter";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/Card/Card";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import styles from "@/features/auth/styles/auth.module.css";
+import styles from "./Login.module.css";
 import nexevaLogo from "@/assets/logo/nexeva_logo.png";
 import { fetchBranding } from "@/services/branding";
 import { config } from "@/config";
@@ -47,7 +47,7 @@ export function LoginPage() {
       id: "email",
       type: "email",
       label: "Email Address",
-      icon: "📧",
+      icon: "\u{1F4E7}",
       value: email,
       onChange: setEmail,
       placeholder: "Enter your email",

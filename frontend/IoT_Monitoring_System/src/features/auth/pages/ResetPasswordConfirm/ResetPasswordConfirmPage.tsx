@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useResetPasswordConfirm } from "@/features/auth/hooks/useResetPasswordConfirm";
-import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm";
-import { AuthSuccess } from "@/features/auth/components/AuthSuccess";
-import { AuthError } from "@/features/auth/components/AuthError";
-import { AuthContainer } from "@/features/auth/components/AuthContainer";
+import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm/AuthForm";
+import { AuthSuccess } from "@/features/auth/components/AuthSuccess/AuthSuccess";
+import { AuthError } from "@/features/auth/components/AuthError/AuthError";
+import { AuthContainer } from "@/features/auth/components/AuthContainer/AuthContainer";
 import { Card} from "@/components/Card/Card";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { AuthHeader } from "@/features/auth/components/AuthHeader";
-import { AuthLinks } from "@/features/auth/components/AuthLinks";
-import { AuthFooter } from "@/features/auth/components/AuthFooter";
+import { AuthHeader } from "@/features/auth/components/AuthHeader/AuthHeader";
+import { AuthLinks } from "@/features/auth/components/AuthLinks/AuthLinks";
+import { AuthFooter } from "@/features/auth/components/AuthFooter/AuthFooter";
 import { LoadingScreen } from "@/components/Loading/LoadingScreen";
-import styles from "@/features/auth/styles/auth.module.css";
+import styles from "./ResetPasswordConfirm.module.css";
 
 export function ResetPasswordConfirmPage() {
   const {
@@ -97,7 +97,7 @@ export function ResetPasswordConfirmPage() {
               buttonText="Reset Password"
             />
             <AuthLinks>
-              <Link to="/send-reset-password" className={styles["auth-Link"]}>← Request new link</Link>
+              <Link to="/send-reset-password" className={styles["auth-Link"]}>{"\u2190"} Request new link</Link>
             </AuthLinks>
           </>
         )}

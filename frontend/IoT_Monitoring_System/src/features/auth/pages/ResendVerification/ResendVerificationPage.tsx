@@ -1,13 +1,13 @@
 import { useResendVerification } from "@/features/auth/hooks/useResendVerification";
-import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm";
-import { AuthSuccess } from "@/features/auth/components/AuthSuccess";
-import { AuthContainer } from "@/features/auth/components/AuthContainer";
+import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm/AuthForm";
+import { AuthSuccess } from "@/features/auth/components/AuthSuccess/AuthSuccess";
+import { AuthContainer } from "@/features/auth/components/AuthContainer/AuthContainer";
 import { Card} from "@/components/Card/Card";
-import { AuthHeader } from "@/features/auth/components/AuthHeader";
-import { AuthLinks } from "@/features/auth/components/AuthLinks";
-import { AuthFooter } from "@/features/auth/components/AuthFooter";
+import { AuthHeader } from "@/features/auth/components/AuthHeader/AuthHeader";
+import { AuthLinks } from "@/features/auth/components/AuthLinks/AuthLinks";
+import { AuthFooter } from "@/features/auth/components/AuthFooter/AuthFooter";
 import { Link } from "react-router-dom";
-import styles from "@/features/auth/styles/auth.module.css";
+import styles from "./ResendVerification.module.css";
 
 export function ResendVerificationPage() {
   const { email, setEmail, handleSubmit, loading, error, success } = useResendVerification();
@@ -17,7 +17,7 @@ export function ResendVerificationPage() {
       id: "email",
       type: "email",
       label: "Email Address",
-      icon: "📧",
+      icon: "\u{1F4E7}",
       value: email,
       onChange: setEmail,
       placeholder: "Enter your email",
@@ -45,7 +45,7 @@ export function ResendVerificationPage() {
               buttonText="Send Verification Email"
             />
             <AuthLinks>
-              <Link to="/login" className={styles["auth-Link"]}>← Back to Login</Link>
+              <Link to="/login" className={styles["auth-Link"]}>{"\u2190"} Back to Login</Link>
             </AuthLinks>
           </>
         )}

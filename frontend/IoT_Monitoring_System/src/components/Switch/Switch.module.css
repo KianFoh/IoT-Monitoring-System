@@ -51,6 +51,14 @@
   transform: translateX(calc(var(--w) - var(--h)));
 }
 
+.gen-switch-input:disabled + .gen-switch-toggle {
+  cursor: not-allowed;
+}
+
+.gen-switch-input:disabled + .gen-switch-toggle .gen-switch {
+  opacity: 0.6;
+}
+
 .gen-switch-text {
   display: inline-block;
   color: var(--text-primary);

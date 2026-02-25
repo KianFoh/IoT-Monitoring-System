@@ -21,6 +21,17 @@ export interface NavItem {
   icon: ReactElement;
 }
 
+const NAV_ITEMS: NavItem[] = [
+  { to: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
+  { to: "/dashboard/distributors", label: "Distributors", icon: <FaSitemap /> },
+  { to: "/dashboard/customers", label: "Customers", icon: <FaUserAlt /> },
+  { to: "/dashboard/departments", label: "Departments", icon: <FaBuilding /> },
+  { to: "/dashboard/mqtt-users", label: "MQTT Users", icon: <FaUserCog /> },
+  { to: "/dashboard/devices", label: "Devices", icon: <FaNetworkWired /> },
+  { to: "/dashboard/users", label: "Users", icon: <FaUsers /> },
+  { to: "/dashboard/settings", label: "Settings", icon: <FaCog /> },
+];
+
 const Navbar = () => {
   const { logout, user } = useAuth();
   const displayName = user?.username?.trim() || user?.email || "User";
@@ -41,21 +52,10 @@ const Navbar = () => {
     return value.startsWith("http") ? value : `${config.api.baseUrl}${value}`;
   }, [user?.profile_picture]);
 
-  const navItems: NavItem[] = [
-    { to: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
-    { to: "/dashboard/distributors", label: "Distributors", icon: <FaSitemap  /> },
-    { to: "/dashboard/customers", label: "Customers", icon: <FaUserAlt  /> },
-    { to: "/dashboard/departments", label: "Departments", icon: <FaBuilding /> },
-    { to: "/dashboard/mqtt-users", label: "MQTT Users", icon: <FaUserCog  /> },
-    { to: "/dashboard/devices", label: "Devices", icon: <FaNetworkWired /> },
-    { to: "/dashboard/users", label: "Users", icon: <FaUsers /> },
-    { to: "/dashboard/settings", label: "Settings", icon: <FaCog /> },
-  ];
-
   const isUser = user?.role === "user";
   const visibleNavItems = isUser
-    ? navItems.filter((item) => ["/dashboard", "/dashboard/devices", "/dashboard/settings"].includes(item.to))
-    : navItems;
+    ? NAV_ITEMS.filter((item) => ["/dashboard", "/dashboard/devices", "/dashboard/settings"].includes(item.to))
+    : NAV_ITEMS;
 
   return (
     <nav className={styles["gen-navbar"]}>
