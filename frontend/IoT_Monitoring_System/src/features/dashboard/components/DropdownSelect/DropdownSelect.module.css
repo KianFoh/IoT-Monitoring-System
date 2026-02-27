@@ -1,0 +1,105 @@
+.dashboard-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.dashboard-select-trigger {
+  width: 100%;
+  padding: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-slow);
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-select-trigger:focus {
+  background: var(--bg-primary);
+  border-color: var(--color-primary-500);
+  box-shadow: var(--shadow-xl);
+}
+
+.dashboard-select-trigger:disabled {
+  background: var(--bg-tertiary);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dashboard-select-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-select-placeholder {
+  color: var(--text-tertiary);
+}
+
+.dashboard-select-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  transition: transform var(--transition-normal);
+}
+
+.dashboard-select-open .dashboard-select-arrow {
+  transform: rotate(180deg);
+}
+
+.dashboard-autocomplete {
+  position: relative;
+}
+
+.dashboard-autocomplete-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.dashboard-autocomplete-item {
+  width: 100%;
+  text-align: left;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-primary);
+  border: 0;
+  height: 40px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-autocomplete-item:hover,
+.dashboard-autocomplete-item:focus {
+  background: var(--color-neutral-300);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.dashboard-autocomplete-empty {
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-select-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}

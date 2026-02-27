@@ -1,4 +1,4 @@
-import { useResetPassword } from "@/features/auth/hooks/useResetPassword";
+import { useResetPassword } from "./useResetPassword";
 import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm/AuthForm";
 import { AuthSuccess } from "@/features/auth/components/AuthSuccess/AuthSuccess";
 import { AuthContainer } from "@/features/auth/components/AuthContainer/AuthContainer";

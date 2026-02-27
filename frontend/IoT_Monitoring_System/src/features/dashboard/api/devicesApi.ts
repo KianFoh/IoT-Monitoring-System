@@ -1,24 +1,12 @@
 import { api } from "@/services/api";
 import type { Device, DeviceDashboardConfig, DeviceListResponse } from "@/types/device";
+import { buildListParams, type ListParams } from "./apiHelpers";
 
-type ListParams = {
-  page?: number;
-  page_size?: number;
-  search?: string;
-};
+const BASE_PATH = "/devices";
 
 export const devicesApi = {
-  async list({ page = 1, page_size = 10, search }: ListParams) {
-    const params = new URLSearchParams({
-      page: String(page),
-      page_size: String(page_size),
-    });
-
-    if (search && search.trim()) {
-      params.set("search", search.trim());
-    }
-
-    return api.get<DeviceListResponse>(`/devices/?${params.toString()}`);
+  async list(params: ListParams) {
+    return api.get<DeviceListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
   },
 
   async create(payload: {
@@ -31,7 +19,7 @@ export const devicesApi = {
     mobile_number?: string | null;
     sim_id?: string | null;
   }) {
-    return api.post<Device>("/devices/", payload);
+    return api.post<Device>(`${BASE_PATH}/`, payload);
   },
 
   async update(
@@ -49,14 +37,14 @@ export const devicesApi = {
       sim_id: string | null;
     }>
   ) {
-    return api.patch<Device>(`/devices/${deviceId}`, payload);
+    return api.patch<Device>(`${BASE_PATH}/${deviceId}`, payload);
   },
 
   async latestData(deviceUid: string) {
-    return api.get<Record<string, unknown> | null>(`/devices/data/${deviceUid}/latest`);
+    return api.get<Record<string, unknown> | null>(`${BASE_PATH}/data/${deviceUid}/latest`);
   },
 
   async remove(deviceId: number) {
-    return api.delete<void>(`/devices/${deviceId}`);
+    return api.delete<void>(`${BASE_PATH}/${deviceId}`);
   },
 };

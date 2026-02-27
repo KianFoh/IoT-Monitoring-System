@@ -1,55 +1,39 @@
 import { api } from "@/services/api";
 import type { Distributor, DistributorListResponse, DistributorSearch } from "@/types/distributor";
+import { buildListParams, buildNameSearchParams, type ListParams } from "./apiHelpers";
 
-type ListParams = {
-  page?: number;
-  page_size?: number;
-  search?: string;
-};
+const BASE_PATH = "/distributors";
 
 export const distributorsApi = {
-  async list({ page = 1, page_size = 10, search }: ListParams) {
-    const params = new URLSearchParams({
-      page: String(page),
-      page_size: String(page_size),
-    });
-    if (search && search.trim()) params.set("search", search.trim());
-    return api.get<DistributorListResponse>(`/distributors/?${params.toString()}`);
+  async list(params: ListParams) {
+    return api.get<DistributorListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
   },
 
   async search({ name, limit = 10 }: { name: string; limit?: number }) {
-    const trimmed = name.trim();
-    if (!trimmed) return [];
-    const params = new URLSearchParams({
-      name: trimmed,
-      limit: String(limit),
-    });
-    return api.get<DistributorSearch[]>(`/distributors/search?${params.toString()}`);
+    const params = buildNameSearchParams({ name, limit });
+    if (!params) return [];
+    return api.get<DistributorSearch[]>(`${BASE_PATH}/search`, { params });
   },
 
   async create(payload: { name: string; phone_no?: string | null; logo_url?: string | null }) {
-    return api.post<Distributor>("/distributors/", payload);
+    return api.post<Distributor>(`${BASE_PATH}/`, payload);
   },
 
   async update(id: number, payload: { name?: string; phone_no?: string | null; logo_url?: string | null; is_active?: boolean }) {
-    return api.patch<Distributor>(`/distributors/${id}`, payload);
+    return api.patch<Distributor>(`${BASE_PATH}/${id}`, payload);
   },
 
   async uploadLogo(id: number, file: File) {
     const formData = new FormData();
     formData.append("file", file);
-    return api.post<Distributor>(`/distributors/${id}/logo`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    return api.post<Distributor>(`${BASE_PATH}/${id}/logo`, formData);
   },
 
   async removeLogo(id: number) {
-    return api.delete<Distributor>(`/distributors/${id}/logo`);
+    return api.delete<Distributor>(`${BASE_PATH}/${id}/logo`);
   },
 
   async remove(id: number) {
-    return api.delete<void>(`/distributors/${id}`);
+    return api.delete<void>(`${BASE_PATH}/${id}`);
   },
 };

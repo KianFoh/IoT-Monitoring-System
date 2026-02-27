@@ -1,0 +1,29 @@
+.dashboard-page-size-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-inverse);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-page-size-select-input {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-overlay-white-medium);
+  background: var(--color-overlay-white-light);
+  color: var(--text-inverse);
+}
+
+.dashboard-page-size-select-input:focus {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.06);
+  outline: none;
+}
+
+.dashboard-page-size-select-input option {
+  background: var(--color-dark-700);
+  color: var(--text-white);
+}
+
+.dashboard-page-size-select {
+}

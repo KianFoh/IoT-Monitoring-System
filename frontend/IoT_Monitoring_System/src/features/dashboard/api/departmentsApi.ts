@@ -1,42 +1,29 @@
 import { api } from "@/services/api";
 import type { Department, DepartmentListResponse, DepartmentSearch } from "@/types/department";
+import { buildDepartmentSearchParams, buildListParams, type ListParams } from "./apiHelpers";
 
-type ListParams = {
-  page?: number;
-  page_size?: number;
-  search?: string;
-};
+const BASE_PATH = "/departments";
 
 export const departmentsApi = {
-  async list({ page = 1, page_size = 10, search }: ListParams) {
-    const params = new URLSearchParams({
-      page: String(page),
-      page_size: String(page_size),
-    });
-    if (search && search.trim()) params.set("search", search.trim());
-    return api.get<DepartmentListResponse>(`/departments/?${params.toString()}`);
+  async list(params: ListParams) {
+    return api.get<DepartmentListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
   },
 
   async create(payload: { name: string; customer_id: number }) {
-    return api.post<Department>("/departments/", payload);
+    return api.post<Department>(`${BASE_PATH}/`, payload);
   },
 
   async search({ name, customer_id, limit = 10 }: { name: string; customer_id?: number | null; limit?: number }) {
-    const trimmed = name.trim();
-    if (!trimmed) return [];
-    const params = new URLSearchParams({
-      name: trimmed,
-      limit: String(limit),
-    });
-    if (customer_id) params.set("customer_id", String(customer_id));
-    return api.get<DepartmentSearch[]>(`/departments/search?${params.toString()}`);
+    const params = buildDepartmentSearchParams({ name, customer_id, limit });
+    if (!params) return [];
+    return api.get<DepartmentSearch[]>(`${BASE_PATH}/search`, { params });
   },
 
   async update(id: number, payload: { name?: string; is_active?: boolean }) {
-    return api.patch<Department>(`/departments/${id}`, payload);
+    return api.patch<Department>(`${BASE_PATH}/${id}`, payload);
   },
 
   async remove(id: number) {
-    return api.delete<void>(`/departments/${id}`);
+    return api.delete<void>(`${BASE_PATH}/${id}`);
   },
 };

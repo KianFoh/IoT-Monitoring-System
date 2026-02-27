@@ -1,0 +1,34 @@
+.dashboard-section-link {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-200);
+
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.dashboard-section-link:hover {
+  color: var(--color-primary-50);
+}
+
+.device-dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.device-dashboard-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.device-dashboard-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-primary-100);
+}

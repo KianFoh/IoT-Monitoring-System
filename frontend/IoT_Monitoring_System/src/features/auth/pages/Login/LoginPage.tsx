@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLogin } from "@/features/auth/hooks/useLogin";
+import { useLogin } from "./useLogin";
 import { AuthHeader } from "@/features/auth/components/AuthHeader/AuthHeader";
 import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm/AuthForm";
 import { AuthContainer } from "@/features/auth/components/AuthContainer/AuthContainer";

@@ -1,0 +1,30 @@
+.dashboard-Layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.dashboard-Content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  background: linear-gradient(135deg, var(--color-dark-700), var(--color-dark-800));
+}
+
+.dashboard-Content h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-white);
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.dashboard-Content p {
+  font-size: var(--font-size-base);
+  color: var(--color-primary-100);
+  margin: 0 0 var(--spacing-xl) 0;
+}
+
+@media (max-width: 768px) {
+  .dashboard-Content {
+    padding: 1rem;
+  }
+}

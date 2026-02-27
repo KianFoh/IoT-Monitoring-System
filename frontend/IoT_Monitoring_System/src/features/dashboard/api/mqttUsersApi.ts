@@ -1,35 +1,27 @@
 import { api } from "@/services/api";
 import type { MqttUser, MqttUserListResponse } from "@/types/mqttUser";
+import { buildListParams, type ListParams } from "./apiHelpers";
 
-type ListParams = {
-  page?: number;
-  page_size?: number;
-  search?: string;
-};
+const BASE_PATH = "/mqtt_users";
 
 export const mqttUsersApi = {
-  async list({ page = 1, page_size = 10, search }: ListParams) {
-    const params = new URLSearchParams({
-      page: String(page),
-      page_size: String(page_size),
-    });
-    if (search && search.trim()) params.set("search", search.trim());
-    return api.get<MqttUserListResponse>(`/mqtt_users/?${params.toString()}`);
+  async list(params: ListParams) {
+    return api.get<MqttUserListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
   },
 
   async getWithPassword(id: number) {
-    return api.get<MqttUser>(`/mqtt_users/${id}`);
+    return api.get<MqttUser>(`${BASE_PATH}/${id}`);
   },
 
   async create(payload: { username: string; password: string; customer_id: number }) {
-    return api.post<MqttUser>("/mqtt_users/", payload);
+    return api.post<MqttUser>(`${BASE_PATH}/`, payload);
   },
 
   async update(id: number, payload: { username?: string; password?: string; is_active?: boolean }) {
-    return api.patch<MqttUser>(`/mqtt_users/${id}`, payload);
+    return api.patch<MqttUser>(`${BASE_PATH}/${id}`, payload);
   },
 
   async remove(id: number) {
-    return api.delete<void>(`/mqtt_users/${id}`);
+    return api.delete<void>(`${BASE_PATH}/${id}`);
   },
 };

@@ -1,0 +1,29 @@
+.device-dashboard-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  background: var(--color-overlay-white-extra-light);
+  border: 1px solid var(--color-overlay-white-medium);
+  margin-bottom: var(--spacing-lg);
+}
+
+.device-dashboard-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.device-dashboard-meta-label {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-primary-200);
+}
+
+.device-dashboard-meta-value {
+  font-size: var(--font-size-sm);
+  color: var(--text-white);
+  font-weight: var(--font-weight-medium);
+}

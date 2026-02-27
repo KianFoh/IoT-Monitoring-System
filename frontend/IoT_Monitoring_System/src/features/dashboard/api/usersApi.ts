@@ -1,24 +1,16 @@
 import { api } from "@/services/api";
 import type { User, UserListResponse, UserRole } from "@/types/user";
+import { buildListParams, type ListParams } from "./apiHelpers";
 
-type ListParams = {
-  page?: number;
-  page_size?: number;
-  search?: string;
-};
+const BASE_PATH = "/users";
 
 export const usersApi = {
-  async list({ page = 1, page_size = 10, search }: ListParams) {
-    const params = new URLSearchParams({
-      page: String(page),
-      page_size: String(page_size),
-    });
-    if (search && search.trim()) params.set("search", search.trim());
-    return api.get<UserListResponse>(`/users/?${params.toString()}`);
+  async list(params: ListParams) {
+    return api.get<UserListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
   },
 
   async create(payload: { email: string; department_id: number; role: UserRole }) {
-    return api.post<User>("/users/", payload);
+    return api.post<User>(`${BASE_PATH}/`, payload);
   },
 
   async update(
@@ -33,7 +25,7 @@ export const usersApi = {
       password?: string;
     }
   ) {
-    return api.patch<User>(`/users/${id}`, payload);
+    return api.patch<User>(`${BASE_PATH}/${id}`, payload);
   },
 
   async changePassword(payload: {
@@ -41,22 +33,20 @@ export const usersApi = {
     new_password: string;
     confirm_password: string;
   }) {
-    return api.post<{ message: string }>("/users/me/change-password", payload);
+    return api.post<{ message: string }>(`${BASE_PATH}/me/change-password`, payload);
   },
 
   async uploadProfilePicture(file: File) {
     const formData = new FormData();
     formData.append("file", file);
-    return api.post<User>("/users/me/profile-picture", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return api.post<User>(`${BASE_PATH}/me/profile-picture`, formData);
   },
 
   async removeProfilePicture() {
-    return api.delete<User>("/users/me/profile-picture");
+    return api.delete<User>(`${BASE_PATH}/me/profile-picture`);
   },
 
   async remove(id: number) {
-    return api.delete<void>(`/users/${id}`);
+    return api.delete<void>(`${BASE_PATH}/${id}`);
   },
 };

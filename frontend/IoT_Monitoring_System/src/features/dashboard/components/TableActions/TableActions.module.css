@@ -1,0 +1,77 @@
+.dashboard-action-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: center;
+  align-items: center;
+}
+
+.dashboard-btn-edit,
+.dashboard-btn-delete,
+.dashboard-btn-view {
+  padding: var(--spacing-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+  background: transparent;
+}
+
+.dashboard-btn-edit {
+  color: var( --color-info-500);
+}
+
+.dashboard-btn-edit:hover {
+  color: var(--color-info-600);
+  background: var(--statcard-info-100);
+}
+
+.dashboard-btn-delete {
+  color: var(--color-error-500);
+}
+
+.dashboard-btn-delete:hover {
+  color: var(--color-error-600);
+  background: var(--statcard-error-100);
+}
+
+.dashboard-btn-edit:disabled,
+.dashboard-btn-delete:disabled,
+.dashboard-btn-view:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+}
+
+.dashboard-btn-edit:disabled:hover,
+.dashboard-btn-delete:disabled:hover,
+.dashboard-btn-view:disabled:hover {
+  color: inherit;
+  background: transparent;
+}
+
+.dashboard-btn-view {
+  color: var(--color-info-500);
+}
+
+.dashboard-btn-view:hover {
+  color: var(--color-info-600);
+  background: var(--statcard-info-100);
+}
+
+.dashboard-btn-edit svg,
+.dashboard-btn-delete svg,
+.dashboard-btn-view svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-btn-edit,
+  .dashboard-btn-delete,
+  .dashboard-btn-view {
+    padding: 0.4rem;
+  }
+}

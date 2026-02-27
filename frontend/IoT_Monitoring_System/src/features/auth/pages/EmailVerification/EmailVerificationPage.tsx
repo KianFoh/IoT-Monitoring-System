@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useEmailVerification } from "@/features/auth/hooks/useEmailVerification";
+import { useEmailVerification } from "./useEmailVerification";
 import { AuthForm, type AuthFormField } from "@/features/auth/components/AuthForm/AuthForm";
 import { AuthSuccess } from "@/features/auth/components/AuthSuccess/AuthSuccess";
 import { AuthError } from "@/features/auth/components/AuthError/AuthError";

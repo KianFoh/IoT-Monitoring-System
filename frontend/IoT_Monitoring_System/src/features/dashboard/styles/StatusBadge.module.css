@@ -1,0 +1,33 @@
+.dashboard-status-badge {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.online {
+  background: var(--statcard-primary-100);
+  color: var(--text-inverse);
+  border: 1px solid var(--statcard-primary-200);
+}
+
+.offline {
+  background: var(--statcard-warning-100);
+  color: var(--text-inverse);
+  border: 1px solid var(--statcard-warning-200);
+}
+
+.active {
+  background: var(--statcard-success-100);
+  color: var(--text-inverse);
+  border: 1px solid var(--statcard-success-200);
+}
+
+.inactive {
+  background: var(--statcard-error-100);
+  color: var(--text-inverse);
+  border: 1px solid var(--statcard-error-200);
+}

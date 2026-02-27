@@ -1,0 +1,58 @@
+.dashboard-inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 30%;
+}
+
+.dashboard-inputIconLeft {
+  position: absolute;
+  left: var(--spacing-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  pointer-events: none; 
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-inputField {
+  width: 100%;
+  height: var(--control-height-md);
+  padding: 0 var(--spacing-md);
+
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-inputField-withIcon {
+  padding-left: calc(var(--spacing-md) * 2 + 14px);
+}
+
+.dashboard-inputField::placeholder {
+  color: var(--text-tertiary);
+}
+
+.dashboard-inputField:hover {
+  border-color: var(--border-medium);
+}
+
+.dashboard-inputField:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow:
+    0 0 0 3px var(--color-primary-shadow),
+    var(--shadow-sm);
+}
+
+.dashboard-inputField:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
