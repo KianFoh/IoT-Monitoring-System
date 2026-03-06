@@ -44,6 +44,17 @@ export const devicesApi = {
     return api.get<Record<string, unknown> | null>(`${BASE_PATH}/data/${deviceUid}/latest`);
   },
 
+  async data(
+    deviceUid: string,
+    params?: {
+      start?: string;
+      end?: string;
+      granularity?: string;
+    }
+  ) {
+    return api.get<Array<Record<string, unknown>>>(`${BASE_PATH}/data/${deviceUid}`, { params });
+  },
+
   async remove(deviceId: number) {
     return api.delete<void>(`${BASE_PATH}/${deviceId}`);
   },

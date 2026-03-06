@@ -3,6 +3,7 @@
   border: 1px solid var(--color-overlay-white-medium);
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
+  overflow: visible;
 }
 
 .device-data-panel-header {
@@ -74,10 +75,12 @@
 
 .device-chart-grid :global(.react-grid-layout) {
   width: 100%;
+  overflow: visible;
 }
 
 .device-chart-grid :global(.react-grid-item) {
   box-sizing: border-box;
+  overflow: visible;
 }
 
 .device-chart-grid :global(.react-resizable-handle) {
@@ -178,6 +181,12 @@
   border-radius: var(--radius-md);
   box-sizing: border-box;
   cursor: default !important;
+  position: relative;
+  z-index: 1;
+}
+
+.device-section-row-active {
+  z-index: 10;
 }
 
 .device-section-row-editing {
@@ -375,6 +384,10 @@
   cursor: grabbing;
 }
 
+.device-chart-card-editing .device-chart-card-body {
+  pointer-events: none; 
+}
+
 .device-chart-card-header {
   display: flex;
   justify-content: space-between;
@@ -396,8 +409,8 @@
   min-height: 0;
   width: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   padding: var(--spacing-xs);
 }
 

@@ -1,8 +1,8 @@
 import { getCompactor, type ResizeHandleAxis } from "react-grid-layout";
 
-export const GRID_COLS = 12;
-export const GRID_ROW_HEIGHT = 80;
-export const GRID_MARGIN: [number, number] = [16, 16];
+export const GRID_COLS = 18;
+export const GRID_ROW_HEIGHT = 60;
+export const GRID_MARGIN: [number, number] = [12, 12];
 export const GRID_PADDING: [number, number] = [0, 0];
 export const RESIZE_HANDLES: ResizeHandleAxis[] = ["se"];
 export const RESIZE_HANDLE_INSET = 10;

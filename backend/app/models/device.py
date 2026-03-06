@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, DateTime, String, ForeignKey, Boolean, Integer, JSON, Enum
+from sqlalchemy import Column, BigInteger, DateTime, String, ForeignKey, Boolean, Integer, JSON, Enum, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -21,7 +21,7 @@ class Device(Base):
     )
     mobile_number = Column(String, nullable=True)
     sim_id = Column(String, nullable=True)
-    data_interval = Column(Integer, default=60, nullable=False) # in seconds
+    data_interval = Column(Float, default=60.0, nullable=False) # in seconds
     dashboard_config = Column(JSON, nullable=True, default=dict) # JSON field for dashboard configuration
 
     is_active = Column(Boolean, default=True, nullable=False)

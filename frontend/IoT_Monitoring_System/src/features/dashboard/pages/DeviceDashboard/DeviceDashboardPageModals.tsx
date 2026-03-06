@@ -1,36 +1,101 @@
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { Modal } from "@/components/Modal/Modal";
+import { FaArrowLeft, FaPlus, FaTimes } from "react-icons/fa";
 import DropdownSelect from "../../components/DropdownSelect/DropdownSelect";
 import formStyles from "../../components/DashboardForm/DashboardForm.module.css";
+import inputStyles from "@/components/Input/Input.module.css";
 
 type FieldTypeOption = { value: "number" | "text" | "list"; label: string };
+type CaseItem = { id: string; label: string; color: string };
+
+const DEFAULT_FIELD_COLOR = "#c7ddff";
+
+const normalizeHex = (value: string) => {
+  const trimmed = value.trim();
+  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(trimmed);
+  if (!match) return null;
+  const hex = match[1].toLowerCase();
+  if (hex.length === 3) {
+    return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+  }
+  return `#${hex}`;
+};
+
+const rgbToHex = (value: string) => {
+  const match = /rgb\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/i.exec(
+    value.trim()
+  );
+  if (!match) return null;
+  const toHex = (part: string) => {
+    const num = Math.min(255, Math.max(0, Number(part)));
+    if (!Number.isFinite(num)) return null;
+    return num.toString(16).padStart(2, "0");
+  };
+  const r = toHex(match[1]);
+  const g = toHex(match[2]);
+  const b = toHex(match[3]);
+  if (!r || !g || !b) return null;
+  return `#${r}${g}${b}`;
+};
+
+const toPickerColor = (value: string) =>
+  normalizeHex(value) || rgbToHex(value) || DEFAULT_FIELD_COLOR;
+
+const hexToRgb = (hex: string) => {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return "";
+  const r = Number.parseInt(normalized.slice(1, 3), 16);
+  const g = Number.parseInt(normalized.slice(3, 5), 16);
+  const b = Number.parseInt(normalized.slice(5, 7), 16);
+  return `rgb(${r}, ${g}, ${b})`;
+};
 
 type DeviceDashboardPanelState = {
-  editingField: string | null;
-  editLabel: string;
-  setEditLabel: (value: string) => void;
-  editUnit: string;
-  setEditUnit: (value: string) => void;
-  editType: "number" | "text" | "list";
-  setEditType: (value: "number" | "text" | "list") => void;
-  configError: string | null;
-  configSaving: boolean;
-  closeFieldConfig: () => void;
-  handleSaveConfig: () => void;
-  isAddFieldOpen: boolean;
-  closeAddField: () => void;
-  newFieldKey: string;
-  setNewFieldKey: (value: string) => void;
-  newFieldLabel: string;
-  setNewFieldLabel: (value: string) => void;
-  newFieldUnit: string;
-  setNewFieldUnit: (value: string) => void;
-  newFieldType: "number" | "text" | "list";
-  setNewFieldType: (value: "number" | "text" | "list") => void;
-  addFieldError: string | null;
-  addFieldSaving: boolean;
-  handleAddField: () => void;
+  edit: {
+    field: string | null;
+    label: string;
+    setLabel: (value: string) => void;
+    unit: string;
+    setUnit: (value: string) => void;
+    type: "number" | "text" | "list";
+    setType: (value: "number" | "text" | "list") => void;
+    color: string;
+    setColor: (value: string) => void;
+    caseItems: CaseItem[];
+    setCaseItems: (value: CaseItem[] | ((prev: CaseItem[]) => CaseItem[])) => void;
+    saving: boolean;
+    error: string | null;
+  };
+  addField: {
+    isOpen: boolean;
+    key: string;
+    setKey: (value: string) => void;
+    label: string;
+    setLabel: (value: string) => void;
+    unit: string;
+    setUnit: (value: string) => void;
+    type: "number" | "text" | "list";
+    setType: (value: "number" | "text" | "list") => void;
+    color: string;
+    setColor: (value: string) => void;
+    caseItems: CaseItem[];
+    setCaseItems: (value: CaseItem[] | ((prev: CaseItem[]) => CaseItem[])) => void;
+    saving: boolean;
+    error: string | null;
+  };
+  caseConfig: {
+    mode: "edit" | "new" | null;
+    openEdit: () => void;
+    openNew: () => void;
+    close: () => void;
+  };
+  actions: {
+    closeFieldConfig: () => void;
+    saveFieldConfig: () => void;
+    closeAddField: () => void;
+    addField: () => void;
+  };
 };
 
 type DeviceDashboardPageModalsProps = {
@@ -44,106 +109,259 @@ export function DeviceDashboardPageModals({
   modalState,
 }: DeviceDashboardPageModalsProps) {
   const { panel, fieldTypeOptions } = modalState;
+  const editColorPicker = toPickerColor(panel.edit.color);
+  const newFieldColorPicker = toPickerColor(panel.addField.color);
+  const editCaseCount = panel.edit.caseItems.filter((item) => item.label.trim()).length;
+  const newCaseCount = panel.addField.caseItems.filter((item) => item.label.trim()).length;
+  const isCaseConfigOpen = panel.caseConfig.mode !== null;
+  const isEditCaseConfig = panel.caseConfig.mode === "edit";
+  const activeCaseItems = isEditCaseConfig ? panel.edit.caseItems : panel.addField.caseItems;
+  const setActiveCaseItems = isEditCaseConfig
+    ? panel.edit.setCaseItems
+    : panel.addField.setCaseItems;
+  const activeFieldLabel = panel.edit.field ? `Configure ${panel.edit.field}` : "Configure field";
+  const newCaseFieldName =
+    panel.addField.label.trim() || panel.addField.key.trim() || "new field";
+  const caseConfigTitle = isEditCaseConfig
+    ? `Cases for ${panel.edit.field ?? "field"}`
+    : `Cases for ${newCaseFieldName}`;
+  const createCaseItem = (): CaseItem => ({
+    id: `case-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    label: "",
+    color: "",
+  });
+  const handleAddCase = () => {
+    if (!setActiveCaseItems) return;
+    setActiveCaseItems((prev) => [...prev, createCaseItem()]);
+  };
+  const handleCaseLabelChange = (id: string, value: string) => {
+    setActiveCaseItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, label: value } : item))
+    );
+  };
+  const handleCaseColorChange = (id: string, value: string) => {
+    setActiveCaseItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, color: value } : item))
+    );
+  };
+  const handleRemoveCase = (id: string) => {
+    setActiveCaseItems((prev) => prev.filter((item) => item.id !== id));
+  };
   return (
     <>
       <Modal
-        isOpen={!!panel.editingField}
-        onClose={panel.closeFieldConfig}
-        title={panel.editingField ? `Configure ${panel.editingField}` : "Configure field"}
+        isOpen={!!panel.edit.field && !isCaseConfigOpen}
+        onClose={panel.actions.closeFieldConfig}
+        title={activeFieldLabel}
       >
         <div className={formStyles["dashboard-modal-form"]}>
           <Input
             id="device-field-key"
             label="Data key"
             placeholder="Enter data key"
-            value={panel.editingField ?? ""}
+            value={panel.edit.field ?? ""}
             disabled
           />
-          <Input
-            id="device-field-label"
-            label="Data label"
-            placeholder="Enter display label"
-            value={panel.editLabel}
-            onChange={(event) => panel.setEditLabel(event.target.value)}
-          />
+          <div className={formStyles["dashboard-modal-field"]}>
+            <label className={inputStyles["gen-inputLabel"]} htmlFor="device-field-label">
+              Data label
+            </label>
+            <div className={formStyles["dashboard-label-row"]}>
+              <Input
+                id="device-field-label"
+                placeholder="Enter display label"
+                value={panel.edit.label}
+                onChange={(event) => panel.edit.setLabel(event.target.value)}
+                groupClassName={formStyles["dashboard-label-field"]}
+                inputClassName={formStyles["dashboard-label-input"]}
+              />
+              <input
+                type="color"
+                className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                value={editColorPicker}
+                onChange={(event) => panel.edit.setColor(hexToRgb(event.target.value))}
+                aria-label="Field color picker"
+              />
+            </div>
+          </div>
           <Input
             id="device-field-unit"
             label="Unit"
             placeholder="Enter Unit"
-            value={panel.editUnit}
-            onChange={(event) => panel.setEditUnit(event.target.value)}
+            value={panel.edit.unit}
+            onChange={(event) => panel.edit.setUnit(event.target.value)}
           />
           <DropdownSelect
             id="device-field-type"
             label="Field type"
-            value={panel.editType}
+            value={panel.edit.type}
             options={fieldTypeOptions}
-            onChange={(value) => panel.setEditType(value)}
+            onChange={(value) => panel.edit.setType(value)}
           />
-          {panel.configError && <p className={formStyles["dashboard-modal-error"]}>{panel.configError}</p>}
+          {(panel.edit.type === "text" || panel.edit.type === "list") && (
+            <div className={formStyles["dashboard-modal-field"]}>
+              <label className={inputStyles["gen-inputLabel"]}>Cases (Optional)</label>
+              <Button type="button" onClick={panel.caseConfig.openEdit}>
+                Configure cases{editCaseCount ? ` (${editCaseCount})` : ""}
+              </Button>
+            </div>
+          )}
+          {panel.edit.error && <p className={formStyles["dashboard-modal-error"]}>{panel.edit.error}</p>}
           <div className={formStyles["dashboard-modal-actions"]}>
             <Button
               type="button"
               variant="cancel"
-              onClick={panel.closeFieldConfig}
-              disabled={panel.configSaving}
+              onClick={panel.actions.closeFieldConfig}
+              disabled={panel.edit.saving}
             >
               Cancel
             </Button>
-            <Button type="button" onClick={panel.handleSaveConfig} isLoading={panel.configSaving}>
+            <Button
+              type="button"
+              onClick={panel.actions.saveFieldConfig}
+              isLoading={panel.edit.saving}
+            >
               Save
             </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal isOpen={panel.isAddFieldOpen} onClose={panel.closeAddField} title="Add data field">
+      <Modal
+        isOpen={panel.addField.isOpen && !isCaseConfigOpen}
+        onClose={panel.actions.closeAddField}
+        title="Add data field"
+      >
         <div className={formStyles["dashboard-modal-form"]}>
           <Input
             id="device-data-field-key"
             label="Data key"
             placeholder="e.g. temperature"
-            value={panel.newFieldKey}
-            onChange={(event) => panel.setNewFieldKey(event.target.value)}
+            value={panel.addField.key}
+            onChange={(event) => panel.addField.setKey(event.target.value)}
           />
-          <Input
-            id="device-data-field-label"
-            label="Data label"
-            placeholder="e.g. Temperature"
-            value={panel.newFieldLabel}
-            onChange={(event) => panel.setNewFieldLabel(event.target.value)}
-          />
+          <div className={formStyles["dashboard-modal-field"]}>
+            <label className={inputStyles["gen-inputLabel"]} htmlFor="device-data-field-label">
+              Data label
+            </label>
+            <div className={formStyles["dashboard-label-row"]}>
+              <Input
+                id="device-data-field-label"
+                placeholder="e.g. Temperature"
+                value={panel.addField.label}
+                onChange={(event) => panel.addField.setLabel(event.target.value)}
+                groupClassName={formStyles["dashboard-label-field"]}
+                inputClassName={formStyles["dashboard-label-input"]}
+              />
+              <input
+                type="color"
+                className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                value={newFieldColorPicker}
+                onChange={(event) => panel.addField.setColor(hexToRgb(event.target.value))}
+                aria-label="Field color picker"
+              />
+            </div>
+          </div>
           <Input
             id="device-data-field-unit"
             label="Unit (optional)"
             placeholder="e.g. C"
-            value={panel.newFieldUnit}
-            onChange={(event) => panel.setNewFieldUnit(event.target.value)}
+            value={panel.addField.unit}
+            onChange={(event) => panel.addField.setUnit(event.target.value)}
           />
           <DropdownSelect
             id="device-data-field-type"
             label="Field type"
-            value={panel.newFieldType}
+            value={panel.addField.type}
             options={fieldTypeOptions}
-            onChange={(value) => panel.setNewFieldType(value)}
+            onChange={(value) => panel.addField.setType(value)}
           />
-          {panel.addFieldError && <p className={formStyles["dashboard-modal-error"]}>{panel.addFieldError}</p>}
+          {(panel.addField.type === "text" || panel.addField.type === "list") && (
+            <div className={formStyles["dashboard-modal-field"]}>
+              <label className={inputStyles["gen-inputLabel"]}>Cases (Optional)</label>
+              <Button type="button" onClick={panel.caseConfig.openNew}>
+                Configure cases{newCaseCount ? ` (${newCaseCount})` : ""}
+              </Button>
+            </div>
+          )}
+          {panel.addField.error && <p className={formStyles["dashboard-modal-error"]}>{panel.addField.error}</p>}
           <div className={formStyles["dashboard-modal-actions"]}>
             <Button
               type="button"
               variant="cancel"
-              onClick={panel.closeAddField}
-              disabled={panel.addFieldSaving}
+              onClick={panel.actions.closeAddField}
+              disabled={panel.addField.saving}
             >
               Cancel
             </Button>
             <Button
               type="button"
-              onClick={panel.handleAddField}
-              isLoading={panel.addFieldSaving}
-              disabled={!panel.newFieldKey.trim()}
+              onClick={panel.actions.addField}
+              isLoading={panel.addField.saving}
+              disabled={!panel.addField.key.trim()}
             >
               Add field
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isCaseConfigOpen} onClose={panel.caseConfig.close} title={caseConfigTitle}>
+        <div className={formStyles["dashboard-modal-form"]}>
+          <div className={formStyles["dashboard-case-list"]}>
+            {activeCaseItems.length === 0 ? (
+              <p className={formStyles["dashboard-modal-hint"]}>No cases yet.</p>
+            ) : (
+              activeCaseItems.map((item) => (
+                <div key={item.id} className={formStyles["dashboard-case-row"]}>
+                  <Input
+                    id={`case-label-${item.id}`}
+                    placeholder="Case label"
+                    value={item.label}
+                    onChange={(event) => handleCaseLabelChange(item.id, event.target.value)}
+                    groupClassName={formStyles["dashboard-case-label"]}
+                  />
+                  <div className={formStyles["dashboard-case-color-row"]}>
+                    <input
+                      type="color"
+                      className={formStyles["dashboard-color-input"]}
+                      value={toPickerColor(item.color)}
+                      onChange={(event) =>
+                        handleCaseColorChange(item.id, hexToRgb(event.target.value))
+                      }
+                      aria-label="Case color picker"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className={formStyles["dashboard-case-remove"]}
+                    onClick={() => handleRemoveCase(item.id)}
+                    aria-label="Remove case"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              ))
+            )}
+            <button
+              type="button"
+              className={formStyles["dashboard-case-add-row"]}
+              onClick={handleAddCase}
+            >
+              <span className={formStyles["dashboard-case-add-icon"]}>
+                <FaPlus />
+              </span>
+              <span>Add case</span>
+            </button>
+          </div>
+          <div className={formStyles["dashboard-modal-actions"]}>
+            <Button
+              type="button"
+              variant="cancel"
+              icon={FaArrowLeft}
+              onClick={panel.caseConfig.close}
+            >
+              Back to field
             </Button>
           </div>
         </div>

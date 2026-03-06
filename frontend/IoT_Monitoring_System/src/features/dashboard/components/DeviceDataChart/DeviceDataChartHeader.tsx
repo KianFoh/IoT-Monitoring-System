@@ -2,7 +2,7 @@ import { FaFilter, FaPlus } from "react-icons/fa";
 import { Button } from "@/components/Button/Button";
 import DropdownSelect from "../DropdownSelect/DropdownSelect";
 import styles from "./DeviceDataChart.module.css";
-import type { DisplayOption } from "./deviceDataChartTypes";
+import type { DisplayOption } from "./types/deviceDataChartTypes";
 
 type DeviceDataChartHeaderProps<T extends string> = {
   isEditing: boolean;

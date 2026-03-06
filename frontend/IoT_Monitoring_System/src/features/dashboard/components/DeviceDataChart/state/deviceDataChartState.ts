@@ -1,10 +1,20 @@
 import { useCallback, useState } from "react";
-import type { ChartItem, ChartType, LineGranularity } from "./deviceDataChartTypes";
+import type {
+  BarOrientation,
+  ChartFilterMode,
+  ChartItem,
+  ChartRangePreset,
+  ChartType,
+  LineListMode,
+  LineGranularity,
+} from "../types/deviceDataChartTypes";
 
 export type ChartFormState = {
   isAddOpen: boolean;
   isEditOpen: boolean;
   isFilterOpen: boolean;
+  filterMode: ChartFilterMode;
+  rangePreset: ChartRangePreset;
   selectedChartType: ChartType;
   selectedField: string;
   selectedMin: string;
@@ -12,6 +22,12 @@ export type ChartFormState = {
   selectedLineFields: string[];
   selectedLineMin: string;
   selectedLineMax: string;
+  selectedLineTicks: string;
+  selectedLineDecimals: string;
+  selectedLineListMode: LineListMode;
+  selectedBarOrientation: BarOrientation;
+  selectedBarRaceMode: boolean;
+  selectedPieShowLabels: boolean;
   timeGranularity: LineGranularity;
   timeStart: string;
   timeEnd: string;
@@ -21,22 +37,36 @@ export type ChartFormState = {
   editField: string;
   editMin: string;
   editMax: string;
+  editLineTicks: string;
+  editLineDecimals: string;
+  editLineListMode: LineListMode;
+  editBarOrientation: BarOrientation;
+  editBarRaceMode: boolean;
+  editPieShowLabels: boolean;
 };
 
 type ChartFormAction =
-  | { type: "open-add"; payload: { defaultField: string; defaultLineFields: string[] } }
+  | { type: "open-add"; payload: { defaultField: string } }
   | { type: "close-add" }
   | { type: "open-edit"; payload: { chart: ChartItem } }
   | { type: "close-edit" }
   | { type: "open-filter" }
   | { type: "close-filter" }
+  | { type: "set-filter-mode"; value: ChartFilterMode }
+  | { type: "set-range-preset"; value: ChartRangePreset }
   | { type: "set-selected-chart-type"; value: ChartType }
   | { type: "set-selected-field"; value: string }
   | { type: "set-selected-min"; value: string }
   | { type: "set-selected-max"; value: string }
-  | { type: "set-selected-line-fields"; value: string[] }
+  | { type: "set-selected-line-field"; value: string }
   | { type: "set-selected-line-min"; value: string }
   | { type: "set-selected-line-max"; value: string }
+  | { type: "set-selected-line-ticks"; value: string }
+  | { type: "set-selected-line-decimals"; value: string }
+  | { type: "set-selected-line-list-mode"; value: LineListMode }
+  | { type: "set-selected-bar-orientation"; value: BarOrientation }
+  | { type: "set-selected-bar-race-mode"; value: boolean }
+  | { type: "set-selected-pie-show-labels"; value: boolean }
   | { type: "set-time-granularity"; value: LineGranularity }
   | { type: "set-time-start"; value: string }
   | { type: "set-time-end"; value: string }
@@ -44,12 +74,20 @@ type ChartFormAction =
   | { type: "set-edit-field"; value: string }
   | { type: "set-edit-min"; value: string }
   | { type: "set-edit-max"; value: string }
+  | { type: "set-edit-line-ticks"; value: string }
+  | { type: "set-edit-line-decimals"; value: string }
+  | { type: "set-edit-line-list-mode"; value: LineListMode }
+  | { type: "set-edit-bar-orientation"; value: BarOrientation }
+  | { type: "set-edit-bar-race-mode"; value: boolean }
+  | { type: "set-edit-pie-show-labels"; value: boolean }
   | { type: "reset-editing-ui" };
 
 export const INITIAL_CHART_FORM_STATE: ChartFormState = {
   isAddOpen: false,
   isEditOpen: false,
   isFilterOpen: false,
+  filterMode: "raw",
+  rangePreset: "last_1_hour",
   selectedChartType: "meter",
   selectedField: "",
   selectedMin: "",
@@ -57,6 +95,12 @@ export const INITIAL_CHART_FORM_STATE: ChartFormState = {
   selectedLineFields: [],
   selectedLineMin: "",
   selectedLineMax: "",
+  selectedLineTicks: "",
+  selectedLineDecimals: "",
+  selectedLineListMode: "single",
+  selectedBarOrientation: "horizontal",
+  selectedBarRaceMode: false,
+  selectedPieShowLabels: true,
   timeGranularity: "day",
   timeStart: "",
   timeEnd: "",
@@ -66,6 +110,12 @@ export const INITIAL_CHART_FORM_STATE: ChartFormState = {
   editField: "",
   editMin: "",
   editMax: "",
+  editLineTicks: "",
+  editLineDecimals: "",
+  editLineListMode: "single",
+  editBarOrientation: "horizontal",
+  editBarRaceMode: false,
+  editPieShowLabels: true,
 };
 
 export const chartFormReducer = (
@@ -77,22 +127,32 @@ export const chartFormReducer = (
       return {
         ...state,
         isAddOpen: true,
+        selectedBarRaceMode: false,
+        selectedPieShowLabels: true,
         selectedMin: "",
         selectedMax: "",
         selectedLineMin: "",
         selectedLineMax: "",
-        selectedLineFields: action.payload.defaultLineFields,
+        selectedLineTicks: "",
+        selectedLineDecimals: "",
+        selectedLineListMode: "single",
+        selectedLineFields: action.payload.defaultField ? [action.payload.defaultField] : [],
         selectedField: action.payload.defaultField || state.selectedField,
       };
     case "close-add":
       return {
         ...state,
         isAddOpen: false,
+        selectedBarRaceMode: false,
+        selectedPieShowLabels: true,
         selectedMin: "",
         selectedMax: "",
         selectedLineMin: "",
         selectedLineMax: "",
+        selectedLineTicks: "",
+        selectedLineDecimals: "",
         selectedLineFields: [],
+        selectedLineListMode: "single",
       };
     case "open-edit":
       return {
@@ -104,6 +164,21 @@ export const chartFormReducer = (
         editField: action.payload.chart.fields?.[0] ?? action.payload.chart.field,
         editMin: typeof action.payload.chart.min === "number" ? String(action.payload.chart.min) : "",
         editMax: typeof action.payload.chart.max === "number" ? String(action.payload.chart.max) : "",
+        editLineTicks:
+          typeof action.payload.chart.tick_count === "number"
+            ? String(action.payload.chart.tick_count)
+            : "",
+        editLineDecimals:
+          typeof action.payload.chart.value_decimals === "number"
+            ? String(action.payload.chart.value_decimals)
+            : "",
+        editLineListMode:
+          action.payload.chart.line_list_mode === "multi" ? "multi" : "single",
+        editBarOrientation:
+          action.payload.chart.bar_orientation ??
+          (action.payload.chart.type === "bar" ? "horizontal" : state.editBarOrientation),
+        editBarRaceMode: Boolean(action.payload.chart.bar_race_mode),
+        editPieShowLabels: action.payload.chart.pie_show_labels !== false,
       };
     case "close-edit":
       return {
@@ -113,11 +188,21 @@ export const chartFormReducer = (
         editingChartType: null,
         editMin: "",
         editMax: "",
+        editLineTicks: "",
+        editLineDecimals: "",
+        editLineListMode: "single",
+        editBarOrientation: "horizontal",
+        editBarRaceMode: false,
+        editPieShowLabels: true,
       };
     case "open-filter":
       return { ...state, isFilterOpen: true };
     case "close-filter":
       return { ...state, isFilterOpen: false };
+    case "set-filter-mode":
+      return { ...state, filterMode: action.value };
+    case "set-range-preset":
+      return { ...state, rangePreset: action.value };
     case "set-selected-chart-type":
       return { ...state, selectedChartType: action.value };
     case "set-selected-field":
@@ -126,14 +211,26 @@ export const chartFormReducer = (
       return { ...state, selectedMin: action.value };
     case "set-selected-max":
       return { ...state, selectedMax: action.value };
-    case "set-selected-line-fields":
-      return { ...state, selectedLineFields: action.value };
+    case "set-selected-line-field":
+      return { ...state, selectedLineFields: action.value ? [action.value] : [] };
     case "set-selected-line-min":
       return { ...state, selectedLineMin: action.value };
     case "set-selected-line-max":
       return { ...state, selectedLineMax: action.value };
+    case "set-selected-line-ticks":
+      return { ...state, selectedLineTicks: action.value };
+    case "set-selected-line-decimals":
+      return { ...state, selectedLineDecimals: action.value };
+    case "set-selected-line-list-mode":
+      return { ...state, selectedLineListMode: action.value };
+    case "set-selected-bar-orientation":
+      return { ...state, selectedBarOrientation: action.value };
+    case "set-selected-bar-race-mode":
+      return { ...state, selectedBarRaceMode: action.value };
+    case "set-selected-pie-show-labels":
+      return { ...state, selectedPieShowLabels: action.value };
     case "set-time-granularity":
-      return { ...state, timeGranularity: action.value };
+      return { ...state, timeGranularity: action.value, timeStart: "", timeEnd: "" };
     case "set-time-start":
       return { ...state, timeStart: action.value };
     case "set-time-end":
@@ -146,6 +243,18 @@ export const chartFormReducer = (
       return { ...state, editMin: action.value };
     case "set-edit-max":
       return { ...state, editMax: action.value };
+    case "set-edit-line-ticks":
+      return { ...state, editLineTicks: action.value };
+    case "set-edit-line-decimals":
+      return { ...state, editLineDecimals: action.value };
+    case "set-edit-line-list-mode":
+      return { ...state, editLineListMode: action.value };
+    case "set-edit-bar-orientation":
+      return { ...state, editBarOrientation: action.value };
+    case "set-edit-bar-race-mode":
+      return { ...state, editBarRaceMode: action.value };
+    case "set-edit-pie-show-labels":
+      return { ...state, editPieShowLabels: action.value };
     case "reset-editing-ui":
       return {
         ...state,
@@ -156,11 +265,23 @@ export const chartFormReducer = (
         editingChartType: null,
         editMin: "",
         editMax: "",
+        editLineTicks: "",
+        editLineDecimals: "",
+        editLineListMode: "single",
+        editBarOrientation: "horizontal",
+        editBarRaceMode: false,
+        editPieShowLabels: true,
         selectedMin: "",
         selectedMax: "",
         selectedLineMin: "",
         selectedLineMax: "",
+        selectedLineTicks: "",
+        selectedLineDecimals: "",
         selectedLineFields: [],
+        selectedLineListMode: "single",
+        selectedBarOrientation: "horizontal",
+        selectedBarRaceMode: false,
+        selectedPieShowLabels: true,
       };
     default:
       return state;

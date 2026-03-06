@@ -2,7 +2,7 @@ import { FaPlus } from "react-icons/fa";
 import { Button } from "@/components/Button/Button";
 import DropdownSelect from "../DropdownSelect/DropdownSelect";
 import styles from "./DeviceDataPanel.module.css";
-import type { DisplayOption } from "./deviceDataPanelTypes";
+import type { DisplayOption } from "./types/deviceDataPanelTypes";
 
 type DeviceDataPanelHeaderProps<T extends string> = {
   isEditing: boolean;

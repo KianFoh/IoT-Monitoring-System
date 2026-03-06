@@ -134,6 +134,12 @@
   margin: 0;
 }
 
+.dashboard-modal-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 .dashboard-checkbox-row {
   display: flex;
   gap: var(--spacing-md);
@@ -145,6 +151,82 @@
   align-items: center;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
+}
+
+.dashboard-inline-grow {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.dashboard-inline-field {
+  flex: 1 1 160px;
+  min-width: 140px;
+  max-width: 220px;
+}
+
+.dashboard-label-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.dashboard-label-field {
+  flex: 1 1 auto;
+}
+
+.dashboard-label-input {
+  height: var(--control-height-lg);
+}
+
+.dashboard-color-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: nowrap;
+}
+
+.dashboard-color-row .dashboard-color-input {
+  flex: 0 0 auto;
+  display: inline-flex;
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+}
+
+.dashboard-color-input {
+  width: 45px;
+  height: 45px;
+  padding: 0;
+  border: 2px solid var(--color-dark-400);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  cursor: pointer;
+}
+
+.dashboard-color-input.dashboard-label-color {
+  width: var(--control-height-lg);
+  height: var(--control-height-lg);
+  box-sizing: border-box;
+}
+
+.dashboard-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.dashboard-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-color-input::-moz-color-swatch {
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-color-text {
+  flex: 1 1 140px;
+  min-width: 140px;
+  max-width: 220px;
 }
 
 .dashboard-readonly-group {
@@ -179,4 +261,99 @@
 .dashboard-readonly-muted {
   color: var(--text-tertiary);
   font-weight: var(--font-weight-regular);
+}
+
+.dashboard-case-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  --case-row-height: 55px;
+  max-height: calc((var(--case-row-height) * 5) + (var(--spacing-sm) * 4));
+  overflow-y: auto;
+  padding-right: var(--spacing-xs);
+  scrollbar-gutter: stable;
+}
+
+.dashboard-case-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--spacing-sm);
+  align-items: center;
+  height: var(--case-row-height);
+}
+
+.dashboard-case-label {
+  min-width: 180px;
+}
+
+.dashboard-case-color-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.dashboard-case-color {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.dashboard-case-color-text {
+  min-width: 140px;
+  max-width: 220px;
+  flex: 1 1 auto;
+}
+
+.dashboard-case-remove {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-overlay-white-medium);
+  background: transparent;
+  color: var(--color-error-300);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color var(--transition-normal), color var(--transition-normal);
+}
+
+.dashboard-case-remove:hover {
+  border-color: var(--color-error-500);
+  color: var(--color-error-600);
+}
+
+.dashboard-case-add-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  min-height: var(--case-row-height);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px dashed var(--border-medium);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: border-color var(--transition-normal), color var(--transition-normal),
+    background var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.dashboard-case-add-row:hover {
+  border-color: var(--color-primary-400);
+  color: var(--color-primary-600);
+  background: var(--color-primary-50);
+}
+
+.dashboard-case-add-row:focus-visible {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px var(--color-primary-shadow);
+}
+
+.dashboard-case-add-icon {
+  display: inline-flex;
 }

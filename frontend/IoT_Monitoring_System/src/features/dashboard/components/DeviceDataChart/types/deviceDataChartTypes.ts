@@ -3,9 +3,25 @@ export type DisplayOption<T extends string> = {
   label: string;
 };
 
-export type ChartType = "meter" | "line" | "bar";
+export type DataFieldType = "number" | "text" | "list";
+
+export type ChartType = "meter" | "line" | "area" | "pie" | "stat" | "bar";
+
+export type BarOrientation = "horizontal" | "vertical";
+
+export type LineListMode = "single" | "multi";
 
 export type LineGranularity = "sec" | "minute" | "hour" | "day" | "week" | "month" | "year";
+
+export type ChartFilterMode = "raw" | "range" | "custom";
+
+export type ChartRangePreset =
+  | "last_1_min"
+  | "last_1_hour"
+  | "last_1_day"
+  | "last_1_week"
+  | "last_1_month"
+  | "last_1_year";
 
 export type ChartItemConfig = {
   id: string;
@@ -14,8 +30,15 @@ export type ChartItemConfig = {
   name?: string | null;
   min?: number | null;
   max?: number | null;
+  tick_count?: number | null;
+  value_decimals?: number | null;
+  value_cases?: string[] | null;
   fields?: string[] | null;
   section_id?: string | null;
+  bar_orientation?: BarOrientation | null;
+  bar_race_mode?: boolean | null;
+  pie_show_labels?: boolean | null;
+  line_list_mode?: LineListMode | null;
 };
 
 export type ChartLayoutItem = {
@@ -45,19 +68,35 @@ export type ChartItem = {
   name: string;
   min?: number;
   max?: number;
+  tick_count?: number;
+  value_decimals?: number;
+  value_cases?: string[];
   fields?: string[];
   section_id?: string | null;
+  bar_orientation?: BarOrientation;
+  bar_race_mode?: boolean;
+  pie_show_labels?: boolean;
+  line_list_mode?: LineListMode;
 };
 
 export type DeviceDataChartProps<T extends string> = {
   displayMode: T;
   options: DisplayOption<T>[];
   onDisplayChange: (value: T) => void;
+  deviceUid: string;
+  dataIntervalSeconds?: number | null;
   disabled?: boolean;
   readOnly?: boolean;
   availableFields: string[];
   getChartValue?: (field: string) => unknown;
   getChartUnit?: (field: string) => string;
+  getChartLabel?: (field: string) => string;
+  getChartType?: (field: string) => DataFieldType;
+  getChartColor?: (field: string) => string;
+  getChartCases?: (field: string) => string[] | null | undefined;
+  getChartCaseColors?: (field: string) => Record<string, string> | null | undefined;
+  onFilterModeChange?: (value: ChartFilterMode) => void;
+  rawTimestamp?: Date | null;
   savedCharts?: ChartItemConfig[];
   savedLayout?: ChartLayoutItem[];
   savedSections?: ChartSection[];

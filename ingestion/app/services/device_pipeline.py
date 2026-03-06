@@ -16,7 +16,7 @@ class DeviceInfo:
     customer_name: str
     department_name: str
     distributor_name: Optional[str]
-    data_interval: int
+    data_interval: float
     is_active: bool
 
 class DevicePipeline:

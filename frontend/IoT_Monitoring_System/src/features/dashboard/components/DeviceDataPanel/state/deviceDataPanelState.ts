@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { PanelSection } from "./deviceDataPanelTypes";
+import type { PanelSection } from "../types/deviceDataPanelTypes";
 
 export type SectionModalState = {
   isOpen: boolean;

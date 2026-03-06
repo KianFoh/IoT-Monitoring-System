@@ -12,6 +12,15 @@ def coerce_int(value) -> Optional[int]:
         return None
 
 
+def coerce_float(value) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def coerce_bool(value) -> bool:
     if isinstance(value, bool):
         return value

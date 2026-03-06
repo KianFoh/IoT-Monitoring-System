@@ -4,42 +4,18 @@ import {
   GRID_COLS,
   SECTION_PREFIX,
   SECTION_ROW_HEIGHT,
-} from "./deviceDataChartConstants";
-import type { ChartItem, ChartItemConfig, ChartLayoutItem, ChartSection } from "./deviceDataChartTypes";
+} from "./deviceDataPanelConstants";
+import type { ListModalItem, PanelLayoutItem, PanelSection } from "../types/deviceDataPanelTypes";
 
 export const getSectionKey = (sectionId: string) => `${SECTION_PREFIX}${sectionId}`;
 export const isSectionKey = (key: string) => key.startsWith(SECTION_PREFIX);
-export const getSectionIdFromKey = (key: string) => key.replace(SECTION_PREFIX, "");
+export const getSectionIdFromKey = (key: string) =>
+  isSectionKey(key) ? key.slice(SECTION_PREFIX.length) : key;
 
 export const getLayoutMaxY = (layout: Array<{ y: number; h: number }>) =>
   layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
 
-export const getNextPosition = (layout: Layout) => {
-  if (layout.length === 0) return { x: 0, y: 0 };
-  const maxY = Math.max(...layout.map((item) => item.y + item.h));
-  return { x: 0, y: maxY };
-};
-
-export const normalizeChart = (chart: ChartItemConfig): ChartItem => {
-  const normalizedFields =
-    chart.type === "line"
-      ? Array.isArray(chart.fields) && chart.fields.length
-        ? chart.fields
-        : chart.field
-          ? [chart.field]
-          : []
-      : undefined;
-
-  return {
-    ...chart,
-    name: chart.name?.trim() || "New panel",
-    min: typeof chart.min === "number" ? chart.min : undefined,
-    max: typeof chart.max === "number" ? chart.max : undefined,
-    fields: normalizedFields,
-  };
-};
-
-export const normalizeLayoutItem = (item: LayoutItem | ChartLayoutItem): ChartLayoutItem => {
+export const normalizeLayoutItem = (item: LayoutItem | PanelLayoutItem): PanelLayoutItem => {
   if (isSectionKey(item.i)) {
     return {
       i: item.i,
@@ -60,34 +36,47 @@ export const normalizeLayoutItem = (item: LayoutItem | ChartLayoutItem): ChartLa
     y: item.y,
     w: item.w,
     h: item.h,
-    minW: item.minW,
-    minH: item.minH,
+    minW: DEFAULT_PANEL_SIZE.minW,
+    minH: DEFAULT_PANEL_SIZE.minH,
   };
 };
 
-export const ensureChartLayout = (
-  charts: ChartItem[],
-  sections: ChartSection[],
-  layout: ChartLayoutItem[]
+export const ensurePanelLayout = (
+  fields: string[],
+  sections: PanelSection[],
+  layout: PanelLayoutItem[]
 ) => {
-  const chartIds = new Set(charts.map((chart) => chart.id));
+  const fieldSet = new Set(fields);
   const sectionKeys = new Set(sections.map((section) => getSectionKey(section.id)));
   let nextLayout = layout
-    .filter((item) => chartIds.has(item.i) || sectionKeys.has(item.i))
+    .filter((item) => fieldSet.has(item.i) || sectionKeys.has(item.i))
     .map((item) => normalizeLayoutItem(item));
   const usedIds = new Set(nextLayout.map((item) => item.i));
-  let nextY = getLayoutMaxY(nextLayout);
-  charts.forEach((chart) => {
-    if (usedIds.has(chart.id)) return;
+  const sectionHeaderYs = nextLayout
+    .filter((item) => isSectionKey(item.i))
+    .map((item) => item.y)
+    .sort((a, b) => a - b);
+  let insertY = sectionHeaderYs.length ? sectionHeaderYs[0] : getLayoutMaxY(nextLayout);
+  fields.forEach((field) => {
+    if (usedIds.has(field)) return;
+    if (sectionHeaderYs.length) {
+      nextLayout = nextLayout.map((item) =>
+        item.y >= insertY ? { ...item, y: item.y + DEFAULT_PANEL_SIZE.h } : item
+      );
+    }
     nextLayout.push({
-      i: chart.id,
+      i: field,
       x: 0,
-      y: nextY,
+      y: insertY,
       w: DEFAULT_PANEL_SIZE.w,
       h: DEFAULT_PANEL_SIZE.h,
+      minW: DEFAULT_PANEL_SIZE.minW,
+      minH: DEFAULT_PANEL_SIZE.minH,
     });
-    nextY += DEFAULT_PANEL_SIZE.h;
+    usedIds.add(field);
+    insertY += DEFAULT_PANEL_SIZE.h;
   });
+  let nextY = getLayoutMaxY(nextLayout);
   sections.forEach((section) => {
     const key = getSectionKey(section.id);
     if (usedIds.has(key)) return;
@@ -109,8 +98,8 @@ export const ensureChartLayout = (
 };
 
 export const buildSectionAssignments = (
-  layout: ChartLayoutItem[],
-  sections: ChartSection[],
+  layout: PanelLayoutItem[],
+  sections: PanelSection[],
   currentAssignments: Record<string, string | null>,
   recomputeIds: Set<string> | null = null
 ) => {
@@ -133,20 +122,23 @@ export const buildSectionAssignments = (
       assignments[item.i] = currentAssignment ?? null;
       return;
     }
-    let assigned: string | null = null;
+    let lastHeader: (typeof headers)[number] | null = null;
     for (const header of headers) {
       if (header.y <= item.y) {
-        if (header.collapsed) {
-          assigned = null;
-          break;
-        } else {
-          assigned = header.id;
-        }
+        lastHeader = header;
       } else {
         break;
       }
     }
-    assignments[item.i] = assigned;
+    if (!lastHeader) {
+      assignments[item.i] = null;
+      return;
+    }
+    if (lastHeader.collapsed) {
+      assignments[item.i] = currentAssignment === lastHeader.id ? lastHeader.id : null;
+      return;
+    }
+    assignments[item.i] = lastHeader.id;
   });
   return assignments;
 };
@@ -163,38 +155,38 @@ export const mergeLayout = (prev: Layout, next: Layout) => {
   return merged;
 };
 
-export const orderSectionsByLayout = (sections: ChartSection[], layout: ChartLayoutItem[]) => {
-  const positions = new Map<string, number>();
-  layout.forEach((item) => {
-    if (isSectionKey(item.i)) {
-      positions.set(getSectionIdFromKey(item.i), item.y);
-    }
-  });
-  return [...sections].sort((a, b) => {
-    const posA = positions.get(a.id);
-    const posB = positions.get(b.id);
-    if (posA == null && posB == null) return 0;
-    if (posA == null) return 1;
-    if (posB == null) return -1;
-    if (posA === posB) return 0;
-    return posA - posB;
-  });
-};
-
-export const parseNumericValue = (value: unknown) => {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : null;
+export const getListCount = (rawValue: unknown) => {
+  if (Array.isArray(rawValue)) {
+    return rawValue.length;
   }
-  return null;
+  if (rawValue && typeof rawValue === "object") {
+    return Object.values(rawValue as Record<string, unknown>).reduce<number>((sum, value) => {
+      if (typeof value === "number") return sum + value;
+      return sum + 1;
+    }, 0);
+  }
+  if (typeof rawValue === "string" && rawValue.trim()) {
+    return 1;
+  }
+  return 0;
 };
 
-export const parseOptionalNumber = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) ? parsed : undefined;
+export const buildListModalItems = (rawValue: unknown): ListModalItem[] => {
+  if (Array.isArray(rawValue)) {
+    return rawValue.map((item) => {
+      const label = String(item);
+      return { label, matchKey: label };
+    });
+  }
+  if (rawValue && typeof rawValue === "object") {
+    return Object.entries(rawValue as Record<string, unknown>).map(([key, value]) => {
+      const label =
+        typeof value === "number" ? `${key} (${value})` : `${key}: ${String(value)}`;
+      return { label, matchKey: key };
+    });
+  }
+  if (typeof rawValue === "string" && rawValue.trim()) {
+    return [{ label: rawValue, matchKey: rawValue }];
+  }
+  return [];
 };

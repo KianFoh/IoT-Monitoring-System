@@ -7,7 +7,7 @@ class DeviceCreate(BaseModel):
     uid: str
     name: str
     department_id: int
-    data_interval: int
+    data_interval: float
     machine: Optional[str] = None
     connectivity: DeviceConnectivity = DeviceConnectivity.wifi
     mobile_number: Optional[str] = None
@@ -17,7 +17,7 @@ class DeviceUpdate(BaseModel):
     name: Optional[str] = None
     machine: Optional[str] = None
     department_id: Optional[int] = None
-    data_interval: Optional[int] = None
+    data_interval: Optional[float] = None
     dashboard_config: Optional[dict] = None
     is_online: Optional[bool] = None
     is_active: Optional[bool] = None
@@ -34,7 +34,7 @@ class DeviceOut(BaseModel):
     connectivity: DeviceConnectivity
     mobile_number: Optional[str] = None
     sim_id: Optional[str] = None
-    data_interval: int
+    data_interval: float
     dashboard_config: Optional[dict] = None
     department_name: str
     customer_name: str

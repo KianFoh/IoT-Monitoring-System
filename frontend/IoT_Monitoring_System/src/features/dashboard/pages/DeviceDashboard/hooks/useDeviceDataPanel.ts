@@ -4,8 +4,18 @@ import { devicesApi } from "../../../api/devicesApi";
 import type { DataFieldType, DashboardChartConfig, DashboardPanelConfig, Device } from "@/types/device";
 import { type DevicePayload, formatValue } from "./deviceDashboardUtils";
 import { buildDashboardConfig, normalizeDashboardConfig } from "./dashboardConfig";
+import {
+  buildSectionAssignments,
+  ensurePanelLayout,
+  getLayoutMaxY,
+  getSectionIdFromKey,
+  getSectionKey,
+  isSectionKey,
+  normalizeLayoutItem,
+} from "@/features/dashboard/components/DeviceDataPanel/utils/deviceDataPanelUtils";
 
 type DataPanelConfig = NonNullable<DashboardPanelConfig["config"]>;
+type CaseItem = { id: string; label: string; color: string };
 
 type UseDeviceDataPanelParams = {
   device: Device | null;
@@ -17,20 +27,57 @@ type UseDeviceDataPanelParams = {
 type PanelLayoutConfig = NonNullable<DashboardPanelConfig["layout"]>;
 type PanelSection = NonNullable<DashboardPanelConfig["sections"]>[number];
 
-const DEFAULT_PANEL_SIZE = { w: 3, h: 2, minW: 1, minH: 1 };
-const GRID_COLS = 12;
-const SECTION_PREFIX = "section:";
-const SECTION_ROW_HEIGHT = 1;
-
-const getSectionKey = (sectionId: string) => `${SECTION_PREFIX}${sectionId}`;
-const isSectionKey = (key: string) => key.startsWith(SECTION_PREFIX);
-const getSectionIdFromKey = (key: string) => key.replace(SECTION_PREFIX, "");
-const getLayoutMaxY = (layout: Array<{ y: number; h: number }>) =>
-  layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
-
 const cleanPanelConfig = (fields: string[], config: DataPanelConfig) => {
   const nextEntries = Object.entries(config).filter(([key]) => fields.includes(key));
   return Object.fromEntries(nextEntries);
+};
+
+const createCaseId = () => `case-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const normalizeCaseColorMap = (caseColors?: Record<string, string> | null) => {
+  const map = new Map<string, string>();
+  if (!caseColors) return map;
+  Object.entries(caseColors).forEach(([label, color]) => {
+    const trimmedLabel = label.trim().toLowerCase();
+    const trimmedColor = typeof color === "string" ? color.trim() : "";
+    if (!trimmedLabel || !trimmedColor) return;
+    map.set(trimmedLabel, trimmedColor);
+  });
+  return map;
+};
+
+const buildCaseItems = (
+  cases?: string[] | null,
+  caseColors?: Record<string, string> | null
+): CaseItem[] => {
+  const colorMap = normalizeCaseColorMap(caseColors);
+  const list = Array.isArray(cases) ? cases : [];
+  return list.map((label) => {
+    const trimmedLabel = label.trim();
+    const color = colorMap.get(trimmedLabel.toLowerCase()) ?? "";
+    return {
+      id: createCaseId(),
+      label: trimmedLabel,
+      color,
+    };
+  });
+};
+
+const normalizeCaseItems = (items: CaseItem[]) => {
+  const seen = new Set<string>();
+  return items
+    .map((item) => ({
+      ...item,
+      label: item.label.trim(),
+      color: item.color.trim(),
+    }))
+    .filter((item) => Boolean(item.label))
+    .filter((item) => {
+      const key = item.label.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 };
 
 const clonePanelConfig = (config: DataPanelConfig) =>
@@ -76,187 +123,19 @@ const sanitizePanelLayout = (
   }> | undefined
 ) =>
   layout
-    ? layout.map((item) =>
-        isSectionKey(item.i)
-          ? {
-              i: item.i,
-              x: 0,
-              y: item.y,
-              w: GRID_COLS,
-              h: SECTION_ROW_HEIGHT,
-              minW: GRID_COLS,
-              minH: SECTION_ROW_HEIGHT,
-            }
-          : {
-              i: item.i,
-              x: item.x,
-              y: item.y,
-              w: item.w,
-              h: item.h,
-              minW: DEFAULT_PANEL_SIZE.minW,
-              minH: DEFAULT_PANEL_SIZE.minH,
-            }
-      )
+    ? layout.map((item) => {
+        const normalized = normalizeLayoutItem(item);
+        return {
+          i: normalized.i,
+          x: normalized.x,
+          y: normalized.y,
+          w: normalized.w,
+          h: normalized.h,
+          minW: normalized.minW,
+          minH: normalized.minH,
+        };
+      })
     : undefined;
-
-const normalizePanelLayoutItem = (
-  item: {
-    i: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    minW?: number;
-    minH?: number;
-  }
-) =>
-  isSectionKey(item.i)
-    ? {
-        i: item.i,
-        x: 0,
-        y: item.y,
-        w: GRID_COLS,
-        h: SECTION_ROW_HEIGHT,
-        minW: GRID_COLS,
-        minH: SECTION_ROW_HEIGHT,
-      }
-    : {
-        i: item.i,
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-        minW: DEFAULT_PANEL_SIZE.minW,
-        minH: DEFAULT_PANEL_SIZE.minH,
-      };
-
-const ensureLayoutForFields = (
-  fields: string[],
-  layout: Array<{
-    i: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    minW?: number;
-    minH?: number;
-  }>
-) => {
-  const nextLayout = layout
-    .filter((item) => fields.includes(item.i))
-    .map((item) => normalizePanelLayoutItem(item));
-  const usedIds = new Set(nextLayout.map((item) => item.i));
-  let nextY = getLayoutMaxY(nextLayout);
-  fields.forEach((field) => {
-    if (usedIds.has(field)) return;
-    nextLayout.push({
-      i: field,
-      x: 0,
-      y: nextY,
-      w: DEFAULT_PANEL_SIZE.w,
-      h: DEFAULT_PANEL_SIZE.h,
-      minW: DEFAULT_PANEL_SIZE.minW,
-      minH: DEFAULT_PANEL_SIZE.minH,
-    });
-    nextY += DEFAULT_PANEL_SIZE.h;
-  });
-  return nextLayout;
-};
-
-const ensurePanelLayout = (
-  fields: string[],
-  sections: PanelSection[],
-  layout: PanelLayoutConfig
-) => {
-  const fieldSet = new Set(fields);
-  const sectionKeys = new Set(sections.map((section) => getSectionKey(section.id)));
-  let nextLayout = layout
-    .filter((item) => fieldSet.has(item.i) || sectionKeys.has(item.i))
-    .map((item) => normalizePanelLayoutItem(item));
-  const usedIds = new Set(nextLayout.map((item) => item.i));
-  const sectionHeaderYs = nextLayout
-    .filter((item) => isSectionKey(item.i))
-    .map((item) => item.y)
-    .sort((a, b) => a - b);
-  let insertY = sectionHeaderYs.length ? sectionHeaderYs[0] : getLayoutMaxY(nextLayout);
-  fields.forEach((field) => {
-    if (usedIds.has(field)) return;
-    if (sectionHeaderYs.length) {
-      nextLayout = nextLayout.map((item) =>
-        item.y >= insertY ? { ...item, y: item.y + DEFAULT_PANEL_SIZE.h } : item
-      );
-    }
-    nextLayout.push({
-      i: field,
-      x: 0,
-      y: insertY,
-      w: DEFAULT_PANEL_SIZE.w,
-      h: DEFAULT_PANEL_SIZE.h,
-      minW: DEFAULT_PANEL_SIZE.minW,
-      minH: DEFAULT_PANEL_SIZE.minH,
-    });
-    usedIds.add(field);
-    insertY += DEFAULT_PANEL_SIZE.h;
-  });
-  let nextY = getLayoutMaxY(nextLayout);
-  sections.forEach((section) => {
-    const key = getSectionKey(section.id);
-    if (usedIds.has(key)) return;
-    nextLayout.push({
-      i: key,
-      x: 0,
-      y: nextY,
-      w: GRID_COLS,
-      h: SECTION_ROW_HEIGHT,
-      minW: GRID_COLS,
-      minH: SECTION_ROW_HEIGHT,
-    });
-    usedIds.add(key);
-    nextY += SECTION_ROW_HEIGHT;
-  });
-  return nextLayout.map((item) => normalizePanelLayoutItem(item));
-};
-
-const deriveSectionAssignments = (
-  layout: PanelLayoutConfig,
-  sections: PanelSection[],
-  currentAssignments: Record<string, string | null>
-) => {
-  const sectionMap = new Map(sections.map((section) => [section.id, section]));
-  const headers = layout
-    .filter((item) => isSectionKey(item.i))
-    .map((item) => ({
-      id: getSectionIdFromKey(item.i),
-      y: item.y,
-      x: item.x,
-      collapsed: Boolean(sectionMap.get(getSectionIdFromKey(item.i))?.collapsed),
-    }))
-    .filter((item) => sectionMap.has(item.id))
-    .sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y));
-  const assignments: Record<string, string | null> = {};
-  layout.forEach((item) => {
-    if (isSectionKey(item.i)) return;
-    const currentAssignment = currentAssignments[item.i] ?? null;
-    let assigned: string | null = null;
-    for (const header of headers) {
-      if (header.y <= item.y) {
-        if (header.collapsed) {
-          if (currentAssignment === header.id) {
-            assigned = header.id;
-            break;
-          }
-          continue;
-        } else {
-          assigned = header.id;
-        }
-      } else {
-        break;
-      }
-    }
-    assignments[item.i] = assigned;
-  });
-  return assignments;
-};
 
 const orderSectionsByLayout = (sections: PanelSection[], layout: PanelLayoutConfig) => {
   const positions = new Map<string, number>();
@@ -292,24 +171,23 @@ const buildCombinedPanelLayout = (
     const sectionId = config[field]?.section_id ?? null;
     return !sectionId || !validSectionIds.has(sectionId);
   });
-  let combined = ensureLayoutForFields(unsectionedFields, normalizedLayout);
+  let combined = ensurePanelLayout(unsectionedFields, [], normalizedLayout);
   let nextY = getLayoutMaxY(combined);
 
   sections.forEach((section) => {
     const headerKey = getSectionKey(section.id);
-    combined.push({
+    const sectionHeader = normalizeLayoutItem({
       i: headerKey,
       x: 0,
       y: nextY,
-      w: GRID_COLS,
-      h: SECTION_ROW_HEIGHT,
-      minW: GRID_COLS,
-      minH: SECTION_ROW_HEIGHT,
+      w: 1,
+      h: 1,
     });
-    nextY += SECTION_ROW_HEIGHT;
+    combined.push(sectionHeader);
+    nextY += sectionHeader.h;
     const sectionFields = fields.filter((field) => config[field]?.section_id === section.id);
     const baseLayout = normalizedLayout.filter((item) => sectionFields.includes(item.i));
-    const sectionItems = ensureLayoutForFields(sectionFields, baseLayout).map((item) => ({
+    const sectionItems = ensurePanelLayout(sectionFields, [], baseLayout).map((item) => ({
       ...item,
       y: item.y + nextY,
     }));
@@ -335,11 +213,16 @@ export function useDeviceDataPanel({
   const [editLabel, setEditLabel] = useState("");
   const [editUnit, setEditUnit] = useState("");
   const [editType, setEditType] = useState<DataFieldType>("number");
+  const [editColor, setEditColor] = useState("");
+  const [editCaseItems, setEditCaseItems] = useState<CaseItem[]>([]);
+  const [newFieldCaseItems, setNewFieldCaseItems] = useState<CaseItem[]>([]);
+  const [caseConfigMode, setCaseConfigMode] = useState<"edit" | "new" | null>(null);
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
   const [newFieldKey, setNewFieldKey] = useState("");
   const [newFieldLabel, setNewFieldLabel] = useState("");
   const [newFieldUnit, setNewFieldUnit] = useState("");
   const [newFieldType, setNewFieldType] = useState<DataFieldType>("number");
+  const [newFieldColor, setNewFieldColor] = useState("");
   const [addFieldError, setAddFieldError] = useState<string | null>(null);
   const [addFieldSaving, setAddFieldSaving] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
@@ -362,11 +245,16 @@ export function useDeviceDataPanel({
     setEditLabel("");
     setEditUnit("");
     setEditType("number");
+    setEditColor("");
+    setEditCaseItems([]);
+    setNewFieldCaseItems([]);
+    setCaseConfigMode(null);
     setIsAddFieldOpen(false);
     setNewFieldKey("");
     setNewFieldLabel("");
     setNewFieldUnit("");
     setNewFieldType("number");
+    setNewFieldColor("");
     setAddFieldError(null);
     setAddFieldSaving(false);
     setConfigSaving(false);
@@ -465,6 +353,9 @@ export function useDeviceDataPanel({
   const getFieldLabel = (field: string) => panelConfig[field]?.label?.trim() || field;
   const getFieldUnit = (field: string) => panelConfig[field]?.unit?.trim() || "";
   const getFieldType = (field: string) => panelConfig[field]?.type ?? "text";
+  const getFieldColor = (field: string) => panelConfig[field]?.color?.trim() || "";
+  const getFieldCases = (field: string) => panelConfig[field]?.cases ?? [];
+  const getFieldCaseColors = (field: string) => panelConfig[field]?.case_colors ?? null;
   const getFieldSectionId = (field: string) => {
     const sectionId = panelConfig[field]?.section_id ?? null;
     if (!sectionId) return null;
@@ -483,6 +374,9 @@ export function useDeviceDataPanel({
     setEditLabel(panelConfig[field]?.label?.trim() || field);
     setEditUnit(panelConfig[field]?.unit?.trim() || "");
     setEditType(panelConfig[field]?.type ?? "number");
+    setEditColor(panelConfig[field]?.color?.trim() || "");
+    setEditCaseItems(buildCaseItems(panelConfig[field]?.cases, panelConfig[field]?.case_colors));
+    setCaseConfigMode(null);
     setConfigError(null);
   };
 
@@ -492,12 +386,40 @@ export function useDeviceDataPanel({
     setEditLabel("");
     setEditUnit("");
     setEditType("number");
+    setEditColor("");
+    setEditCaseItems([]);
+    setCaseConfigMode(null);
+  };
+
+  const openEditCaseConfig = () => {
+    if (!editingField) return;
+    setCaseConfigMode("edit");
+  };
+
+  const openNewCaseConfig = () => {
+    setCaseConfigMode("new");
+  };
+
+  const closeCaseConfig = () => {
+    setCaseConfigMode(null);
   };
 
   const handleSaveConfig = async () => {
     if (!device || !editingField) return;
     setConfigSaving(true);
     setConfigError(null);
+    const normalizedCases =
+      editType === "text" || editType === "list" ? normalizeCaseItems(editCaseItems) : [];
+    const nextCases = normalizedCases.length
+      ? normalizedCases.map((item) => item.label)
+      : undefined;
+    const nextCaseColors = normalizedCases.reduce<Record<string, string>>((acc, item) => {
+      if (item.color) {
+        acc[item.label] = item.color;
+      }
+      return acc;
+    }, {});
+    const caseColors = Object.keys(nextCaseColors).length ? nextCaseColors : undefined;
     const nextConfig: DataPanelConfig = {
       ...panelConfig,
       [editingField]: {
@@ -505,6 +427,9 @@ export function useDeviceDataPanel({
         label: editLabel.trim() || editingField,
         unit: editUnit.trim() || undefined,
         type: editType,
+        color: editColor.trim() || undefined,
+        cases: nextCases,
+        case_colors: caseColors,
       },
     };
     const cleanedConfig = cleanPanelConfig(panelFields, nextConfig);
@@ -529,6 +454,8 @@ export function useDeviceDataPanel({
   const openAddField = () => {
     setIsAddFieldOpen(true);
     setAddFieldError(null);
+    setNewFieldCaseItems([]);
+    setCaseConfigMode(null);
   };
 
   const closeAddField = () => {
@@ -537,6 +464,9 @@ export function useDeviceDataPanel({
     setNewFieldLabel("");
     setNewFieldUnit("");
     setNewFieldType("number");
+    setNewFieldColor("");
+    setNewFieldCaseItems([]);
+    setCaseConfigMode(null);
     setAddFieldError(null);
     setAddFieldSaving(false);
   };
@@ -559,6 +489,20 @@ export function useDeviceDataPanel({
     setAddFieldError(null);
     const trimmedLabel = newFieldLabel.trim();
     const trimmedUnit = newFieldUnit.trim();
+    const normalizedCases =
+      newFieldType === "text" || newFieldType === "list"
+        ? normalizeCaseItems(newFieldCaseItems)
+        : [];
+    const nextCases = normalizedCases.length
+      ? normalizedCases.map((item) => item.label)
+      : undefined;
+    const nextCaseColors = normalizedCases.reduce<Record<string, string>>((acc, item) => {
+      if (item.color) {
+        acc[item.label] = item.color;
+      }
+      return acc;
+    }, {});
+    const caseColors = Object.keys(nextCaseColors).length ? nextCaseColors : undefined;
     const nextFields = [...panelFields, trimmedKey];
     const nextConfig: DataPanelConfig = {
       ...panelConfig,
@@ -566,6 +510,9 @@ export function useDeviceDataPanel({
         label: trimmedLabel || trimmedKey,
         unit: trimmedUnit || undefined,
         type: newFieldType,
+        color: newFieldColor.trim() || undefined,
+        cases: nextCases,
+        case_colors: caseColors,
       },
     };
     const cleanedConfig = cleanPanelConfig(nextFields, nextConfig);
@@ -665,10 +612,11 @@ export function useDeviceDataPanel({
     ) as Record<string, string | null>;
     const sectionAssignments =
       payload.assignments ??
-      deriveSectionAssignments(
+      buildSectionAssignments(
         sanitizedLayout,
         orderedSections,
-        currentAssignments
+        currentAssignments,
+        new Set(panelFields)
       );
     const normalizedConfig = Object.fromEntries(
       Object.entries(cleanedConfig).map(([key, value]) => {
@@ -723,51 +671,80 @@ export function useDeviceDataPanel({
   const panelSubtitle = "List of device data";
 
   return {
-    panelFields,
-    panelLayout,
-    panelSections,
-    panelSubtitle,
-    getFieldRawValue,
-    getFieldLabel,
-    getDisplayValue,
-    getFieldUnit,
-    getFieldType,
-    addSection,
-    renameSection,
-    deleteSection,
-    toggleSection,
-    beginPanelEdit,
-    cancelPanelEdit,
-    savePanelLayout,
-    panelLayoutSaving,
-    panelLayoutError,
-    openFieldConfig,
-    handleRemoveField,
-    isAddFieldOpen,
-    openAddField,
-    closeAddField,
-    newFieldKey,
-    setNewFieldKey,
-    newFieldLabel,
-    setNewFieldLabel,
-    newFieldUnit,
-    setNewFieldUnit,
-    newFieldType,
-    setNewFieldType,
-    addFieldError,
-    addFieldSaving,
-    handleAddField,
-    getFieldSectionId,
-    editingField,
-    editLabel,
-    setEditLabel,
-    editUnit,
-    setEditUnit,
-    editType,
-    setEditType,
-    closeFieldConfig,
-    handleSaveConfig,
-    configSaving,
-    configError,
+    data: {
+      fields: panelFields,
+      layout: panelLayout,
+      sections: panelSections,
+      subtitle: panelSubtitle,
+    },
+    getters: {
+      getFieldRawValue,
+      getFieldLabel,
+      getDisplayValue,
+      getFieldUnit,
+      getFieldType,
+      getFieldColor,
+      getFieldCases,
+      getFieldCaseColors,
+      getFieldSectionId,
+    },
+    actions: {
+      openFieldConfig,
+      closeFieldConfig,
+      saveFieldConfig: handleSaveConfig,
+      removeField: handleRemoveField,
+      openAddField,
+      closeAddField,
+      addField: handleAddField,
+      addSection,
+      renameSection,
+      deleteSection,
+      toggleSection,
+      beginEdit: beginPanelEdit,
+      cancelEdit: cancelPanelEdit,
+      saveLayout: savePanelLayout,
+    },
+    edit: {
+      field: editingField,
+      label: editLabel,
+      setLabel: setEditLabel,
+      unit: editUnit,
+      setUnit: setEditUnit,
+      type: editType,
+      setType: setEditType,
+      color: editColor,
+      setColor: setEditColor,
+      caseItems: editCaseItems,
+      setCaseItems: setEditCaseItems,
+      saving: configSaving,
+      error: configError,
+    },
+    addField: {
+      isOpen: isAddFieldOpen,
+      key: newFieldKey,
+      setKey: setNewFieldKey,
+      label: newFieldLabel,
+      setLabel: setNewFieldLabel,
+      unit: newFieldUnit,
+      setUnit: setNewFieldUnit,
+      type: newFieldType,
+      setType: setNewFieldType,
+      color: newFieldColor,
+      setColor: setNewFieldColor,
+      caseItems: newFieldCaseItems,
+      setCaseItems: setNewFieldCaseItems,
+      saving: addFieldSaving,
+      error: addFieldError,
+    },
+    caseConfig: {
+      mode: caseConfigMode,
+      openEdit: openEditCaseConfig,
+      openNew: openNewCaseConfig,
+      close: closeCaseConfig,
+    },
+    layoutStatus: {
+      saving: panelLayoutSaving,
+      error: panelLayoutError,
+    },
   } as const;
 }

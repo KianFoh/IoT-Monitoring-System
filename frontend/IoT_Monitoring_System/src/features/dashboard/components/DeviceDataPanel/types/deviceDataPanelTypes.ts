@@ -25,6 +25,11 @@ export type PanelSection = {
   collapsed?: boolean;
 };
 
+export type ListModalItem = {
+  label: string;
+  matchKey: string;
+};
+
 export type DeviceDataPanelProps<T extends string> = {
   displayMode: T;
   options: DisplayOption<T>[];
@@ -41,6 +46,8 @@ export type DeviceDataPanelProps<T extends string> = {
   getFieldValue: (field: string) => string;
   getFieldType: (field: string) => FieldType;
   getFieldUnit: (field: string) => string;
+  getFieldColor?: (field: string) => string;
+  getFieldCaseColors?: (field: string) => Record<string, string> | null;
   onOpenFieldConfig: (field: string) => void;
   onAddField: () => void;
   onRemoveField: (field: string) => void;

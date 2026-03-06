@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 from app.services.custom_processing.utils.error_handling import map_errors
 from app.services.custom_processing.utils.convertion import map_value_to_text 
 
-DEVICE_UID = "649205455F34"
+DEVICE_UIDS = ["649205455F34", "2C8B05455F344444"]
 
 ERROR_MESSAGES: List[str] = [
     "PROD COND OVER LIMIT",

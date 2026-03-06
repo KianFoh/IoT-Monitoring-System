@@ -1,4 +1,4 @@
-import { type Ref, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, type Ref, useEffect, useMemo, useRef, useState } from "react";
 import { FaChevronDown, FaChevronRight, FaCog, FaEllipsisV } from "react-icons/fa";
 import {
   GridLayout,
@@ -21,9 +21,10 @@ import {
   GRID_ROW_HEIGHT,
   RESIZE_HANDLE_INSET,
   RESIZE_HANDLES,
-} from "./deviceDataPanelConstants";
-import { useSectionModalState } from "./deviceDataPanelState";
-import type { DeviceDataPanelProps, PanelLayoutItem, PanelSection } from "./deviceDataPanelTypes";
+} from "./utils/deviceDataPanelConstants";
+import { useSectionModalState } from "./state/deviceDataPanelState";
+import type { DeviceDataPanelProps, PanelLayoutItem, PanelSection } from "./types/deviceDataPanelTypes";
+import { useOutsideMenuClose } from "../../hooks/useOutsideMenuClose";
 import {
   buildListModalItems,
   buildSectionAssignments,
@@ -34,7 +35,71 @@ import {
   isSectionKey,
   mergeLayout,
   normalizeLayoutItem,
-} from "./deviceDataPanelUtils";
+} from "./utils/deviceDataPanelUtils";
+
+type DeviceDataCardContentProps = {
+  label: string;
+  labelColor?: string;
+  value: ReactNode;
+};
+
+function DeviceDataCardContent({ label, labelColor, value }: DeviceDataCardContentProps) {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const node = contentRef.current;
+    if (!node) return;
+    let frameId = 0;
+    const updateSize = () => {
+      const rect = node.getBoundingClientRect();
+      const nextWidth = Math.max(0, Math.round(rect.width));
+      const nextHeight = Math.max(0, Math.round(rect.height));
+      setSize((prev) =>
+        prev.width === nextWidth && prev.height === nextHeight
+          ? prev
+          : { width: nextWidth, height: nextHeight }
+      );
+    };
+    updateSize();
+    const observer = new ResizeObserver(() => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(updateSize);
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      if (frameId) cancelAnimationFrame(frameId);
+    };
+  }, []);
+
+  const hasSize = size.width > 0 && size.height > 0;
+  const minDim = Math.max(1, Math.min(size.width || 0, size.height || 0));
+  const hideLabel = hasSize && minDim < 52;
+  const hideValue = hasSize && minDim < 32;
+  const labelFontSize = hasSize ? Math.min(16, Math.max(10, Math.round(minDim * 0.24))) : undefined;
+  const valueFontSize = hasSize ? Math.min(28, Math.max(12, Math.round(minDim * 0.38))) : undefined;
+  const labelStyle = {
+    ...(labelColor ? { color: labelColor } : {}),
+    ...(labelFontSize ? { fontSize: labelFontSize } : {}),
+  };
+  const valueStyle = valueFontSize ? { fontSize: valueFontSize } : undefined;
+
+  return (
+    <div className={styles["device-data-card-content"]} ref={contentRef}>
+      {!hideLabel && (
+        <span className={styles["device-data-label"]} style={labelStyle}>
+          {label}
+        </span>
+      )}
+      {!hideValue && (
+        <span className={styles["device-data-value"]} style={valueStyle}>
+          {value}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function DeviceDataPanel<T extends string>({
   displayMode,
@@ -52,6 +117,8 @@ export function DeviceDataPanel<T extends string>({
   getFieldValue,
   getFieldType,
   getFieldUnit,
+  getFieldColor,
+  getFieldCaseColors,
   onOpenFieldConfig,
   onAddField,
   onRemoveField,
@@ -71,6 +138,7 @@ export function DeviceDataPanel<T extends string>({
   const [activeSectionMenu, setActiveSectionMenu] = useState<string | null>(null);
   const sectionModal = useSectionModalState();
   const [draftAssignments, setDraftAssignments] = useState<Record<string, string | null>>({});
+  // Guard against layout updates triggered by props or effects vs user interactions.
   const isUserInteraction = useRef(false);
   const currentAssignments = useMemo(() => {
     const map: Record<string, string | null> = {};
@@ -108,28 +176,13 @@ export function DeviceDataPanel<T extends string>({
     if (!activeListField) return [];
     return buildListModalItems(getFieldRawValue(activeListField));
   }, [activeListField, getFieldRawValue]);
+  const listCaseColors = useMemo(() => {
+    if (!activeListField) return null;
+    return getFieldCaseColors?.(activeListField) ?? null;
+  }, [activeListField, getFieldCaseColors]);
 
-  useEffect(() => {
-    if (!activeMenuField) return;
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.closest(`[data-field-menu="${activeMenuField}"]`)) return;
-      setActiveMenuField(null);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [activeMenuField]);
-
-  useEffect(() => {
-    if (!activeSectionMenu) return;
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.closest(`[data-section-menu="${activeSectionMenu}"]`)) return;
-      setActiveSectionMenu(null);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [activeSectionMenu]);
+  useOutsideMenuClose(activeMenuField, "data-field-menu", setActiveMenuField);
+  useOutsideMenuClose(activeSectionMenu, "data-section-menu", setActiveSectionMenu);
 
   useEffect(() => {
     if (activeMenuField && !panelFields.includes(activeMenuField)) {
@@ -168,14 +221,29 @@ export function DeviceDataPanel<T extends string>({
 
   const renderFieldValue = (field: string) => {
     const fieldType = getFieldType(field);
-    if (fieldType !== "list") {
-      return getFieldValue(field);
+    if (fieldType === "list") {
+      const rawValue = getFieldRawValue(field);
+      const unit = getFieldUnit(field);
+      const count = getListCount(rawValue);
+      const display = unit ? `${count} ${unit}` : String(count);
+      return <span className={styles["device-data-list-value"]}>{display}</span>;
+    }
+    const displayValue = getFieldValue(field);
+    if (fieldType !== "text") {
+      return displayValue;
     }
     const rawValue = getFieldRawValue(field);
-    const unit = getFieldUnit(field);
-    const count = getListCount(rawValue);
-    const display = unit ? `${count} ${unit}` : String(count);
-    return <span className={styles["device-data-list-value"]}>{display}</span>;
+    const caseColors = getFieldCaseColors?.(field) ?? null;
+    if (!caseColors || rawValue === null || rawValue === undefined) {
+      return displayValue;
+    }
+    const key = String(rawValue).trim();
+    if (!key) return displayValue;
+    const directColor = caseColors[key];
+    const fallbackColor = caseColors[key.toLowerCase()];
+    const color = directColor || fallbackColor;
+    if (!color) return displayValue;
+    return <span style={{ color }}>{displayValue}</span>;
   };
 
   const openAddSection = () => {
@@ -201,7 +269,6 @@ export function DeviceDataPanel<T extends string>({
     }
     sectionModal.close();
   };
-
 
   const handleEnterLayoutEdit = () => {
     if (readOnly || disabled) return;
@@ -232,7 +299,15 @@ export function DeviceDataPanel<T extends string>({
         normalizeLayoutItem(item)
       );
       const baseAssignments = isLayoutEditing ? draftAssignments : currentAssignments;
-      const assignments = baseAssignments;
+      const recomputeIds = new Set(
+        sanitizedLayout.filter((item) => !isSectionKey(item.i)).map((item) => item.i)
+      );
+      const assignments = buildSectionAssignments(
+        sanitizedLayout,
+        panelSections,
+        baseAssignments,
+        recomputeIds
+      );
       await onSaveLayout({ layout: sanitizedLayout, assignments });
       setIsLayoutEditing(false);
       setActiveSectionMenu(null);
@@ -262,15 +337,9 @@ export function DeviceDataPanel<T extends string>({
     const normalized = (nextLayout as PanelLayoutItem[]).map((item) =>
       normalizeLayoutItem(item)
     );
-    if (!newItem) {
-      setDraftLayout((prev) => mergeLayout(prev, normalized));
-      return;
-    }
-    if (isSectionKey(newItem.i)) {
-      setDraftLayout((prev) => mergeLayout(prev, normalized));
-      return;
-    }
     setDraftLayout((prev) => mergeLayout(prev, normalized));
+    if (!newItem) return;
+    if (isSectionKey(newItem.i)) return;
     const nextAssignments = buildSectionAssignments(
       normalized,
       panelSections,
@@ -336,6 +405,7 @@ export function DeviceDataPanel<T extends string>({
   const renderFieldCard = (field: string) => {
     const fieldType = getFieldType(field);
     const canOpenMenu = fieldType === "list" || (!readOnly && isLayoutEditing);
+    const labelColor = getFieldColor?.(field)?.trim();
     return (
       <div
         key={field}
@@ -343,7 +413,7 @@ export function DeviceDataPanel<T extends string>({
           isLayoutEditing ? styles["device-data-card-editing"] : ""
         }`}
       >
-            {canOpenMenu && (
+        {canOpenMenu && (
           <div className={styles["device-data-card-actions"]} data-field-menu={field}>
             <button
               type="button"
@@ -403,8 +473,11 @@ export function DeviceDataPanel<T extends string>({
             )}
           </div>
         )}
-        <span className={styles["device-data-label"]}>{getFieldLabel(field)}</span>
-        <span className={styles["device-data-value"]}>{renderFieldValue(field)}</span>
+        <DeviceDataCardContent
+          label={getFieldLabel(field)}
+          labelColor={labelColor || undefined}
+          value={renderFieldValue(field)}
+        />
       </div>
     );
   };
@@ -571,6 +644,7 @@ export function DeviceDataPanel<T extends string>({
         onSectionSave={handleSaveSection}
         activeListField={activeListField}
         listModalItems={listModalItems}
+        listCaseColors={listCaseColors}
         getFieldLabel={getFieldLabel}
         onCloseList={() => setActiveListField(null)}
       />

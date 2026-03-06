@@ -7,6 +7,15 @@ import type { DashboardChartConfig, Device } from "@/types/device";
 import { type DevicePayload, extractPayloadInfo } from "./deviceDashboardUtils";
 import { useDeviceDataPanel } from "./useDeviceDataPanel";
 import { buildDashboardConfig, normalizeDashboardConfig } from "./dashboardConfig";
+import type { ChartFilterMode } from "@/features/dashboard/components/DeviceDataChart/types/deviceDataChartTypes";
+import {
+  ensureChartLayout,
+  getLayoutMaxY,
+  getSectionKey,
+  isSectionKey,
+  normalizeLayoutItem,
+  orderSectionsByLayout,
+} from "@/features/dashboard/components/DeviceDataChart/utils/deviceDataChartUtils";
 
 export type DisplayMode = "data_panel" | "data_chart";
 
@@ -14,17 +23,6 @@ const DISPLAY_OPTIONS: Array<{ value: DisplayMode; label: string }> = [
   { value: "data_panel", label: "Data panel" },
   { value: "data_chart", label: "Data chart" },
 ];
-
-const DEFAULT_CHART_LAYOUT = { w: 4, h: 3, minW: 3, minH: 3 };
-const GRID_COLS = 12;
-const SECTION_PREFIX = "section:";
-const SECTION_ROW_HEIGHT = 1;
-
-const getSectionKey = (sectionId: string) => `${SECTION_PREFIX}${sectionId}`;
-const isSectionKey = (key: string) => key.startsWith(SECTION_PREFIX);
-const getSectionIdFromKey = (key: string) => key.replace(SECTION_PREFIX, "");
-const getLayoutMaxY = (layout: Array<{ y: number; h: number }>) =>
-  layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
 
 type ChartItemConfig = NonNullable<DashboardChartConfig["items"]>;
 type ChartLayoutConfig = NonNullable<DashboardChartConfig["layout"]>;
@@ -36,70 +34,17 @@ const normalizeChartItems = (items: ChartItemConfig | undefined) =>
     name: item.name?.trim() || "New panel",
   }));
 
-const normalizeChartLayoutItem = (item: NonNullable<ChartLayoutConfig>[number]) =>
-  isSectionKey(item.i)
-    ? {
-        i: item.i,
-        x: 0,
-        y: item.y,
-        w: GRID_COLS,
-        h: SECTION_ROW_HEIGHT,
-        minW: GRID_COLS,
-        minH: SECTION_ROW_HEIGHT,
-      }
-    : {
-        i: item.i,
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-        minW: item.minW,
-        minH: item.minH,
-      };
-
-const sanitizeChartLayoutItem = (item: NonNullable<ChartLayoutConfig>[number]) =>
-  normalizeChartLayoutItem(item);
-
-const ensureChartLayout = (
-  items: Array<{ id: string }>,
-  sections: ChartSection[],
-  layout: ChartLayoutConfig | undefined
-) => {
-  const chartIds = new Set(items.map((item) => item.id));
-  const sectionKeys = new Set(sections.map((section) => getSectionKey(section.id)));
-  let nextLayout = (layout ?? [])
-    .filter((item) => chartIds.has(item.i) || sectionKeys.has(item.i))
-    .map((item) => normalizeChartLayoutItem(item));
-  const usedIds = new Set(nextLayout.map((item) => item.i));
-  let nextY = getLayoutMaxY(nextLayout);
-  items.forEach((item) => {
-    if (usedIds.has(item.id)) return;
-    nextLayout.push({
-      i: item.id,
-      x: 0,
-      y: nextY,
-      w: DEFAULT_CHART_LAYOUT.w,
-      h: DEFAULT_CHART_LAYOUT.h,
-      minW: DEFAULT_CHART_LAYOUT.minW,
-      minH: DEFAULT_CHART_LAYOUT.minH,
-    });
-    nextY += DEFAULT_CHART_LAYOUT.h;
-  });
-  sections.forEach((section) => {
-    const key = getSectionKey(section.id);
-    if (usedIds.has(key)) return;
-    nextLayout.push({
-      i: key,
-      x: 0,
-      y: nextY,
-      w: GRID_COLS,
-      h: SECTION_ROW_HEIGHT,
-      minW: GRID_COLS,
-      minH: SECTION_ROW_HEIGHT,
-    });
-    nextY += SECTION_ROW_HEIGHT;
-  });
-  return nextLayout.map((item) => normalizeChartLayoutItem(item));
+const sanitizeChartLayoutItem = (item: NonNullable<ChartLayoutConfig>[number]) => {
+  const normalized = normalizeLayoutItem(item);
+  return {
+    i: normalized.i,
+    x: normalized.x,
+    y: normalized.y,
+    w: normalized.w,
+    h: normalized.h,
+    minW: normalized.minW,
+    minH: normalized.minH,
+  };
 };
 
 const buildCombinedChartLayout = (
@@ -107,7 +52,7 @@ const buildCombinedChartLayout = (
   sections: ChartSection[],
   layout: ChartLayoutConfig | undefined
 ) => {
-  const normalizedLayout = (layout ?? []).map((item) => normalizeChartLayoutItem(item));
+  const normalizedLayout = (layout ?? []).map((item) => normalizeLayoutItem(item));
   if (normalizedLayout.some((item) => isSectionKey(item.i))) {
     return ensureChartLayout(items, sections, normalizedLayout);
   }
@@ -120,16 +65,15 @@ const buildCombinedChartLayout = (
   let nextY = getLayoutMaxY(combined);
 
   sections.forEach((section) => {
-    combined.push({
+    const sectionHeader = normalizeLayoutItem({
       i: getSectionKey(section.id),
       x: 0,
       y: nextY,
-      w: GRID_COLS,
-      h: SECTION_ROW_HEIGHT,
-      minW: GRID_COLS,
-      minH: SECTION_ROW_HEIGHT,
+      w: 1,
+      h: 1,
     });
-    nextY += SECTION_ROW_HEIGHT;
+    combined.push(sectionHeader);
+    nextY += sectionHeader.h;
     const sectionItems = items.filter((item) => item.section_id === section.id);
     const baseLayout = normalizedLayout.filter((item) =>
       sectionItems.some((chart) => chart.id === item.i)
@@ -146,35 +90,20 @@ const buildCombinedChartLayout = (
   return ensureChartLayout(items, sections, combined);
 };
 
-const orderSectionsByLayout = (sections: ChartSection[], layout: ChartLayoutConfig) => {
-  const positions = new Map<string, number>();
-  layout.forEach((item) => {
-    if (isSectionKey(item.i)) {
-      positions.set(getSectionIdFromKey(item.i), item.y);
-    }
-  });
-  return [...sections].sort((a, b) => {
-    const posA = positions.get(a.id);
-    const posB = positions.get(b.id);
-    if (posA == null && posB == null) return 0;
-    if (posA == null) return 1;
-    if (posB == null) return -1;
-    if (posA === posB) return 0;
-    return posA - posB;
-  });
-};
-
 const formatLastUpdate = (value: Date) => {
   const pad = (num: number) => String(num).padStart(2, "0");
   const day = pad(value.getDate());
   const month = pad(value.getMonth() + 1);
   const year = value.getFullYear();
-  const hours = pad(value.getHours());
+  const rawHours = value.getHours();
+  const hours12 = rawHours % 12 || 12;
   const minutes = pad(value.getMinutes());
   const seconds = pad(value.getSeconds());
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  const meridiem = rawHours >= 12 ? "PM" : "AM";
+  return `${day}/${month}/${year} ${pad(hours12)}:${minutes}:${seconds} ${meridiem}`;
 };
 
+// Ignore null/undefined values so partial updates don't wipe previous data.
 const mergeLiveData = (prev: DevicePayload | null, next: DevicePayload) => {
   const filteredEntries = Object.entries(next).filter(([, value]) => value !== null && value !== undefined);
   if (filteredEntries.length === 0) {
@@ -189,6 +118,7 @@ export function useDeviceDashboard(deviceUid?: string) {
   const queryClient = useQueryClient();
   const [device, setDevice] = useState<Device | null>(null);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("data_panel");
+  const [chartFilterMode, setChartFilterMode] = useState<ChartFilterMode>("raw");
   const [liveData, setLiveData] = useState<DevicePayload | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [wsStatus, setWsStatus] = useState<"idle" | "connecting" | "connected" | "failed">("idle");
@@ -210,7 +140,14 @@ export function useDeviceDashboard(deviceUid?: string) {
     setChartSections([]);
     setChartError(null);
     setLatestFetched(false);
+    setChartFilterMode("raw");
   }, [deviceUid]);
+
+  useEffect(() => {
+    if (displayMode !== "data_chart" && chartFilterMode !== "raw") {
+      setChartFilterMode("raw");
+    }
+  }, [displayMode, chartFilterMode]);
 
   const deviceQuery = useQuery<Device | null, Error>({
     queryKey: ["devices", "by-uid", deviceUid],
@@ -275,7 +212,6 @@ export function useDeviceDashboard(deviceUid?: string) {
     const department = device?.department_name?.trim().toLowerCase();
     const uid = device?.uid;
     if (!access_token || !customer || !department || !uid) return;
-
     const streamKey = `device:${customer}/${department}/${uid}`;
     const path = `/ws/devices/${encodeURIComponent(customer)}/${encodeURIComponent(department)}/${encodeURIComponent(uid)}`;
     let cancelled = false;
@@ -307,7 +243,13 @@ export function useDeviceDashboard(deviceUid?: string) {
       wsManager.disconnectStream(streamKey);
       setWsStatus("idle");
     };
-  }, [access_token, device?.customer_name, device?.department_name, device?.uid, updateLastUpdate]);
+  }, [
+    access_token,
+    device?.customer_name,
+    device?.department_name,
+    device?.uid,
+    updateLastUpdate,
+  ]);
 
   useEffect(() => {
     if (wsStatus === "idle") {
@@ -349,6 +291,7 @@ export function useDeviceDashboard(deviceUid?: string) {
         setDeviceStatus(null);
         setChartItems([]);
         setChartLayout([]);
+        setChartSections([]);
         setChartError(null);
         if (deviceUid) {
           queryClient.setQueryData(["devices", "by-uid", deviceUid], null);
@@ -496,6 +439,7 @@ export function useDeviceDashboard(deviceUid?: string) {
       loading: deviceQuery.isPending,
       error: deviceError,
       status: deviceStatus,
+      lastUpdate,
       lastUpdateLabel,
     },
     display: {
@@ -508,6 +452,8 @@ export function useDeviceDashboard(deviceUid?: string) {
       items: chartItems,
       layout: chartLayout,
       sections: chartSections,
+      filterMode: chartFilterMode,
+      setFilterMode: setChartFilterMode,
       saving: chartMutation.isPending,
       error: chartError,
       save: saveChartConfig,

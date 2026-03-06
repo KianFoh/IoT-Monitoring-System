@@ -20,6 +20,72 @@ type Autocomplete<T> = {
   handlePick: (option: T) => void;
 };
 
+type AutocompleteOption = { id: number | string; name: string };
+
+type AutocompleteInputProps<T extends AutocompleteOption> = {
+  id: string;
+  listId: string;
+  label: string;
+  placeholder: string;
+  value: string;
+  autocomplete: Autocomplete<T>;
+};
+
+function AutocompleteInput<T extends AutocompleteOption>({
+  id,
+  listId,
+  label,
+  placeholder,
+  value,
+  autocomplete,
+}: AutocompleteInputProps<T>) {
+  return (
+    <div className={autocompleteStyles["dashboard-autocomplete"]}>
+      <Input
+        id={id}
+        label={label}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => autocomplete.handleChange(e.target.value)}
+        autoComplete="off"
+        onFocus={autocomplete.handleFocus}
+        onBlur={autocomplete.handleBlur}
+        aria-autocomplete="list"
+        aria-expanded={autocomplete.showSuggestions}
+        aria-controls={listId}
+      />
+      {autocomplete.showSuggestions && (
+        <div
+          id={listId}
+          className={autocompleteStyles["dashboard-autocomplete-list"]}
+          role="listbox"
+        >
+          {autocomplete.isFetching ? (
+            <div className={autocompleteStyles["dashboard-autocomplete-empty"]}>Searching...</div>
+          ) : autocomplete.suggestions.length === 0 ? (
+            <div className={autocompleteStyles["dashboard-autocomplete-empty"]}>No matches</div>
+          ) : (
+            autocomplete.suggestions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={autocompleteStyles["dashboard-autocomplete-item"]}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  autocomplete.handlePick(option);
+                }}
+                role="option"
+              >
+                {option.name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type UserDevicesPageModalsProps = {
   modalState: {
     showEditModal: boolean;
@@ -163,49 +229,14 @@ export function SuperuserDevicesPageModals({
         <form className={formStyles["dashboard-modal-form"]} onSubmit={onAddSubmit}>
           {step === "customer" ? (
             <>
-              <div className={autocompleteStyles["dashboard-autocomplete"]}>
-                <Input
-                  id="add-device-customer"
-                  label="Customer"
-                  placeholder="Search customer by name"
-                  value={addForm.customer_name}
-                  onChange={(e) => customerAutocomplete.handleChange(e.target.value)}
-                  autoComplete="off"
-                  onFocus={customerAutocomplete.handleFocus}
-                  onBlur={customerAutocomplete.handleBlur}
-                  aria-autocomplete="list"
-                  aria-expanded={customerAutocomplete.showSuggestions}
-                  aria-controls="add-device-customer-list"
-                />
-                {customerAutocomplete.showSuggestions && (
-                  <div
-                    id="add-device-customer-list"
-                    className={autocompleteStyles["dashboard-autocomplete-list"]}
-                    role="listbox"
-                  >
-                    {customerAutocomplete.isFetching ? (
-                      <div className={autocompleteStyles["dashboard-autocomplete-empty"]}>Searching...</div>
-                    ) : customerAutocomplete.suggestions.length === 0 ? (
-                      <div className={autocompleteStyles["dashboard-autocomplete-empty"]}>No matches</div>
-                    ) : (
-                      customerAutocomplete.suggestions.map((customer) => (
-                        <button
-                          key={customer.id}
-                          type="button"
-                          className={autocompleteStyles["dashboard-autocomplete-item"]}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            customerAutocomplete.handlePick(customer);
-                          }}
-                          role="option"
-                        >
-                          {customer.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+              <AutocompleteInput
+                id="add-device-customer"
+                listId="add-device-customer-list"
+                label="Customer"
+                placeholder="Search customer by name"
+                value={addForm.customer_name}
+                autocomplete={customerAutocomplete}
+              />
               {stepError && <p className={formStyles["dashboard-modal-error"]}>{stepError}</p>}
               <div className={formStyles["dashboard-modal-actions"]}>
                 <Button onClick={onCloseAdd} type="button" variant="cancel" disabled={actionLoading}>
@@ -218,49 +249,14 @@ export function SuperuserDevicesPageModals({
             </>
           ) : step === "department" ? (
             <>
-              <div className={autocompleteStyles["dashboard-autocomplete"]}>
-                <Input
-                  id="add-device-department"
-                  label="Department"
-                  placeholder="Search department by name"
-                  value={addForm.department_name}
-                  onChange={(e) => departmentAutocomplete.handleChange(e.target.value)}
-                  autoComplete="off"
-                  onFocus={departmentAutocomplete.handleFocus}
-                  onBlur={departmentAutocomplete.handleBlur}
-                  aria-autocomplete="list"
-                  aria-expanded={departmentAutocomplete.showSuggestions}
-                  aria-controls="add-device-department-list"
-                />
-                {departmentAutocomplete.showSuggestions && (
-                  <div
-                    id="add-device-department-list"
-                    className={autocompleteStyles["dashboard-autocomplete-list"]}
-                    role="listbox"
-                  >
-                    {departmentAutocomplete.isFetching ? (
-                      <div className={autocompleteStyles["dashboard-autocomplete-empty"]}>Searching...</div>
-                    ) : departmentAutocomplete.suggestions.length === 0 ? (
-                      <div className={autocompleteStyles["dashboard-autocomplete-empty"]}>No matches</div>
-                    ) : (
-                      departmentAutocomplete.suggestions.map((department) => (
-                        <button
-                          key={department.id}
-                          type="button"
-                          className={autocompleteStyles["dashboard-autocomplete-item"]}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            departmentAutocomplete.handlePick(department);
-                          }}
-                          role="option"
-                        >
-                          {department.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+              <AutocompleteInput
+                id="add-device-department"
+                listId="add-device-department-list"
+                label="Department"
+                placeholder="Search department by name"
+                value={addForm.department_name}
+                autocomplete={departmentAutocomplete}
+              />
               {stepError && <p className={formStyles["dashboard-modal-error"]}>{stepError}</p>}
               <div className={formStyles["dashboard-modal-actions"]}>
                 <Button type="button" variant="cancel" onClick={onAddBack} disabled={actionLoading}>
@@ -292,6 +288,7 @@ export function SuperuserDevicesPageModals({
                 label="Data Interval (Sec)"
                 placeholder="Enter data interval in seconds"
                 type="number"
+                step="any"
                 value={addForm.data_interval}
                 onChange={(e) => setAddForm((prev) => ({ ...prev, data_interval: e.target.value }))}
               />
@@ -330,6 +327,7 @@ export function SuperuserDevicesPageModals({
             label="Data Interval (Sec)"
             placeholder="Enter data interval in seconds"
             type="number"
+            step="any"
             value={editForm.data_interval}
             onChange={(e) => setEditForm((prev) => ({ ...prev, data_interval: e.target.value }))}
           />

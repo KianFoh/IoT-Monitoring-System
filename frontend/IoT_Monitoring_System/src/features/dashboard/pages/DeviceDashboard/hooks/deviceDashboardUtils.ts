@@ -3,10 +3,24 @@ export type DevicePayload = Record<string, unknown>;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
+const normalizeTimestampString = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
+  if (hasTimezone) return trimmed;
+  const normalized = trimmed.includes(" ") ? trimmed.replace(" ", "T") : trimmed;
+  return `${normalized}Z`;
+};
+
 const parseTimestamp = (value: unknown): Date | null => {
   if (!value) return null;
   if (value instanceof Date) return value;
-  if (typeof value === "string" || typeof value === "number") {
+  if (typeof value === "string") {
+    const normalized = normalizeTimestampString(value);
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (typeof value === "number") {
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }

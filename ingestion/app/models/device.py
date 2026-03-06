@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, BigInteger, DateTime, String, ForeignKey, Boolean, Integer, Enum
+from sqlalchemy import Column, BigInteger, DateTime, String, ForeignKey, Boolean, Integer, Enum, Float
 from sqlalchemy.sql import func
 from app.core.postgresql import Base
 
@@ -25,7 +25,7 @@ class Device(Base):
     )
     mobile_number = Column(String, nullable=True)
     sim_id = Column(String, nullable=True)
-    data_interval = Column(Integer, default=60, nullable=False)
+    data_interval = Column(Float, default=60.0, nullable=False)
 
     is_active = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

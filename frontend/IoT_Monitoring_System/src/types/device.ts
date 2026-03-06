@@ -20,6 +20,9 @@ export type DataPanelFieldConfig = {
   label?: string;
   unit?: string;
   type?: DataFieldType;
+  color?: string;
+  cases?: string[] | null;
+  case_colors?: Record<string, string> | null;
   section_id?: string | null;
 };
 
@@ -32,13 +35,20 @@ export type DashboardPanelConfig = {
 
 export type DashboardChartItem = {
   id: string;
-  type: "meter" | "line" | "bar";
+  type: "meter" | "line" | "area" | "pie" | "stat" | "bar";
   field: string;
   name?: string | null;
   min?: number | null;
   max?: number | null;
+  tick_count?: number | null;
+  value_decimals?: number | null;
+  value_cases?: string[] | null;
   fields?: string[] | null;
   section_id?: string | null;
+  bar_orientation?: "horizontal" | "vertical" | null;
+  bar_race_mode?: boolean | null;
+  pie_show_labels?: boolean | null;
+  line_list_mode?: "single" | "multi" | null;
 };
 
 export type DashboardChartConfig = {

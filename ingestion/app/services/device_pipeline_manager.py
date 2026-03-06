@@ -10,7 +10,7 @@ from app.models.department import Department
 from app.models.device import Device
 from app.services import custom_processing
 from app.services.device_pipeline import DeviceInfo, DevicePipeline
-from app.utils.coercion import coerce_bool, coerce_int
+from app.utils.coercion import coerce_bool, coerce_float
 from app.utils.logger import logger
 
 
@@ -186,12 +186,12 @@ class DevicePipelineManager:
             return
 
         raw_interval = data.get("data_interval")
-        data_interval = coerce_int(raw_interval)
+        data_interval = coerce_float(raw_interval)
         if raw_interval is not None and data_interval is None:
             logger.warning("Invalid data_interval in device event payload")
         if data_interval is None:
             existing = self._pipelines.get(device_uid)
-            data_interval = existing.device.data_interval if existing else 60
+            data_interval = existing.device.data_interval if existing else 60.0
 
         is_active = coerce_bool(data.get("is_active"))
 

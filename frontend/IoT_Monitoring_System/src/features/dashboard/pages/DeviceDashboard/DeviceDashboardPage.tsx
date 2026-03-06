@@ -29,6 +29,7 @@ export function DeviceDashboardPage() {
     loading: deviceLoading,
     error: deviceError,
     status: deviceStatus,
+    lastUpdate,
     lastUpdateLabel,
   } = deviceState;
   const { mode: displayMode, setMode: setDisplayMode, options: displayOptions } = display;
@@ -62,7 +63,63 @@ export function DeviceDashboardPage() {
           { label: "Data Interval", value: `${device.data_interval}s` },
           { label: "Last Update", value: lastUpdateLabel },
         ]
-    : [];
+      : [];
+
+  const panelProps = {
+    displayMode,
+    options: displayOptions,
+    onDisplayChange: setDisplayMode,
+    readOnly: isReadOnly,
+    subtitle: panel.data.subtitle,
+    panelFields: panel.data.fields,
+    panelLayout: panel.data.layout,
+    panelSections: panel.data.sections,
+    getFieldLabel: panel.getters.getFieldLabel,
+    getFieldSectionId: panel.getters.getFieldSectionId,
+    getFieldRawValue: panel.getters.getFieldRawValue,
+    getFieldValue: panel.getters.getDisplayValue,
+    getFieldType: panel.getters.getFieldType,
+    getFieldUnit: panel.getters.getFieldUnit,
+    getFieldColor: panel.getters.getFieldColor,
+    getFieldCaseColors: panel.getters.getFieldCaseColors,
+    onOpenFieldConfig: canEdit ? panel.actions.openFieldConfig : noop,
+    onAddField: canEdit ? panel.actions.openAddField : noop,
+    onRemoveField: canEdit ? panel.actions.removeField : noop,
+    onAddSection: canEdit ? panel.actions.addSection : noop,
+    onRenameSection: canEdit ? panel.actions.renameSection : noop,
+    onDeleteSection: canEdit ? panel.actions.deleteSection : noop,
+    onToggleSection: panel.actions.toggleSection,
+    onStartEdit: canEdit ? panel.actions.beginEdit : undefined,
+    onCancelEdit: canEdit ? panel.actions.cancelEdit : undefined,
+    onSaveLayout: canEdit ? panel.actions.saveLayout : undefined,
+    layoutSaving: panel.layoutStatus.saving,
+    layoutError: panel.layoutStatus.error,
+  };
+
+  const chartProps = {
+    displayMode,
+    options: displayOptions,
+    onDisplayChange: setDisplayMode,
+    deviceUid: device?.uid ?? "",
+    dataIntervalSeconds: device?.data_interval,
+    readOnly: isReadOnly,
+    availableFields: panel.data.fields,
+    getChartValue: panel.getters.getFieldRawValue,
+    getChartUnit: panel.getters.getFieldUnit,
+    getChartLabel: panel.getters.getFieldLabel,
+    getChartType: panel.getters.getFieldType,
+    getChartColor: panel.getters.getFieldColor,
+    getChartCases: panel.getters.getFieldCases,
+    getChartCaseColors: panel.getters.getFieldCaseColors,
+    onFilterModeChange: chart.setFilterMode,
+    rawTimestamp: lastUpdate,
+    savedCharts: chart.items,
+    savedLayout: chart.layout,
+    savedSections: chart.sections,
+    onSave: canEdit ? chart.save : undefined,
+    saving: chart.saving,
+    saveError: chart.error,
+  };
 
   return (
     <div className={styles["devices-container"]}>
@@ -78,52 +135,11 @@ export function DeviceDashboardPage() {
       {device && <DeviceDashboardMeta items={metaItems} />}
 
       {device && displayMode === "data_panel" && (
-        <DeviceDataPanel
-          displayMode={displayMode}
-          options={displayOptions}
-          onDisplayChange={setDisplayMode}
-          readOnly={isReadOnly}
-          subtitle={panel.panelSubtitle}
-          panelFields={panel.panelFields}
-          panelLayout={panel.panelLayout}
-          panelSections={panel.panelSections}
-          getFieldLabel={panel.getFieldLabel}
-          getFieldSectionId={panel.getFieldSectionId}
-          getFieldRawValue={panel.getFieldRawValue}
-          getFieldValue={panel.getDisplayValue}
-          getFieldType={panel.getFieldType}
-          getFieldUnit={panel.getFieldUnit}
-          onOpenFieldConfig={canEdit ? panel.openFieldConfig : noop}
-          onAddField={canEdit ? panel.openAddField : noop}
-          onRemoveField={canEdit ? panel.handleRemoveField : noop}
-          onAddSection={canEdit ? panel.addSection : noop}
-          onRenameSection={canEdit ? panel.renameSection : noop}
-          onDeleteSection={canEdit ? panel.deleteSection : noop}
-          onToggleSection={panel.toggleSection}
-          onStartEdit={canEdit ? panel.beginPanelEdit : undefined}
-          onCancelEdit={canEdit ? panel.cancelPanelEdit : undefined}
-          onSaveLayout={canEdit ? panel.savePanelLayout : undefined}
-          layoutSaving={panel.panelLayoutSaving}
-          layoutError={panel.panelLayoutError}
-        />
+        <DeviceDataPanel {...panelProps} />
       )}
 
       {device && displayMode === "data_chart" && (
-        <DeviceDataChart
-          displayMode={displayMode}
-          options={displayOptions}
-          onDisplayChange={setDisplayMode}
-          readOnly={isReadOnly}
-          availableFields={panel.panelFields}
-          getChartValue={panel.getFieldRawValue}
-          getChartUnit={panel.getFieldUnit}
-          savedCharts={chart.items}
-          savedLayout={chart.layout}
-          savedSections={chart.sections}
-          onSave={canEdit ? chart.save : undefined}
-          saving={chart.saving}
-          saveError={chart.error}
-        />
+        <DeviceDataChart {...chartProps} />
       )}
 
       {canEdit && (

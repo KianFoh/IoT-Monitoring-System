@@ -1,21 +1,26 @@
-import { type Ref, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { type Ref, useEffect, useMemo, useReducer, useState } from "react";
 import { FaChevronDown, FaChevronRight, FaEllipsisV } from "react-icons/fa";
 import {
   GridLayout,
   type Layout,
-  type LayoutItem,
   type ResizeHandleAxis,
   useContainerWidth,
 } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { MeterChart } from "../charts/Meter/MeterChart";
 import styles from "./DeviceDataChart.module.css";
 import formStyles from "../DashboardForm/DashboardForm.module.css";
 import { DeviceDataChartHeader } from "./DeviceDataChartHeader";
 import { DeviceDataChartModals } from "./DeviceDataChartModals";
+import { DeviceChartCard } from "./DeviceChartCard";
+import { useDeviceChartData } from "./hooks/useDeviceChartData";
+import { useChartLayout } from "./hooks/useChartLayout";
+import { useChartFormControls } from "./hooks/useChartFormControls";
+import { useChartActions } from "./hooks/useChartActions";
+import { useSectionActions } from "./hooks/useSectionActions";
+import { useChartSave } from "./hooks/useChartSave";
+import { useOutsideMenuClose } from "../../hooks/useOutsideMenuClose";
 import {
-  DEFAULT_PANEL_SIZE,
   GRID_COLS,
   GRID_COMPACTOR,
   GRID_MARGIN,
@@ -23,42 +28,72 @@ import {
   GRID_ROW_HEIGHT,
   RESIZE_HANDLE_INSET,
   RESIZE_HANDLES,
-  SECTION_ROW_HEIGHT,
-} from "./deviceDataChartConstants";
-import { chartFormReducer, INITIAL_CHART_FORM_STATE, useSectionModalState } from "./deviceDataChartState";
+} from "./utils/deviceDataChartConstants";
+import { chartFormReducer, INITIAL_CHART_FORM_STATE, useSectionModalState } from "./state/deviceDataChartState";
 import type {
   ChartItem,
   ChartLayoutItem,
   ChartSection,
-  ChartType,
   DeviceDataChartProps,
   LineGranularity,
-} from "./deviceDataChartTypes";
+} from "./types/deviceDataChartTypes";
 import {
-  buildSectionAssignments,
   ensureChartLayout,
-  getLayoutMaxY,
-  getNextPosition,
   getSectionIdFromKey,
   getSectionKey,
   isSectionKey,
-  mergeLayout,
   normalizeChart,
-  normalizeLayoutItem,
-  orderSectionsByLayout,
-  parseNumericValue,
-  parseOptionalNumber,
-} from "./deviceDataChartUtils";
+} from "./utils/deviceDataChartUtils";
+import { getRangeGranularity } from "./utils/deviceChartHelpers";
+
+const getRangeRefreshSpec = (granularity: LineGranularity) => {
+  switch (granularity) {
+    case "sec":
+      return { min: 2, max: 5, step: 1, unit: "s" as const };
+    case "minute":
+      return { min: 5, max: 10, step: 1, unit: "s" as const };
+    case "hour":
+      return { min: 30, max: 60, step: 1, unit: "s" as const };
+    case "day":
+    case "week":
+      return { min: 2, max: 5, step: 1, unit: "min" as const };
+    case "month":
+    case "year":
+      return { min: 5, max: 10, step: 1, unit: "min" as const };
+    default:
+      return { min: 5, max: 10, step: 1, unit: "s" as const };
+  }
+};
+
+const buildRefreshRangeOptions = (
+  spec: ReturnType<typeof getRangeRefreshSpec>
+): Array<{ value: string; label: string }> => {
+  const options: Array<{ value: string; label: string }> = [];
+  for (let value = spec.min; value <= spec.max; value += spec.step) {
+    const label = spec.unit === "min" ? `${value} min` : `${value}s`;
+    options.push({ value: String(value), label });
+  }
+  return options;
+};
 
 export function DeviceDataChart<T extends string>({
   displayMode,
   options,
   onDisplayChange,
+  deviceUid,
+  dataIntervalSeconds,
   disabled,
   readOnly = false,
   availableFields,
   getChartValue,
   getChartUnit,
+  getChartLabel,
+  getChartType,
+  getChartColor,
+  getChartCases,
+  getChartCaseColors,
+  onFilterModeChange,
+  rawTimestamp,
   savedCharts = [],
   savedLayout = [],
   savedSections = [],
@@ -70,7 +105,6 @@ export function DeviceDataChart<T extends string>({
   const [draftSections, setDraftSections] = useState<ChartSection[]>(savedSections);
   const [viewSections, setViewSections] = useState<ChartSection[]>(savedSections);
   const [draftAssignments, setDraftAssignments] = useState<Record<string, string | null>>({});
-  const isUserInteraction = useRef(false);
   const [activeSectionMenu, setActiveSectionMenu] = useState<string | null>(null);
   const sectionModal = useSectionModalState();
   const [chartForm, dispatchChartForm] = useReducer(chartFormReducer, INITIAL_CHART_FORM_STATE);
@@ -85,6 +119,16 @@ export function DeviceDataChart<T extends string>({
   const [draftCharts, setDraftCharts] = useState<ChartItem[]>(normalizedSavedCharts);
   const [draftLayout, setDraftLayout] = useState<Layout>(normalizedSavedLayout as Layout);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [rangeRefreshMs, setRangeRefreshMs] = useState<number>(5000);
+  const [chartViewToken, setChartViewToken] = useState(0);
+  const [observedWidth, setObservedWidth] = useState<number | null>(null);
+  const maxRawGapMs = useMemo(() => {
+    if (typeof dataIntervalSeconds !== "number" || !Number.isFinite(dataIntervalSeconds)) {
+      return null;
+    }
+    if (dataIntervalSeconds <= 0) return null;
+    return Math.max(3000, Math.round(dataIntervalSeconds * 1000 * 3));
+  }, [dataIntervalSeconds]);
   const {
     isAddOpen,
     isEditOpen,
@@ -96,6 +140,12 @@ export function DeviceDataChart<T extends string>({
     selectedLineFields,
     selectedLineMin,
     selectedLineMax,
+    selectedLineTicks,
+    selectedLineDecimals,
+    selectedLineListMode,
+    selectedBarOrientation,
+    selectedBarRaceMode,
+    selectedPieShowLabels,
     timeGranularity,
     timeStart,
     timeEnd,
@@ -105,6 +155,14 @@ export function DeviceDataChart<T extends string>({
     editField,
     editMin,
     editMax,
+    editLineTicks,
+    editLineDecimals,
+    editLineListMode,
+    editBarOrientation,
+    editBarRaceMode,
+    editPieShowLabels,
+    filterMode,
+    rangePreset,
   } = chartForm;
   const {
     state: sectionModalState,
@@ -115,32 +173,26 @@ export function DeviceDataChart<T extends string>({
     setError: setSectionModalError,
     reset: resetSectionModal,
   } = sectionModal;
-  const setSelectedChartType = (value: ChartType) =>
-    dispatchChartForm({ type: "set-selected-chart-type", value });
-  const setSelectedField = (value: string) =>
-    dispatchChartForm({ type: "set-selected-field", value });
-  const setSelectedMin = (value: string) =>
-    dispatchChartForm({ type: "set-selected-min", value });
-  const setSelectedMax = (value: string) =>
-    dispatchChartForm({ type: "set-selected-max", value });
-  const setSelectedLineMin = (value: string) =>
-    dispatchChartForm({ type: "set-selected-line-min", value });
-  const setSelectedLineMax = (value: string) =>
-    dispatchChartForm({ type: "set-selected-line-max", value });
-  const setEditName = (value: string) => dispatchChartForm({ type: "set-edit-name", value });
-  const setEditField = (value: string) => dispatchChartForm({ type: "set-edit-field", value });
-  const setEditMin = (value: string) => dispatchChartForm({ type: "set-edit-min", value });
-  const setEditMax = (value: string) => dispatchChartForm({ type: "set-edit-max", value });
-  const setTimeGranularity = (value: LineGranularity) =>
-    dispatchChartForm({ type: "set-time-granularity", value });
-  const setTimeStart = (value: string) => dispatchChartForm({ type: "set-time-start", value });
-  const setTimeEnd = (value: string) => dispatchChartForm({ type: "set-time-end", value });
-  const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
-  const { width, containerRef, measureWidth } = useContainerWidth({
-    initialWidth: 1200,
-    measureBeforeMount: false,
+  const { rawSeries, filteredRawData, filteredLatestValues } = useDeviceChartData({
+    deviceUid,
+    filterMode,
+    rawTimestamp,
+    getChartValue,
+    availableFields,
+    maxRawGapMs,
+    rangePreset,
+    timeGranularity,
+    timeStart,
+    timeEnd,
+    rangeRefreshMs,
+    getChartType,
   });
-  const gridWidth = Math.max(width, 1);
+  const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
+  const { width, containerRef, measureWidth, mounted } = useContainerWidth({
+    initialWidth: 1200,
+    measureBeforeMount: true,
+  });
+  const gridWidth = Math.max(observedWidth ?? width, 1);
   const resizeHandles = isEditing && !disabled && !readOnly ? RESIZE_HANDLES : [];
   const renderResizeHandle = (axis: ResizeHandleAxis, ref: Ref<HTMLSpanElement>) => (
     <span
@@ -156,38 +208,207 @@ export function DeviceDataChart<T extends string>({
     () => availableFields.map((field) => ({ value: field, label: field })),
     [availableFields]
   );
-
-  const sectionsForRender = isEditing ? draftSections : viewSections;
-  const dragBounded = !(isEditing && sectionsForRender.length > 0);
-  const chartsForRender = isEditing ? draftCharts : normalizedSavedCharts;
-  const savedAssignments = useMemo(() => {
-    const map: Record<string, string | null> = {};
-    chartsForRender.forEach((chart) => {
-      map[chart.id] = chart.section_id ?? null;
-    });
-    return map;
-  }, [chartsForRender]);
-  const chartMap = useMemo(() => {
-    const map = new Map<string, ChartItem>();
-    chartsForRender.forEach((chart) => {
-      map.set(chart.id, chart);
-    });
-    return map;
-  }, [chartsForRender]);
+  const meterAllowedFields = useMemo(() => {
+    if (!getChartType) return availableFields;
+    return availableFields.filter((field) => getChartType(field) === "number");
+  }, [availableFields, getChartType]);
+  const meterDataOptions = useMemo(
+    () => meterAllowedFields.map((field) => ({ value: field, label: field })),
+    [meterAllowedFields]
+  );
+  const listAllowedFields = useMemo(() => {
+    if (!getChartType) return [];
+    return availableFields.filter((field) => getChartType(field) === "list");
+  }, [availableFields, getChartType]);
+  const listDataOptions = useMemo(
+    () => listAllowedFields.map((field) => ({ value: field, label: field })),
+    [listAllowedFields]
+  );
+  const {
+    canAddChart,
+    selectedLineFieldType,
+    isSelectedLineList,
+    hideLineNumericInputsInAdd,
+    isEditLineList,
+    hideLineNumericInputsInEdit,
+    setSelectedChartType,
+    setSelectedField,
+    setSelectedMin,
+    setSelectedMax,
+    setSelectedLineMin,
+    setSelectedLineMax,
+    setSelectedLineTicks,
+    setSelectedLineDecimals,
+    setSelectedLineListMode,
+    setSelectedBarOrientation,
+    setSelectedBarRaceMode,
+    setSelectedPieShowLabels,
+    setEditName,
+    setEditField,
+    setEditMin,
+    setEditMax,
+    setEditLineTicks,
+    setEditLineDecimals,
+    setEditLineListMode,
+    setEditBarOrientation,
+    setEditBarRaceMode,
+    setEditPieShowLabels,
+    setTimeGranularity,
+    setTimeStart,
+    setTimeEnd,
+    setFilterMode,
+    setRangePreset,
+  } = useChartFormControls({
+    chartForm,
+    dispatchChartForm,
+    availableFields,
+    meterAllowedFields,
+    listAllowedFields,
+    getChartType,
+    disabled,
+    readOnly,
+    onFilterModeChange,
+  });
+  const {
+    sectionsForRender,
+    dragBounded,
+    chartsForRender,
+    chartMap,
+    savedAssignments,
+    visibleLayout,
+    chartsBySection,
+    handleLayoutChange,
+    handleDragStart,
+    handleDragStop,
+    handleResizeStart,
+    handleResizeStop,
+  } = useChartLayout({
+    isEditing,
+    readOnly,
+    disabled,
+    draftSections,
+    viewSections,
+    draftCharts,
+    normalizedSavedCharts,
+    draftLayout,
+    normalizedSavedLayout: normalizedSavedLayout as Layout,
+    draftAssignments,
+    setDraftLayout,
+    setDraftAssignments,
+  });
 
   const timeDateInputType =
     timeGranularity === "sec" || timeGranularity === "minute" ? "datetime-local" : "date";
   const timeDateStep =
     timeDateInputType === "datetime-local" ? (timeGranularity === "sec" ? 60 : 3600) : undefined;
   const timeDateLabel = timeDateInputType === "datetime-local" ? "date/time" : "date";
+  const rangeRefreshSpec = useMemo(
+    () => getRangeRefreshSpec(getRangeGranularity(rangePreset)),
+    [rangePreset]
+  );
+  const rangeRefreshUnitMs = rangeRefreshSpec.unit === "min" ? 60_000 : 1_000;
+  const rangeRefreshMinMs = rangeRefreshSpec.min * rangeRefreshUnitMs;
+  const rangeRefreshMaxMs = rangeRefreshSpec.max * rangeRefreshUnitMs;
+  const rangeRefreshValue = Math.round(rangeRefreshMs / rangeRefreshUnitMs);
+  const rangeRefreshOptions = useMemo(
+    () => buildRefreshRangeOptions(rangeRefreshSpec),
+    [rangeRefreshSpec]
+  );
+  const {
+    handleOpenAdd,
+    handleCloseAdd,
+    handleSelectLineField,
+    handleAddChart,
+    handleOpenEdit,
+    handleCloseEdit,
+    handleOpenFilter,
+    handleCloseFilter,
+    handleSaveEdit,
+    handleRemoveChart,
+  } = useChartActions({
+    readOnly,
+    disabled,
+    availableFields,
+    listAllowedFields,
+    selectedChartType,
+    selectedField,
+    selectedLineFields,
+    selectedLineFieldType,
+    selectedLineListMode,
+    selectedBarOrientation,
+    selectedBarRaceMode,
+    selectedPieShowLabels,
+    selectedMin,
+    selectedMax,
+    selectedLineMin,
+    selectedLineMax,
+    selectedLineTicks,
+    selectedLineDecimals,
+    editingChartId,
+    editingChartType,
+    editName,
+    editField,
+    editMin,
+    editMax,
+    editLineTicks,
+    editLineDecimals,
+    editLineListMode,
+    editBarOrientation,
+    editBarRaceMode,
+    editPieShowLabels,
+    getChartType,
+    dispatchChartForm,
+    setDraftCharts,
+    setDraftLayout,
+    setActiveMenuId,
+  });
+  const {
+    openAddSection,
+    openRenameSection,
+    handleSaveSection,
+    handleToggleSection,
+    handleDeleteSection,
+  } = useSectionActions({
+    isEditing,
+    readOnly,
+    disabled,
+    sectionModalState,
+    setSectionModalError,
+    openSectionModalAdd,
+    openSectionModalRename,
+    closeSectionModal,
+    draftCharts,
+    draftAssignments,
+    setDraftSections,
+    setDraftCharts,
+    setDraftLayout,
+    setViewSections,
+  });
+  const { handleEnterEdit, handleExitEdit, handleSaveChanges } = useChartSave({
+    readOnly,
+    disabled,
+    onSave,
+    normalizedSavedCharts,
+    normalizedSavedLayout: normalizedSavedLayout as Layout,
+    savedSections,
+    savedAssignments,
+    draftCharts,
+    draftLayout,
+    draftSections,
+    draftAssignments,
+    setDraftCharts,
+    setDraftLayout,
+    setDraftSections,
+    setViewSections,
+    setDraftAssignments,
+    setIsEditing,
+    setActiveMenuId,
+    setActiveSectionMenu,
+    resetSectionModal,
+    dispatchChartForm,
+  });
 
-  const canAddChart = useMemo(() => {
-    if (disabled || readOnly) return false;
-    if (selectedChartType === "line") {
-      return selectedLineFields.length > 0;
-    }
-    return Boolean(selectedField);
-  }, [disabled, readOnly, selectedChartType, selectedLineFields.length, selectedField]);
+  const zoomResetKey = `${displayMode}:${filterMode}:${rangePreset}:${timeStart}:${timeEnd}:${timeGranularity}:${chartViewToken}`;
 
   useEffect(() => {
     if (readOnly && isEditing) {
@@ -196,40 +417,14 @@ export function DeviceDataChart<T extends string>({
   }, [readOnly, isEditing]);
 
   useEffect(() => {
-    if (!availableFields.length) {
-      if (selectedField) {
-        dispatchChartForm({ type: "set-selected-field", value: "" });
-      }
-      return;
-    }
-    if (!availableFields.includes(selectedField)) {
-      dispatchChartForm({ type: "set-selected-field", value: availableFields[0] });
-    }
-  }, [availableFields, selectedField, dispatchChartForm]);
-
-  useEffect(() => {
-    if (!availableFields.length) {
-      if (selectedLineFields.length) {
-        dispatchChartForm({ type: "set-selected-line-fields", value: [] });
-      }
-      return;
-    }
-    const nextFields = selectedLineFields.filter((field) => availableFields.includes(field));
-    if (nextFields.length !== selectedLineFields.length) {
-      dispatchChartForm({ type: "set-selected-line-fields", value: nextFields });
-    }
-  }, [availableFields, selectedLineFields, dispatchChartForm]);
-
-  useEffect(() => {
-    if (selectedChartType !== "line") return;
-    if (!availableFields.length) return;
-    if (!selectedLineFields.length) {
-      dispatchChartForm({
-        type: "set-selected-line-fields",
-        value: [availableFields[0]],
-      });
-    }
-  }, [availableFields, selectedChartType, selectedLineFields.length, dispatchChartForm]);
+    if (filterMode !== "range") return;
+    setRangeRefreshMs((prev) => {
+      if (!Number.isFinite(prev)) return rangeRefreshMinMs;
+      if (prev < rangeRefreshMinMs) return rangeRefreshMinMs;
+      if (prev > rangeRefreshMaxMs) return rangeRefreshMaxMs;
+      return prev;
+    });
+  }, [filterMode, rangeRefreshMinMs, rangeRefreshMaxMs]);
 
   useEffect(() => {
     if (!isEditing) {
@@ -270,36 +465,53 @@ export function DeviceDataChart<T extends string>({
     isAddOpen,
     measureWidth,
   ]);
-
   useEffect(() => {
-    if (!isEditOpen) return;
-    if (!availableFields.length) return;
-    if (!availableFields.includes(editField)) {
-      dispatchChartForm({ type: "set-edit-field", value: availableFields[0] });
-    }
-  }, [availableFields, editField, isEditOpen, dispatchChartForm]);
-
-  useEffect(() => {
-    if (!activeMenuId) return;
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.closest(`[data-chart-menu="${activeMenuId}"]`)) return;
-      setActiveMenuId(null);
+    if (displayMode !== "data_chart") return;
+    setChartViewToken((prev) => prev + 1);
+    measureWidth();
+    let rafId = 0;
+    let rafId2 = 0;
+    const timeoutId = window.setTimeout(() => {
+      measureWidth();
+      window.dispatchEvent(new Event("resize"));
+    }, 120);
+    rafId = requestAnimationFrame(() => {
+      measureWidth();
+      window.dispatchEvent(new Event("resize"));
+      rafId2 = requestAnimationFrame(() => {
+        measureWidth();
+        window.dispatchEvent(new Event("resize"));
+      });
+    });
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (rafId) cancelAnimationFrame(rafId);
+      if (rafId2) cancelAnimationFrame(rafId2);
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [activeMenuId]);
-
+  }, [displayMode, measureWidth]);
   useEffect(() => {
-    if (!activeSectionMenu) return;
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.closest(`[data-section-menu="${activeSectionMenu}"]`)) return;
-      setActiveSectionMenu(null);
+    if (displayMode !== "data_chart") return;
+    const container = containerRef.current;
+    if (!container) return;
+    let frameId = 0;
+    const update = () => {
+      const next = Math.max(container.getBoundingClientRect().width, 1);
+      setObservedWidth((prev) => (prev === null || Math.abs(prev - next) > 1 ? next : prev));
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [activeSectionMenu]);
+    update();
+    const observer = new ResizeObserver(() => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(update);
+    });
+    observer.observe(container);
+    return () => {
+      observer.disconnect();
+      if (frameId) cancelAnimationFrame(frameId);
+    };
+  }, [displayMode, containerRef]);
+
+  useOutsideMenuClose(activeMenuId, "data-chart-menu", setActiveMenuId);
+  useOutsideMenuClose(activeSectionMenu, "data-section-menu", setActiveSectionMenu);
 
   useEffect(() => {
     if (
@@ -310,429 +522,36 @@ export function DeviceDataChart<T extends string>({
     }
   }, [activeSectionMenu, sectionsForRender]);
 
-  const handleEnterEdit = () => {
-    if (readOnly || disabled) return;
-    setDraftCharts(normalizedSavedCharts);
-    setDraftLayout(normalizedSavedLayout as Layout);
-    setDraftSections(savedSections);
-    setDraftAssignments(
-      buildSectionAssignments(normalizedSavedLayout as ChartLayoutItem[], savedSections, savedAssignments)
-    );
-    setActiveSectionMenu(null);
-    setIsEditing(true);
-  };
-
-  const handleExitEdit = () => {
-    setIsEditing(false);
-    setActiveMenuId(null);
-    setActiveSectionMenu(null);
-    dispatchChartForm({ type: "reset-editing-ui" });
-    setDraftCharts(normalizedSavedCharts);
-    setDraftLayout(normalizedSavedLayout as Layout);
-    setDraftSections(savedSections);
-    setViewSections(savedSections);
-    setDraftAssignments({});
-    resetSectionModal();
-  };
-
-  const handleSaveChanges = async () => {
-    if (!onSave) {
-      setIsEditing(false);
-      setActiveMenuId(null);
-      return;
-    }
-    const sanitizedLayout = (draftLayout as ChartLayoutItem[]).map((item) =>
-      normalizeLayoutItem(item)
-    );
-    const nextSections = draftSections.filter((section) => Boolean(section?.id));
-    const orderedSections = orderSectionsByLayout(nextSections, sanitizedLayout);
-    const assignments = draftAssignments;
-    const nextCharts = draftCharts.map((chart) => ({
-      ...chart,
-      name: chart.name.trim() || "New panel",
-      section_id: assignments[chart.id] ?? null,
-    }));
-    try {
-      await onSave(nextCharts, sanitizedLayout, orderedSections);
-      setIsEditing(false);
-      setActiveMenuId(null);
-      setActiveSectionMenu(null);
-    } catch {
-      // keep edit mode active when saving fails
-    }
-  };
-
-  const handleOpenAdd = () => {
-    if (readOnly || disabled) return;
-    dispatchChartForm({
-      type: "open-add",
-      payload: {
-        defaultField: selectedField || availableFields[0] || "",
-        defaultLineFields: availableFields.length ? [availableFields[0]] : [],
-      },
-    });
-  };
-
-  const handleCloseAdd = () => {
-    dispatchChartForm({ type: "close-add" });
-  };
-
-  const openAddSection = () => {
-    if (!isEditing || readOnly || disabled) return;
-    openSectionModalAdd();
-  };
-
-  const openRenameSection = (section: ChartSection) => {
-    if (!isEditing || readOnly || disabled) return;
-    openSectionModalRename(section);
-  };
-
-  const handleSaveSection = () => {
-    const trimmed = sectionModalState.name.trim();
-    if (!trimmed) {
-      setSectionModalError("Section name is required.");
-      return;
-    }
-    if (sectionModalState.editingId) {
-      setDraftSections((prev) =>
-        prev.map((section) =>
-          section.id === sectionModalState.editingId ? { ...section, name: trimmed } : section
-        )
-      );
-    } else {
-      const id = `section-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      setDraftSections((prev) => [...prev, { id, name: trimmed, collapsed: false }]);
-      setDraftLayout((prev) => {
-        const nextY = getLayoutMaxY(prev as ChartLayoutItem[]);
-        return [
-          ...prev,
-          {
-            i: getSectionKey(id),
-            x: 0,
-            y: nextY,
-            w: GRID_COLS,
-            h: SECTION_ROW_HEIGHT,
-            minW: GRID_COLS,
-            maxW: GRID_COLS,
-            minH: SECTION_ROW_HEIGHT,
-            isResizable: false,
-            isDraggable: false,
-          },
-        ];
-      });
-    }
-    closeSectionModal();
-  };
-
-  const handleToggleSection = (sectionId: string) => {
-    const toggle = (sections: ChartSection[]) =>
-      sections.map((section) =>
-        section.id === sectionId ? { ...section, collapsed: !section.collapsed } : section
-      );
-    if (isEditing) {
-      setDraftSections((prev) => toggle(prev));
-      return;
-    }
-    setViewSections((prev) => toggle(prev));
-  };
-
-  const handleDeleteSection = (sectionId: string) => {
-    if (!isEditing || readOnly) return;
-    const chartIdsToRemove = draftCharts
-      .filter((chart) => draftAssignments[chart.id] === sectionId)
-      .map((chart) => chart.id);
-    setDraftSections((prev) => prev.filter((section) => section.id !== sectionId));
-    setDraftCharts((prev) => prev.filter((chart) => !chartIdsToRemove.includes(chart.id)));
-    setDraftLayout((prev) =>
-      prev.filter(
-        (item) => item.i !== getSectionKey(sectionId) && !chartIdsToRemove.includes(item.i)
-      )
-    );
-  };
-
-  const handleToggleLineField = (field: string) => {
-    const nextFields = selectedLineFields.includes(field)
-      ? selectedLineFields.filter((item) => item !== field)
-      : [...selectedLineFields, field];
-    dispatchChartForm({ type: "set-selected-line-fields", value: nextFields });
-  };
-
-  const handleAddChart = () => {
-    const isLineChart = selectedChartType === "line";
-    const selectedLinePrimary = selectedLineFields[0] ?? "";
-    const fieldValue = isLineChart ? selectedLinePrimary : selectedField;
-    if (!fieldValue) return;
-    if (isLineChart && selectedLineFields.length === 0) return;
-    const id = `chart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const nextLayout: LayoutItem = {
-      i: id,
-      x: 0,
-      y: 0,
-      w: DEFAULT_PANEL_SIZE.w,
-      h: DEFAULT_PANEL_SIZE.h,
-    };
-    const meterMin = selectedChartType === "meter" ? parseOptionalNumber(selectedMin) : undefined;
-    const meterMax = selectedChartType === "meter" ? parseOptionalNumber(selectedMax) : undefined;
-    const lineMin = selectedChartType === "line" ? parseOptionalNumber(selectedLineMin) : undefined;
-    const lineMax = selectedChartType === "line" ? parseOptionalNumber(selectedLineMax) : undefined;
-    setDraftCharts((prev) => [
-      ...prev,
-      {
-        id,
-        type: selectedChartType,
-        field: fieldValue,
-        name: "New panel",
-        ...(selectedChartType === "meter" ? { min: meterMin, max: meterMax } : {}),
-        ...(selectedChartType === "line"
-          ? {
-              min: lineMin,
-              max: lineMax,
-              fields: selectedLineFields,
-            }
-          : {}),
-      },
-    ]);
-    setDraftLayout((prev) => {
-      const sectionHeaders = prev
-        .filter((item) => isSectionKey(item.i))
-        .sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y));
-      if (sectionHeaders.length) {
-        const insertY = sectionHeaders[0].y;
-        const shifted = prev.map((item) =>
-          item.y >= insertY ? { ...item, y: item.y + DEFAULT_PANEL_SIZE.h } : item
-        );
-        return [
-          ...shifted,
-          {
-            ...nextLayout,
-            y: insertY,
-          },
-        ];
-      }
-      const nextPosition = getNextPosition(prev);
-      return [
-        ...prev,
-        {
-          ...nextLayout,
-          x: nextPosition.x,
-          y: nextPosition.y,
-        },
-      ];
-    });
-    dispatchChartForm({ type: "close-add" });
-  };
-
-  const handleOpenEdit = (chart: ChartItem) => {
-    if (readOnly || disabled) return;
-    dispatchChartForm({ type: "open-edit", payload: { chart } });
-    setActiveMenuId(null);
-  };
-
-  const handleCloseEdit = () => {
-    dispatchChartForm({ type: "close-edit" });
-  };
-
-  const handleOpenFilter = () => {
-    dispatchChartForm({ type: "open-filter" });
-  };
-
-  const handleCloseFilter = () => {
-    dispatchChartForm({ type: "close-filter" });
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingChartId) return;
-    const name = editName.trim() || "New panel";
-    const field = editField || "";
-    const min =
-      editingChartType === "meter" || editingChartType === "line"
-        ? parseOptionalNumber(editMin)
-        : undefined;
-    const max =
-      editingChartType === "meter" || editingChartType === "line"
-        ? parseOptionalNumber(editMax)
-        : undefined;
-    setDraftCharts((prev) =>
-      prev.map((chart) =>
-        chart.id === editingChartId
-          ? {
-              ...chart,
-              name,
-              field: field || chart.field,
-              ...(chart.type === "meter" || chart.type === "line" ? { min, max } : {}),
-            }
-          : chart
-      )
-    );
-    dispatchChartForm({ type: "close-edit" });
-  };
-
-  const handleRemoveChart = (chartId: string) => {
-    if (readOnly || disabled) return;
-    setDraftCharts((prev) => prev.filter((chart) => chart.id !== chartId));
-    setDraftLayout((prev) => prev.filter((item) => item.i !== chartId));
-    setActiveMenuId(null);
-  };
-
-  const handleLayoutChange = (nextLayout: Layout) => {
-    if (!isEditing || readOnly || disabled) return;
-    if (!isUserInteraction.current) return;
-    setDraftLayout((prev) => mergeLayout(prev, nextLayout));
-  };
-
-  const handleDragStart = () => {
-    if (!isEditing || readOnly || disabled) return;
-    isUserInteraction.current = true;
-  };
-
-  const handleDragStop = (
-    nextLayout: Layout,
-    _oldItem: LayoutItem | null,
-    newItem: LayoutItem | null
-  ) => {
-    if (!isEditing || readOnly || disabled) return;
-    isUserInteraction.current = false;
-    const normalized = (nextLayout as ChartLayoutItem[]).map((item) => normalizeLayoutItem(item));
-    setDraftLayout((prev) => mergeLayout(prev, normalized));
-    if (!newItem) return;
-    if (isSectionKey(newItem.i)) {
-      return;
-    }
-    const nextAssignments = buildSectionAssignments(
-      normalized,
-      draftSections,
-      draftAssignments,
-      new Set([newItem.i])
-    );
-    setDraftAssignments((prev) => ({
-      ...prev,
-      [newItem.i]: nextAssignments[newItem.i] ?? null,
-    }));
-  };
-
-  const handleResizeStart = () => {
-    if (!isEditing || readOnly || disabled) return;
-    isUserInteraction.current = true;
-  };
-
-  const handleResizeStop = (nextLayout: Layout) => {
-    if (!isEditing || readOnly || disabled) return;
-    isUserInteraction.current = false;
-    setDraftLayout((prev) => mergeLayout(prev, nextLayout));
-  };
-
-  const displayLayout = useMemo(
-    () => (isEditing ? (draftLayout as ChartLayoutItem[]) : normalizedSavedLayout),
-    [draftLayout, isEditing, normalizedSavedLayout]
-  );
-  const sectionAssignments = useMemo(
-    () =>
-      buildSectionAssignments(
-        displayLayout,
-        sectionsForRender,
-        isEditing ? draftAssignments : savedAssignments
-      ),
-    [displayLayout, sectionsForRender, savedAssignments, draftAssignments, isEditing]
-  );
-  const collapsedSectionIds = useMemo(
-    () => new Set(sectionsForRender.filter((section) => section.collapsed).map((section) => section.id)),
-    [sectionsForRender]
-  );
-  const visibleLayout = useMemo(
-    () =>
-      displayLayout.filter((item) => {
-        if (isSectionKey(item.i)) return true;
-        const sectionId = sectionAssignments[item.i];
-        return !sectionId || !collapsedSectionIds.has(sectionId);
-      }),
-    [displayLayout, sectionAssignments, collapsedSectionIds]
-  );
-  const chartsBySection = useMemo(() => {
-    const map: Record<string, ChartItem[]> = {};
-    sectionsForRender.forEach((section) => {
-      map[section.id] = [];
-    });
-    chartsForRender.forEach((chart) => {
-      const sectionId = sectionAssignments[chart.id];
-      if (!sectionId) return;
-      if (!map[sectionId]) {
-        map[sectionId] = [];
-      }
-      map[sectionId].push(chart);
-    });
-    return map;
-  }, [chartsForRender, sectionAssignments, sectionsForRender]);
-
   const emptyMessage = "No charts configured yet.";
   const showSectionsLayout =
     chartsForRender.length > 0 || sectionsForRender.length > 0 || isEditing;
 
-  const renderChartCard = (chart: ChartItem) => {
-    const rawValue = getChartValue ? getChartValue(chart.field) : null;
-    const numericValue = parseNumericValue(rawValue);
-    const unit = getChartUnit ? getChartUnit(chart.field) : "";
-    const meterMin = typeof chart.min === "number" ? chart.min : undefined;
-    const meterMax = typeof chart.max === "number" ? chart.max : undefined;
-    const placeholder =
-      chart.type === "line" ? "Line chart coming soon." : "Bar chart coming soon.";
-    const chartContent =
-      chart.type === "meter" ? (
-        <MeterChart value={numericValue} unit={unit} min={meterMin} max={meterMax} />
-      ) : (
-        <div className={styles["device-chart-placeholder"]}>{placeholder}</div>
-      );
-
-    return (
-      <div
-        key={chart.id}
-        className={`${styles["device-chart-card"]} ${
-          isEditing ? styles["device-chart-card-editing"] : ""
-        }`}
-      >
-        <div className={styles["device-chart-card-header"]}>
-          <span className={styles["device-chart-card-title"]}>{chart.name || "New panel"}</span>
-          <div className={styles["device-chart-card-actions"]} data-chart-menu={chart.id}>
-            {isEditing && (
-              <>
-                <button
-                  type="button"
-                  className={`${styles["device-chart-menu-button"]} ${
-                    activeMenuId === chart.id ? styles["device-chart-menu-button-active"] : ""
-                  }`}
-                  aria-label="Chart options"
-                  onMouseDown={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setActiveMenuId((prev) => (prev === chart.id ? null : chart.id));
-                  }}
-                >
-                  <FaEllipsisV />
-                </button>
-                {activeMenuId === chart.id && (
-                  <div
-                    className={styles["device-chart-menu"]}
-                    onMouseDown={(event) => event.stopPropagation()}
-                  >
-                    <button type="button" onClick={() => handleOpenEdit(chart)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className={styles["device-chart-menu-remove"]}
-                      onClick={() => handleRemoveChart(chart.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-        <div className={styles["device-chart-card-body"]}>{chartContent}</div>
-      </div>
-    );
-  };
+  const renderChartCard = (chart: ChartItem) => (
+    <div key={chart.id}>
+      <DeviceChartCard
+        chart={chart}
+        isEditing={isEditing}
+        activeMenuId={activeMenuId}
+        setActiveMenuId={setActiveMenuId}
+        onEdit={handleOpenEdit}
+        onRemove={handleRemoveChart}
+        filterMode={filterMode}
+        rangePreset={rangePreset}
+        timeGranularity={timeGranularity}
+        rawSeries={rawSeries}
+        filteredRawData={filteredRawData}
+        filteredLatestValues={filteredLatestValues}
+        zoomResetKey={zoomResetKey}
+        getChartValue={getChartValue}
+        getChartUnit={getChartUnit}
+        getChartLabel={getChartLabel}
+        getChartType={getChartType}
+        getChartColor={getChartColor}
+        getChartCases={getChartCases}
+        getChartCaseColors={getChartCaseColors}
+      />
+    </div>
+  );
 
   const renderSectionRow = (sectionId: string) => {
     const section = sectionsForRender.find((item) => item.id === sectionId);
@@ -753,7 +572,7 @@ export function DeviceDataChart<T extends string>({
         key={getSectionKey(section.id)}
         className={`${styles["device-section-row"]} ${
           isEditing ? styles["device-section-row-editing"] : ""
-        }`}
+        } ${activeSectionMenu === section.id ? styles["device-section-row-active"] : ""}`}
         data-section-menu={section.id}
       >
         <div className={styles["device-section-row-left"]}>
@@ -823,6 +642,106 @@ export function DeviceDataChart<T extends string>({
     );
   };
 
+  const modalOptions = {
+    data: dataOptions,
+    meter: meterDataOptions,
+    list: listDataOptions,
+  };
+  const sectionModalProps = {
+    state: sectionModalState,
+    onNameChange: setSectionModalName,
+    onClose: closeSectionModal,
+    onSave: handleSaveSection,
+  };
+  const addModalProps = {
+    isOpen: isAddOpen,
+    selectedChartType,
+    selectedField,
+    selectedMin,
+    selectedMax,
+    selectedLineFields,
+    selectedLineMin,
+    selectedLineMax,
+    selectedLineTicks,
+    selectedLineDecimals,
+    selectedLineListMode,
+    selectedBarOrientation,
+    selectedBarRaceMode,
+    selectedPieShowLabels,
+    hideLineNumericInputs: hideLineNumericInputsInAdd,
+    showLineListMode: isSelectedLineList,
+    canAddChart,
+    onSelectedChartTypeChange: setSelectedChartType,
+    onSelectedFieldChange: setSelectedField,
+    onSelectedMinChange: setSelectedMin,
+    onSelectedMaxChange: setSelectedMax,
+    onSelectedLineMinChange: setSelectedLineMin,
+    onSelectedLineMaxChange: setSelectedLineMax,
+    onSelectedLineTicksChange: setSelectedLineTicks,
+    onSelectedLineDecimalsChange: setSelectedLineDecimals,
+    onSelectedLineListModeChange: setSelectedLineListMode,
+    onSelectedBarOrientationChange: setSelectedBarOrientation,
+    onSelectedBarRaceModeChange: setSelectedBarRaceMode,
+    onSelectedPieShowLabelsChange: setSelectedPieShowLabels,
+    onSelectLineField: handleSelectLineField,
+    onClose: handleCloseAdd,
+    onAdd: handleAddChart,
+  };
+  const editModalProps = {
+    isOpen: isEditOpen,
+    editName,
+    editField,
+    editMin,
+    editMax,
+    editLineTicks,
+    editLineDecimals,
+    editLineListMode,
+    editBarOrientation,
+    editBarRaceMode,
+    editPieShowLabels,
+    hideLineNumericInputs: hideLineNumericInputsInEdit,
+    showLineListMode: isEditLineList,
+    editingChartType,
+    onEditNameChange: setEditName,
+    onEditFieldChange: setEditField,
+    onEditMinChange: setEditMin,
+    onEditMaxChange: setEditMax,
+    onEditLineTicksChange: setEditLineTicks,
+    onEditLineDecimalsChange: setEditLineDecimals,
+    onEditLineListModeChange: setEditLineListMode,
+    onEditBarOrientationChange: setEditBarOrientation,
+    onEditBarRaceModeChange: setEditBarRaceMode,
+    onEditPieShowLabelsChange: setEditPieShowLabels,
+    onClose: handleCloseEdit,
+    onSave: handleSaveEdit,
+  };
+  const filterModalProps = {
+    isOpen: isFilterOpen,
+    filterMode,
+    rangePreset,
+    rangeRefreshValue,
+    rangeRefreshOptions,
+    timeGranularity,
+    timeStart,
+    timeEnd,
+    timeDateInputType,
+    timeDateStep,
+    timeDateLabel,
+    onFilterModeChange: setFilterMode,
+    onRangePresetChange: setRangePreset,
+    onRangeRefreshChange: (value: string) => {
+      if (value.trim() === "") return;
+      const next = Number(value);
+      if (!Number.isFinite(next)) return;
+      const clamped = Math.min(rangeRefreshSpec.max, Math.max(rangeRefreshSpec.min, next));
+      setRangeRefreshMs(clamped * rangeRefreshUnitMs);
+    },
+    onTimeGranularityChange: setTimeGranularity,
+    onTimeStartChange: setTimeStart,
+    onTimeEndChange: setTimeEnd,
+    onClose: handleCloseFilter,
+  };
+
   return (
     <div className={styles["device-data-panel"]}>
       <DeviceDataChartHeader
@@ -854,91 +773,52 @@ export function DeviceDataChart<T extends string>({
             isEditing ? styles["device-chart-grid-editing"] : ""
           }`}
         >
-          <GridLayout
-            width={gridWidth}
-            layout={visibleLayout}
-            gridConfig={{
-              cols: GRID_COLS,
-              rowHeight: GRID_ROW_HEIGHT,
-              margin: GRID_MARGIN,
-              containerPadding: GRID_PADDING,
-            }}
-            dragConfig={{
-              enabled: isEditing && !disabled,
-              cancel: dragCancelSelector,
-              bounded: dragBounded,
-            }}
-            resizeConfig={{
-              enabled: isEditing && !disabled,
-              handles: resizeHandles,
-              handleComponent: renderResizeHandle,
-            }}
-            compactor={GRID_COMPACTOR}
-            onLayoutChange={handleLayoutChange}
-            onDragStart={handleDragStart}
-            onDragStop={handleDragStop}
-            onResizeStart={handleResizeStart}
-            onResizeStop={handleResizeStop}
-          >
-            {visibleLayout.map((item) =>
-              isSectionKey(item.i)
-                ? renderSectionRow(getSectionIdFromKey(item.i))
-                : chartMap.has(item.i)
-                  ? renderChartCard(chartMap.get(item.i)!)
-                  : null
-            )}
-          </GridLayout>
+          {mounted && (
+            <GridLayout
+              width={gridWidth}
+              layout={visibleLayout}
+              gridConfig={{
+                cols: GRID_COLS,
+                rowHeight: GRID_ROW_HEIGHT,
+                margin: GRID_MARGIN,
+                containerPadding: GRID_PADDING,
+              }}
+              dragConfig={{
+                enabled: isEditing && !disabled,
+                cancel: dragCancelSelector,
+                bounded: dragBounded,
+              }}
+              resizeConfig={{
+                enabled: isEditing && !disabled,
+                handles: resizeHandles,
+                handleComponent: renderResizeHandle,
+              }}
+              compactor={GRID_COMPACTOR}
+              onLayoutChange={handleLayoutChange}
+              onDragStart={handleDragStart}
+              onDragStop={handleDragStop}
+              onResizeStart={handleResizeStart}
+              onResizeStop={handleResizeStop}
+            >
+              {visibleLayout.map((item) =>
+                isSectionKey(item.i)
+                  ? renderSectionRow(getSectionIdFromKey(item.i))
+                  : chartMap.has(item.i)
+                    ? renderChartCard(chartMap.get(item.i)!)
+                    : null
+              )}
+            </GridLayout>
+          )}
         </div>
       )}
 
       <DeviceDataChartModals
         disabled={disabled}
-        dataOptions={dataOptions}
-        canAddChart={canAddChart}
-        sectionModalState={sectionModalState}
-        onSectionNameChange={setSectionModalName}
-        onSectionClose={closeSectionModal}
-        onSectionSave={handleSaveSection}
-        isAddOpen={isAddOpen}
-        selectedChartType={selectedChartType}
-        selectedField={selectedField}
-        selectedMin={selectedMin}
-        selectedMax={selectedMax}
-        selectedLineFields={selectedLineFields}
-        selectedLineMin={selectedLineMin}
-        selectedLineMax={selectedLineMax}
-        onSelectedChartTypeChange={setSelectedChartType}
-        onSelectedFieldChange={setSelectedField}
-        onSelectedMinChange={setSelectedMin}
-        onSelectedMaxChange={setSelectedMax}
-        onSelectedLineMinChange={setSelectedLineMin}
-        onSelectedLineMaxChange={setSelectedLineMax}
-        onToggleLineField={handleToggleLineField}
-        onCloseAdd={handleCloseAdd}
-        onAddChart={handleAddChart}
-        isEditOpen={isEditOpen}
-        editName={editName}
-        editField={editField}
-        editMin={editMin}
-        editMax={editMax}
-        editingChartType={editingChartType}
-        onEditNameChange={setEditName}
-        onEditFieldChange={setEditField}
-        onEditMinChange={setEditMin}
-        onEditMaxChange={setEditMax}
-        onCloseEdit={handleCloseEdit}
-        onSaveEdit={handleSaveEdit}
-        isFilterOpen={isFilterOpen}
-        timeGranularity={timeGranularity}
-        timeStart={timeStart}
-        timeEnd={timeEnd}
-        timeDateInputType={timeDateInputType}
-        timeDateStep={timeDateStep}
-        timeDateLabel={timeDateLabel}
-        onTimeGranularityChange={setTimeGranularity}
-        onTimeStartChange={setTimeStart}
-        onTimeEndChange={setTimeEnd}
-        onCloseFilter={handleCloseFilter}
+        options={modalOptions}
+        sectionModal={sectionModalProps}
+        addModal={addModalProps}
+        editModal={editModalProps}
+        filterModal={filterModalProps}
       />
     </div>
   );

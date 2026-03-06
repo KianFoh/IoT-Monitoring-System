@@ -38,12 +38,6 @@
   color: var(--color-primary-50);
 }
 
-.device-id {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-secondary);
-}
-
 @media (max-width: 768px) {
   .dashboard-stats-grid {
     grid-template-columns: 1fr;
