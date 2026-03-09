@@ -114,11 +114,11 @@ export function useDistributorActions() {
       return;
     }
     if (!file.type.startsWith("image/")) {
-      setActionError("Please select an image file.");
+      setActionError("Please select an image file");
       return;
     }
     if (file.size > MAX_LOGO_BYTES) {
-      setActionError("Logo must be 2MB or smaller.");
+      setActionError("Logo must be 2MB or smaller");
       return;
     }
     const objectUrl = URL.createObjectURL(file);
@@ -178,7 +178,7 @@ export function useDistributorActions() {
   const handleAddSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!addForm.name.trim()) {
-      setActionError("Name is required.");
+      setActionError("Name is required");
       return false;
     }
 
@@ -237,7 +237,7 @@ export function useDistributorActions() {
   const handleDelete = async () => {
     if (!selectedDistributor) return false;
     if (!selectedDistributor.is_deletable) {
-      setActionError("Distributor is referenced by other records.");
+      setActionError("Distributor is referenced by other records");
       return false;
     }
     try {

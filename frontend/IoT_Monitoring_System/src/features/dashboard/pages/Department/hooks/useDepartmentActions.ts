@@ -81,11 +81,11 @@ export function useDepartmentActions() {
   const handleAddSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!addForm.name.trim()) {
-      setActionError("Name is required.");
+      setActionError("Name is required");
       return false;
     }
     if (!addForm.customer_id) {
-      setActionError("Invalid customer.");
+      setActionError("Invalid customer");
       return false;
     }
 
@@ -125,7 +125,7 @@ export function useDepartmentActions() {
   const handleDelete = async () => {
     if (!selectedDepartment) return false;
     if (!selectedDepartment.is_deletable) {
-      setActionError("Department is referenced by other records.");
+      setActionError("Department is referenced by other records");
       return false;
     }
     try {

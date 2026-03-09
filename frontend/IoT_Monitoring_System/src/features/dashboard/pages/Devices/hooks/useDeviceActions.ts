@@ -155,24 +155,24 @@ export function useDeviceActions() {
   const handleAddSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!addForm.uid.trim()) {
-      setActionError("UID is required.");
+      setActionError("UID is required");
       return false;
     }
     if (!addForm.name.trim()) {
-      setActionError("Name is required.");
+      setActionError("Name is required");
       return false;
     }
     if (!addForm.customer_id) {
-      setActionError("Customer is required.");
+      setActionError("Customer is required");
       return false;
     }
     if (!addForm.department_id) {
-      setActionError("Department is required.");
+      setActionError("Department is required");
       return false;
     }
     const intervalValue = Number(addForm.data_interval);
     if (!Number.isFinite(intervalValue) || intervalValue <= 0) {
-      setActionError("Data interval must be a positive number.");
+      setActionError("Data interval must be a positive number");
       return false;
     }
 
@@ -216,11 +216,11 @@ export function useDeviceActions() {
     const simId = editForm.sim_id.trim();
     if (editForm.connectivity === "cellular") {
       if (!mobileNumber) {
-        setActionError("Mobile number is required for cellular connectivity.");
+        setActionError("Mobile number is required for cellular connectivity");
         return false;
       }
       if (!simId) {
-        setActionError("SIM ID is required for cellular connectivity.");
+        setActionError("SIM ID is required for cellular connectivity");
         return false;
       }
     }
@@ -228,7 +228,7 @@ export function useDeviceActions() {
     payload.sim_id = simId ? simId : null;
     const intervalValue = Number(editForm.data_interval);
     if (!Number.isFinite(intervalValue) || intervalValue <= 0) {
-      setActionError("Data interval must be a positive number.");
+      setActionError("Data interval must be a positive number");
       return false;
     }
     payload.data_interval = intervalValue;

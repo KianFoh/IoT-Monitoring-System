@@ -120,12 +120,12 @@ export function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setSaveError("Please select an image file.");
+      setSaveError("Please select an image file");
       return;
     }
     const maxBytes = 2 * 1024 * 1024;
     if (file.size > maxBytes) {
-      setSaveError("Image must be 2MB or smaller.");
+      setSaveError("Image must be 2MB or smaller");
       return;
     }
     clearProfileObjectUrl();
@@ -142,12 +142,13 @@ export function SettingsPage() {
     setProfilePreview(null);
     setProfileFile(null);
     setRemoveProfile(true);
+    if (saveError) setSaveError(null);
   };
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) {
-      setSaveError("User not loaded.");
+      setSaveError("User not loaded");
       return;
     }
 
@@ -156,7 +157,7 @@ export function SettingsPage() {
     const hasProfileChange = removeProfile || !!profileFile;
 
     if (!hasUsernameChange && !hasProfileChange) {
-      setSaveError("No changes to save.");
+      setSaveError("No changes to save");
       return;
     }
 
@@ -181,10 +182,10 @@ export function SettingsPage() {
       setUser((prev: User | null) => (prev ? { ...prev, ...updatedUser } : updatedUser));
       setProfileFile(null);
       setRemoveProfile(false);
-      setSaveSuccess("Profile updated.");
+      setSaveSuccess("Profile updated");
       setIsEditModalOpen(false);
     } catch (err: unknown) {
-      setSaveError(getApiErrorDetail(err, "Failed to update profile."));
+      setSaveError(getApiErrorDetail(err, "Failed to update profile"));
     } finally {
       setSaving(false);
     }
@@ -193,7 +194,7 @@ export function SettingsPage() {
   const handlePasswordSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) {
-      setPasswordError("User not loaded.");
+      setPasswordError("User not loaded");
       return;
     }
 
@@ -202,15 +203,15 @@ export function SettingsPage() {
     const trimmedConfirm = confirmPassword.trim();
 
     if (!trimmedOld || !trimmedNew || !trimmedConfirm) {
-      setPasswordError("Please fill all password fields.");
+      setPasswordError("Please fill out all password fields");
       return;
     }
     if (trimmedNew.length < 5) {
-      setPasswordError("Password must be at least 5 characters.");
+      setPasswordError("New password must be at least 5 characters");
       return;
     }
     if (trimmedNew !== trimmedConfirm) {
-      setPasswordError("New passwords do not match.");
+      setPasswordError("Passwords do not match");
       return;
     }
 
@@ -225,10 +226,28 @@ export function SettingsPage() {
       setSaveSuccess("Password updated.");
       setIsPasswordModalOpen(false);
     } catch (err: unknown) {
-      setPasswordError(getApiErrorDetail(err, "Failed to update password."));
+      setPasswordError(getApiErrorDetail(err, "Failed to update password"));
     } finally {
       setPasswordSaving(false);
     }
+  };
+
+  const handleUsernameChange = (value: string) => {
+    setUsername(value);
+    if (saveError) setSaveError(null);
+  };
+
+  const handleOldPasswordChange = (value: string) => {
+    setOldPassword(value);
+    if (passwordError) setPasswordError(null);
+  };
+  const handleNewPasswordChange = (value: string) => {
+    setNewPassword(value);
+    if (passwordError) setPasswordError(null);
+  };
+  const handleConfirmPasswordChange = (value: string) => {
+    setConfirmPassword(value);
+    if (passwordError) setPasswordError(null);
   };
 
   return (
@@ -311,7 +330,7 @@ export function SettingsPage() {
           profilePreview,
           initials,
           username,
-          onUsernameChange: setUsername,
+          onUsernameChange: handleUsernameChange,
           onPickImage: handlePickImage,
           onImageChange: handleImageChange,
           onRemoveImage: handleRemoveImage,
@@ -323,9 +342,9 @@ export function SettingsPage() {
           showOldPassword,
           showNewPassword,
           showConfirmPassword,
-          onOldPasswordChange: setOldPassword,
-          onNewPasswordChange: setNewPassword,
-          onConfirmPasswordChange: setConfirmPassword,
+          onOldPasswordChange: handleOldPasswordChange,
+          onNewPasswordChange: handleNewPasswordChange,
+          onConfirmPasswordChange: handleConfirmPasswordChange,
           onToggleOldPassword: () => setShowOldPassword((prev) => !prev),
           onToggleNewPassword: () => setShowNewPassword((prev) => !prev),
           onToggleConfirmPassword: () => setShowConfirmPassword((prev) => !prev),

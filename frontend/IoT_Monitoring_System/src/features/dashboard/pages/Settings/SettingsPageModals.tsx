@@ -4,7 +4,6 @@ import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import { Modal } from "@/components/Modal/Modal";
 import styles from "./SettingsPage.module.css";
-import formStyles from "../../components/DashboardForm/DashboardForm.module.css";
 
 type SettingsPageModalsProps = {
   modalState: {
@@ -53,7 +52,14 @@ export function SettingsPageModals({
   password,
   actions,
 }: SettingsPageModalsProps) {
-  const { isEditOpen, isPasswordOpen, saveError, saving, passwordError, passwordSaving } =
+  const {
+    isEditOpen,
+    isPasswordOpen,
+    saveError,
+    saving,
+    passwordError,
+    passwordSaving,
+  } =
     modalState;
   const {
     fileInputRef,
@@ -131,7 +137,7 @@ export function SettingsPageModals({
             inputClassName={styles["settings-input"]}
           />
 
-          {saveError && <p className={formStyles["dashboard-modal-error"]}>{saveError}</p>}
+          {saveError && <p className={styles["settings-modal-error"]}>{saveError}</p>}
 
           <div className={styles["settings-actions"]}>
             <Button
@@ -142,7 +148,12 @@ export function SettingsPageModals({
             >
               Cancel
             </Button>
-            <Button type="submit" isLoading={saving} className={styles["settings-action-button"]}>
+            <Button
+              type="submit"
+              isLoading={saving}
+              disabled={saving}
+              className={styles["settings-action-button"]}
+            >
               Save changes
             </Button>
           </div>
@@ -191,7 +202,7 @@ export function SettingsPageModals({
             inputClassName={styles["settings-input"]}
           />
 
-          {passwordError && <p className={formStyles["dashboard-modal-error"]}>{passwordError}</p>}
+          {passwordError && <p className={styles["settings-modal-error"]}>{passwordError}</p>}
 
           <div className={styles["settings-actions"]}>
             <Button
@@ -202,7 +213,12 @@ export function SettingsPageModals({
             >
               Cancel
             </Button>
-            <Button type="submit" isLoading={passwordSaving} className={styles["settings-action-button"]}>
+            <Button
+              type="submit"
+              isLoading={passwordSaving}
+              disabled={passwordSaving}
+              className={styles["settings-action-button"]}
+            >
               Update password
             </Button>
           </div>

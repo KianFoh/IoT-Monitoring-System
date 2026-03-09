@@ -109,7 +109,7 @@ export function useCustomerActions() {
   const handleAddSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!addForm.name.trim()) {
-      setActionError("Name is required.");
+      setActionError("Name is required");
       return false;
     }
 
@@ -154,7 +154,7 @@ export function useCustomerActions() {
   const handleDelete = async () => {
     if (!selectedCustomer) return false;
     if (!selectedCustomer.is_deletable) {
-      setActionError("Customer is referenced by other records.");
+      setActionError("Customer is referenced by other records");
       return false;
     }
     try {
