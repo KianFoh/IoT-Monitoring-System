@@ -83,9 +83,30 @@ const parseApiTimestamp = (value: DeviceDataRecord["ts"]) => {
   return null;
 };
 
-const toIsoString = (value: string) => {
+const toIsoString = (value: string, { endOfDay = false } = {}) => {
   const trimmed = value.trim();
   if (!trimmed) return null;
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      return null;
+    }
+    const localTime = new Date(
+      year,
+      month - 1,
+      day,
+      endOfDay ? 23 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 999 : 0
+    );
+    const time = localTime.getTime();
+    if (!Number.isFinite(time)) return null;
+    return localTime.toISOString();
+  }
   const parsed = new Date(trimmed);
   const time = parsed.getTime();
   if (!Number.isFinite(time)) return null;
@@ -172,7 +193,7 @@ export const useDeviceChartData = ({
   const customWindow = useMemo<TimeWindow | "invalid" | null>(() => {
     if (filterMode !== "custom") return null;
     const startIso = toIsoString(timeStart);
-    const endIso = toIsoString(timeEnd);
+    const endIso = toIsoString(timeEnd, { endOfDay: true });
     if (!startIso || !endIso) return "invalid";
     const startTime = new Date(startIso).getTime();
     const endTime = new Date(endIso).getTime();

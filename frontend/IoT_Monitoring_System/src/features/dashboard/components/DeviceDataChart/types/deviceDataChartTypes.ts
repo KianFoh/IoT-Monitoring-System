@@ -5,7 +5,7 @@ export type DisplayOption<T extends string> = {
 
 export type DataFieldType = "number" | "text" | "list";
 
-export type ChartType = "meter" | "line" | "area" | "pie" | "stat" | "bar";
+export type ChartType = "meter" | "line" | "area" | "pie" | "stat" | "bar" | "button";
 
 export type BarOrientation = "horizontal" | "vertical";
 
@@ -32,6 +32,7 @@ export type ChartItemConfig = {
   max?: number | null;
   tick_count?: number | null;
   value_decimals?: number | null;
+  stat_font_size?: number | null;
   value_cases?: string[] | null;
   fields?: string[] | null;
   section_id?: string | null;
@@ -39,6 +40,7 @@ export type ChartItemConfig = {
   bar_race_mode?: boolean | null;
   pie_show_labels?: boolean | null;
   line_list_mode?: LineListMode | null;
+  output_value_type?: "boolean" | "multi" | null;
 };
 
 export type ChartLayoutItem = {
@@ -70,6 +72,7 @@ export type ChartItem = {
   max?: number;
   tick_count?: number;
   value_decimals?: number;
+  stat_font_size?: number;
   value_cases?: string[];
   fields?: string[];
   section_id?: string | null;
@@ -77,6 +80,7 @@ export type ChartItem = {
   bar_race_mode?: boolean;
   pie_show_labels?: boolean;
   line_list_mode?: LineListMode;
+  output_value_type?: "boolean" | "multi";
 };
 
 export type DeviceDataChartProps<T extends string> = {

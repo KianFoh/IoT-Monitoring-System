@@ -147,6 +147,7 @@ export function DeviceDashboardPageModals({
   const handleRemoveCase = (id: string) => {
     setActiveCaseItems((prev) => prev.filter((item) => item.id !== id));
   };
+
   return (
     <>
       <Modal

@@ -21,6 +21,8 @@ type UseChartActionsParams = {
   availableFields: string[];
   listAllowedFields: string[];
   selectedChartType: ChartType;
+  selectedOutputType: "button";
+  selectedOutputValueType: "boolean" | "multi";
   selectedField: string;
   selectedLineFields: string[];
   selectedLineFieldType: DataFieldType | null;
@@ -34,18 +36,24 @@ type UseChartActionsParams = {
   selectedLineMax: string;
   selectedLineTicks: string;
   selectedLineDecimals: string;
+  selectedStatFontSize: string;
   editingChartId: string | null;
   editingChartType: ChartType | null;
+  editingOutputId: string | null;
+  editingOutputType: "button" | null;
   editName: string;
+  editOutputName: string;
   editField: string;
   editMin: string;
   editMax: string;
   editLineTicks: string;
   editLineDecimals: string;
+  editStatFontSize: string;
   editLineListMode: LineListMode;
   editBarOrientation: BarOrientation;
   editBarRaceMode: boolean;
   editPieShowLabels: boolean;
+  editOutputValueType: "boolean" | "multi";
   getChartType?: (field: string) => DataFieldType;
   dispatchChartForm: Dispatch<any>;
   setDraftCharts: Dispatch<SetStateAction<ChartItem[]>>;
@@ -59,6 +67,8 @@ export const useChartActions = ({
   availableFields,
   listAllowedFields,
   selectedChartType,
+  selectedOutputType,
+  selectedOutputValueType,
   selectedField,
   selectedLineFields,
   selectedLineFieldType,
@@ -72,18 +82,24 @@ export const useChartActions = ({
   selectedLineMax,
   selectedLineTicks,
   selectedLineDecimals,
+  selectedStatFontSize,
   editingChartId,
   editingChartType,
+  editingOutputId,
+  editingOutputType,
   editName,
+  editOutputName,
   editField,
   editMin,
   editMax,
   editLineTicks,
   editLineDecimals,
+  editStatFontSize,
   editLineListMode,
   editBarOrientation,
   editBarRaceMode,
   editPieShowLabels,
+  editOutputValueType,
   getChartType,
   dispatchChartForm,
   setDraftCharts,
@@ -104,6 +120,15 @@ export const useChartActions = ({
     dispatchChartForm({ type: "close-add" });
   };
 
+  const handleOpenAddOutput = () => {
+    if (readOnly || disabled) return;
+    dispatchChartForm({ type: "open-add-output" });
+  };
+
+  const handleCloseAddOutput = () => {
+    dispatchChartForm({ type: "close-add-output" });
+  };
+
   const handleSelectLineField = (field: string) => {
     dispatchChartForm({ type: "set-selected-line-field", value: field });
   };
@@ -113,6 +138,7 @@ export const useChartActions = ({
     const isMeterChart = selectedChartType === "meter";
     const isPieChart = selectedChartType === "pie";
     const isBarChart = selectedChartType === "bar";
+    const isStatChart = selectedChartType === "stat";
     const barOrientation = selectedBarRaceMode ? "horizontal" : selectedBarOrientation;
     const selectedLinePrimary = selectedLineFields[0] ?? "";
     const fieldValue = isLineChart ? selectedLinePrimary : selectedField;
@@ -145,6 +171,11 @@ export const useChartActions = ({
           ? undefined
           : parseOptionalInteger(selectedLineDecimals, 0)
         : undefined;
+    const parsedStatFontSize = isStatChart ? parseOptionalInteger(selectedStatFontSize) : undefined;
+    const statFontSize =
+      typeof parsedStatFontSize === "number" && parsedStatFontSize > 0
+        ? parsedStatFontSize
+        : undefined;
     setDraftCharts((prev) => [
       ...prev,
       {
@@ -176,6 +207,7 @@ export const useChartActions = ({
                 : {}),
             }
           : {}),
+        ...(isStatChart ? { stat_font_size: statFontSize } : {}),
       },
     ]);
     setDraftLayout((prev) => {
@@ -208,14 +240,73 @@ export const useChartActions = ({
     dispatchChartForm({ type: "close-add" });
   };
 
+  const handleAddOutput = () => {
+    if (readOnly || disabled) return;
+    const id = `chart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const nextLayout = {
+      i: id,
+      x: 0,
+      y: 0,
+      w: DEFAULT_PANEL_SIZE.w,
+      h: DEFAULT_PANEL_SIZE.h,
+    };
+    const outputType = selectedOutputType || "button";
+    setDraftCharts((prev) => [
+      ...prev,
+      {
+        id,
+        type: outputType,
+        field: "",
+        name: "Output",
+        output_value_type: selectedOutputValueType,
+      },
+    ]);
+    setDraftLayout((prev) => {
+      const sectionHeaders = prev
+        .filter((item) => isSectionKey(item.i))
+        .sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y));
+      if (sectionHeaders.length) {
+        const insertY = sectionHeaders[0].y;
+        const shifted = prev.map((item) =>
+          item.y >= insertY ? { ...item, y: item.y + DEFAULT_PANEL_SIZE.h } : item
+        );
+        return [
+          ...shifted,
+          {
+            ...nextLayout,
+            y: insertY,
+          },
+        ];
+      }
+      const nextPosition = getNextPosition(prev);
+      return [
+        ...prev,
+        {
+          ...nextLayout,
+          x: nextPosition.x,
+          y: nextPosition.y,
+        },
+      ];
+    });
+    dispatchChartForm({ type: "close-add-output" });
+  };
+
   const handleOpenEdit = (chart: ChartItem) => {
     if (readOnly || disabled) return;
-    dispatchChartForm({ type: "open-edit", payload: { chart } });
+    if (chart.type === "button") {
+      dispatchChartForm({ type: "open-edit-output", payload: { chart } });
+    } else {
+      dispatchChartForm({ type: "open-edit", payload: { chart } });
+    }
     setActiveMenuId(null);
   };
 
   const handleCloseEdit = () => {
     dispatchChartForm({ type: "close-edit" });
+  };
+
+  const handleCloseEditOutput = () => {
+    dispatchChartForm({ type: "close-edit-output" });
   };
 
   const handleOpenFilter = () => {
@@ -234,8 +325,10 @@ export const useChartActions = ({
     const isMeterChart = editingChartType === "meter";
     const isPieChart = editingChartType === "pie";
     const isBarChart = editingChartType === "bar";
+    const isStatChart = editingChartType === "stat";
     const barOrientation = editBarRaceMode ? "horizontal" : editBarOrientation;
-    const fieldType = getChartType?.(field) ?? null;
+    const fieldType =
+      editingChartType === "button" ? null : getChartType?.(field) ?? null;
     const isLineText = isLineChart && fieldType === "text";
     const min =
       isLineChart || isMeterChart
@@ -260,6 +353,11 @@ export const useChartActions = ({
         ? isLineText
           ? undefined
           : parseOptionalInteger(editLineDecimals, 0)
+        : undefined;
+    const parsedStatFontSize = isStatChart ? parseOptionalInteger(editStatFontSize) : undefined;
+    const statFontSize =
+      typeof parsedStatFontSize === "number" && parsedStatFontSize > 0
+        ? parsedStatFontSize
         : undefined;
     setDraftCharts((prev) =>
       prev.map((chart) =>
@@ -286,11 +384,31 @@ export const useChartActions = ({
                     line_list_mode: fieldType === "list" ? editLineListMode : undefined,
                   }
                 : {}),
+              ...(isStatChart ? { stat_font_size: statFontSize } : {}),
             }
           : chart
       )
     );
     dispatchChartForm({ type: "close-edit" });
+  };
+
+  const handleSaveEditOutput = () => {
+    if (!editingOutputId) return;
+    const name = editOutputName.trim() || "Output";
+    const outputValueType =
+      editingOutputType === "button" ? "boolean" : editOutputValueType;
+    setDraftCharts((prev) =>
+      prev.map((chart) =>
+        chart.id === editingOutputId
+          ? {
+              ...chart,
+              name,
+              output_value_type: outputValueType,
+            }
+          : chart
+      )
+    );
+    dispatchChartForm({ type: "close-edit-output" });
   };
 
   const handleRemoveChart = (chartId: string) => {
@@ -303,13 +421,18 @@ export const useChartActions = ({
   return {
     handleOpenAdd,
     handleCloseAdd,
+    handleOpenAddOutput,
+    handleCloseAddOutput,
     handleSelectLineField,
     handleAddChart,
+    handleAddOutput,
     handleOpenEdit,
     handleCloseEdit,
+    handleCloseEditOutput,
     handleOpenFilter,
     handleCloseFilter,
     handleSaveEdit,
+    handleSaveEditOutput,
     handleRemoveChart,
   };
 };

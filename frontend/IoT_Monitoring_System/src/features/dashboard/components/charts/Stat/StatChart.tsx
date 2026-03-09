@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import styles from "./StatChart.module.css";
 
 type StatChartProps = {
   value: string | number | null;
   color?: string;
+  fontSize?: number | null;
 };
 
 type ParsedStatValue = {
@@ -72,8 +73,9 @@ const formatNumericValue = (value: number, decimals: number) => {
   return addThousandsSeparators(trimmed);
 };
 
-export function StatChart({ value, color }: StatChartProps) {
+export function StatChart({ value, color, fontSize: preferredFontSize }: StatChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const textRef = useRef<HTMLSpanElement | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [displayValue, setDisplayValue] = useState(() => {
     const parsed = parseStatValue(value);
@@ -156,9 +158,50 @@ export function StatChart({ value, color }: StatChartProps) {
   }, [value, hasValue, parsed]);
 
   const minDim = Math.max(1, Math.min(size.width || 0, size.height || 0));
-  const baseFont = minDim > 0 ? Math.round(minDim * 0.42) : 28;
-  const fontSize = Math.min(84, Math.max(10, baseFont));
+  const autoBaseFont = minDim > 0 ? Math.round(minDim * 0.30) : 28;
+  const autoFontSize = Math.min(84, Math.max(10, autoBaseFont));
+  const userFontSize =
+    typeof preferredFontSize === "number" && Number.isFinite(preferredFontSize) && preferredFontSize > 0
+      ? Math.round(preferredFontSize)
+      : null;
+  const baseFontSize = userFontSize ?? autoFontSize;
+  const [scaledFontSize, setScaledFontSize] = useState(baseFontSize);
   const hideValue = minDim > 0 && minDim < 28;
+
+  useEffect(() => {
+    setScaledFontSize(baseFontSize);
+  }, [baseFontSize]);
+
+  useLayoutEffect(() => {
+    if (!hasValue || hideValue) return;
+    const container = containerRef.current;
+    const text = textRef.current;
+    if (!container || !text) return;
+    const containerRect = container.getBoundingClientRect();
+    if (containerRect.width <= 0 || containerRect.height <= 0) return;
+    const previousFontSize = text.style.fontSize;
+    const previousMaxWidth = text.style.maxWidth;
+    const previousOverflow = text.style.overflow;
+    text.style.fontSize = `${baseFontSize}px`;
+    text.style.maxWidth = "none";
+    text.style.overflow = "visible";
+    const rect = text.getBoundingClientRect();
+    const textWidth = text.scrollWidth || rect.width;
+    const textHeight = text.scrollHeight || rect.height;
+    text.style.fontSize = previousFontSize;
+    text.style.maxWidth = previousMaxWidth;
+    text.style.overflow = previousOverflow;
+    if (textWidth <= 0 || textHeight <= 0) return;
+    const scale = Math.min(
+      containerRect.width / textWidth,
+      containerRect.height / textHeight,
+      1
+    );
+    const nextFontSize = Math.max(1, Math.floor(baseFontSize * scale));
+    if (Math.abs(nextFontSize - scaledFontSize) >= 1) {
+      setScaledFontSize(nextFontSize);
+    }
+  }, [baseFontSize, displayValue, hasValue, hideValue, scaledFontSize, size.height, size.width]);
 
   if (!hasValue) {
     return <div className={styles["stat-chart-empty"]}>No Data</div>;
@@ -169,7 +212,8 @@ export function StatChart({ value, color }: StatChartProps) {
       {!hideValue && (
         <span
           className={styles["stat-chart-value"]}
-          style={{ fontSize, ...(color ? { color } : {}) }}
+          ref={textRef}
+          style={{ fontSize: scaledFontSize, ...(color ? { color } : {}) }}
         >
           {parsed.isNumeric ? displayValue : displayValue || parsed.raw || value}
         </span>

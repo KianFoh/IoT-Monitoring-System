@@ -5,6 +5,8 @@ import { Switch } from "@/components/Switch/Switch";
 import DropdownSelect from "../DropdownSelect/DropdownSelect";
 import {
   CHART_OPTIONS,
+  OUTPUT_OPTIONS,
+  OUTPUT_VALUE_TYPE_OPTIONS,
   BAR_ORIENTATION_OPTIONS,
   FILTER_MODE_OPTIONS,
   LINE_GRANULARITY_OPTIONS,
@@ -48,6 +50,7 @@ type DeviceDataChartModalsProps = {
     selectedLineMax: string;
     selectedLineTicks: string;
     selectedLineDecimals: string;
+    selectedStatFontSize: string;
     selectedLineListMode: LineListMode;
     selectedBarOrientation: BarOrientation;
     selectedBarRaceMode: boolean;
@@ -63,6 +66,7 @@ type DeviceDataChartModalsProps = {
     onSelectedLineMaxChange: (value: string) => void;
     onSelectedLineTicksChange: (value: string) => void;
     onSelectedLineDecimalsChange: (value: string) => void;
+    onSelectedStatFontSizeChange: (value: string) => void;
     onSelectedLineListModeChange: (value: LineListMode) => void;
     onSelectedBarOrientationChange: (value: BarOrientation) => void;
     onSelectedBarRaceModeChange: (value: boolean) => void;
@@ -70,6 +74,25 @@ type DeviceDataChartModalsProps = {
     onSelectLineField: (value: string) => void;
     onClose: () => void;
     onAdd: () => void;
+  };
+  outputModal: {
+    isOpen: boolean;
+    selectedOutputType: "button";
+    onSelectedOutputTypeChange: (value: "button") => void;
+    selectedOutputValueType: "boolean" | "multi";
+    onSelectedOutputValueTypeChange: (value: "boolean" | "multi") => void;
+    onClose: () => void;
+    onAdd: () => void;
+  };
+  editOutputModal: {
+    isOpen: boolean;
+    editOutputName: string;
+    editOutputValueType: "boolean" | "multi";
+    editingOutputType: "button" | null;
+    onEditOutputNameChange: (value: string) => void;
+    onEditOutputValueTypeChange: (value: "boolean" | "multi") => void;
+    onClose: () => void;
+    onSave: () => void;
   };
   editModal: {
     isOpen: boolean;
@@ -79,6 +102,7 @@ type DeviceDataChartModalsProps = {
     editMax: string;
     editLineTicks: string;
     editLineDecimals: string;
+    editStatFontSize: string;
     editLineListMode: LineListMode;
     editBarOrientation: BarOrientation;
     editBarRaceMode: boolean;
@@ -92,6 +116,7 @@ type DeviceDataChartModalsProps = {
     onEditMaxChange: (value: string) => void;
     onEditLineTicksChange: (value: string) => void;
     onEditLineDecimalsChange: (value: string) => void;
+    onEditStatFontSizeChange: (value: string) => void;
     onEditLineListModeChange: (value: LineListMode) => void;
     onEditBarOrientationChange: (value: BarOrientation) => void;
     onEditBarRaceModeChange: (value: boolean) => void;
@@ -126,6 +151,8 @@ export function DeviceDataChartModals({
   options,
   sectionModal,
   addModal,
+  outputModal,
+  editOutputModal,
   editModal,
   filterModal,
 }: DeviceDataChartModalsProps) {
@@ -163,6 +190,7 @@ export function DeviceDataChartModals({
       : addModal.selectedChartType === "pie" || addModal.selectedChartType === "bar"
         ? options.list
         : options.data;
+  const isEditButton = editModal.editingChartType === "button";
   const editFieldOptions =
     editModal.editingChartType === "meter"
       ? options.meter
@@ -185,6 +213,9 @@ export function DeviceDataChartModals({
         : editModal.editingChartType === "meter"
           ? "Meter chart requires numeric data fields."
           : "Add data fields in the data panel first.";
+
+  const outputTypeOptions = OUTPUT_OPTIONS;
+  const canAddOutput = !disabled;
 
   return (
     <>
@@ -240,6 +271,20 @@ export function DeviceDataChartModals({
               }
               onChange={addModal.onSelectedFieldChange}
               disabled={!addFieldOptions.length || disabled}
+            />
+          )}
+          {addModal.selectedChartType === "stat" && (
+            <Input
+              id="device-chart-stat-font-size"
+              label="Font size (px)"
+              type="number"
+              inputMode="numeric"
+              min={8}
+              step={1}
+              placeholder="32"
+              value={addModal.selectedStatFontSize}
+              onChange={(event) => addModal.onSelectedStatFontSizeChange(event.target.value)}
+              disabled={disabled}
             />
           )}
           {addModal.selectedChartType === "bar" && (
@@ -426,6 +471,68 @@ export function DeviceDataChartModals({
         </div>
       </Modal>
 
+      <Modal isOpen={outputModal.isOpen} onClose={outputModal.onClose} title="Add output">
+        <div className={formStyles["dashboard-modal-form"]}>
+          <DropdownSelect
+            id="device-output-value-type"
+            label="Output format"
+            value={outputModal.selectedOutputValueType}
+            options={OUTPUT_VALUE_TYPE_OPTIONS}
+            onChange={outputModal.onSelectedOutputValueTypeChange}
+            disabled
+          />
+          <DropdownSelect
+            id="device-output-type"
+            label="Output type"
+            value={outputModal.selectedOutputType}
+            options={outputTypeOptions}
+            placeholder={outputTypeOptions.length ? "Select output" : "No outputs available"}
+            onChange={outputModal.onSelectedOutputTypeChange}
+            disabled={disabled}
+          />
+          <div className={formStyles["dashboard-modal-actions"]}>
+            <Button type="button" variant="cancel" onClick={outputModal.onClose}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={outputModal.onAdd} disabled={!canAddOutput}>
+              Add output
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={editOutputModal.isOpen} onClose={editOutputModal.onClose} title="Edit output">
+        <div className={formStyles["dashboard-modal-form"]}>
+          <DropdownSelect
+            id="device-edit-output-value-type"
+            label="Output format"
+            value={editOutputModal.editOutputValueType}
+            options={OUTPUT_VALUE_TYPE_OPTIONS}
+            onChange={editOutputModal.onEditOutputValueTypeChange}
+            disabled
+          />
+          <Input
+            id="device-edit-output-name"
+            label="Output name"
+            placeholder="Enter output name"
+            value={editOutputModal.editOutputName}
+            onChange={(event) => editOutputModal.onEditOutputNameChange(event.target.value)}
+          />
+          <div className={formStyles["dashboard-modal-actions"]}>
+            <Button type="button" variant="cancel" onClick={editOutputModal.onClose}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={editOutputModal.onSave}
+              disabled={!editOutputModal.editOutputName.trim()}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal isOpen={editModal.isOpen} onClose={editModal.onClose} title="Edit chart">
         <div className={formStyles["dashboard-modal-form"]}>
           <Input
@@ -435,17 +542,33 @@ export function DeviceDataChartModals({
             value={editModal.editName}
             onChange={(event) => editModal.onEditNameChange(event.target.value)}
           />
-          <DropdownSelect
-            id="device-edit-chart-field"
-            label="Data field"
-            value={editModal.editField}
-            options={editFieldOptions}
-            placeholder={
-              editFieldOptions.length ? "Select data" : "No data fields available"
-            }
-            onChange={editModal.onEditFieldChange}
-            disabled={!editFieldOptions.length}
-          />
+          {!isEditButton && (
+            <DropdownSelect
+              id="device-edit-chart-field"
+              label="Data field"
+              value={editModal.editField}
+              options={editFieldOptions}
+              placeholder={
+                editFieldOptions.length ? "Select data" : "No data fields available"
+              }
+              onChange={editModal.onEditFieldChange}
+              disabled={!editFieldOptions.length}
+            />
+          )}
+          {editModal.editingChartType === "stat" && (
+            <Input
+              id="device-edit-chart-stat-font-size"
+              label="Font size (px)"
+              type="number"
+              inputMode="numeric"
+              min={8}
+              step={1}
+              placeholder="32"
+              value={editModal.editStatFontSize}
+              onChange={(event) => editModal.onEditStatFontSizeChange(event.target.value)}
+              disabled={disabled}
+            />
+          )}
           {editModal.editingChartType === "bar" && (
             <>
               <DropdownSelect
@@ -549,7 +672,7 @@ export function DeviceDataChartModals({
                 </div>
               </>
             )}
-          {!editFieldOptions.length && (
+          {!isEditButton && !editFieldOptions.length && (
             <p className={formStyles["dashboard-modal-error"]}>{editFieldMessage}</p>
           )}
           <div className={formStyles["dashboard-modal-actions"]}>
@@ -559,7 +682,10 @@ export function DeviceDataChartModals({
             <Button
               type="button"
               onClick={editModal.onSave}
-              disabled={!editModal.editName.trim() || !editFieldOptions.length || !editModal.editField}
+              disabled={
+                !editModal.editName.trim() ||
+                (!isEditButton && (!editFieldOptions.length || !editModal.editField))
+              }
             >
               Save
             </Button>

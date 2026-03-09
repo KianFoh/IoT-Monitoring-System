@@ -10,6 +10,17 @@ export const CHART_OPTIONS: Array<{ value: ChartType; label: string }> = [
   { value: "stat", label: "Stat" },
 ];
 
+export const OUTPUT_OPTIONS: Array<{ value: "button"; label: string }> = [
+  { value: "button", label: "Button" },
+];
+
+export const OUTPUT_VALUE_TYPE_OPTIONS: Array<{
+  value: "boolean";
+  label: string;
+}> = [
+  { value: "boolean", label: "Boolean (On/Off)" },
+];
+
 export const BAR_ORIENTATION_OPTIONS: Array<{ value: "horizontal" | "vertical"; label: string }> = [
   { value: "horizontal", label: "Horizontal" },
   { value: "vertical", label: "Vertical" },

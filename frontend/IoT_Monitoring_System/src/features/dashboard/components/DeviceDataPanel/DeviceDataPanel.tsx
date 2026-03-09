@@ -78,7 +78,7 @@ function DeviceDataCardContent({ label, labelColor, value }: DeviceDataCardConte
   const hideLabel = hasSize && minDim < 52;
   const hideValue = hasSize && minDim < 32;
   const labelFontSize = hasSize ? Math.min(16, Math.max(10, Math.round(minDim * 0.24))) : undefined;
-  const valueFontSize = hasSize ? Math.min(28, Math.max(12, Math.round(minDim * 0.38))) : undefined;
+  const valueFontSize = hasSize ? Math.min(22, Math.max(12, Math.round(minDim * 0.38))) : undefined;
   const labelStyle = {
     ...(labelColor ? { color: labelColor } : {}),
     ...(labelFontSize ? { fontSize: labelFontSize } : {}),

@@ -33,6 +33,12 @@ class ApiClient {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
       }
+      if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+        config.headers = config.headers ?? {};
+        // Let the browser set the multipart boundary for FormData.
+        delete (config.headers as Record<string, string>)["Content-Type"];
+        delete (config.headers as Record<string, string>)["content-type"];
+      }
       return config;
     });
 

@@ -60,6 +60,16 @@ export const normalizeChart = (chart: ChartItemConfig): ChartItem => {
         ? false
         : true
       : undefined;
+  const outputValueType =
+    chart.output_value_type === "multi"
+      ? "multi"
+      : chart.output_value_type === "boolean"
+        ? "boolean"
+        : undefined;
+  const statFontSize =
+    typeof chart.stat_font_size === "number" && Number.isFinite(chart.stat_font_size)
+      ? chart.stat_font_size
+      : undefined;
   return {
     ...chart,
     type: safeType,
@@ -69,12 +79,14 @@ export const normalizeChart = (chart: ChartItemConfig): ChartItem => {
     max: typeof chart.max === "number" ? chart.max : undefined,
     tick_count: typeof chart.tick_count === "number" ? chart.tick_count : undefined,
     value_decimals: typeof chart.value_decimals === "number" ? chart.value_decimals : undefined,
+    stat_font_size: statFontSize,
     value_cases: normalizedCases?.length ? normalizedCases : undefined,
     fields: normalizedFields,
     bar_orientation: barOrientation ?? chart.bar_orientation ?? undefined,
     bar_race_mode: barRaceMode ?? chart.bar_race_mode ?? undefined,
     pie_show_labels: pieShowLabels ?? chart.pie_show_labels ?? undefined,
     line_list_mode: lineListMode ?? chart.line_list_mode ?? undefined,
+    output_value_type: outputValueType ?? chart.output_value_type ?? undefined,
   };
 };
 

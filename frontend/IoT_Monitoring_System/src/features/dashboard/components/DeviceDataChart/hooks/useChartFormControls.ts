@@ -36,6 +36,10 @@ export const useChartFormControls = ({
 
   const setSelectedChartType = (value: ChartFormState["selectedChartType"]) =>
     dispatchChartForm({ type: "set-selected-chart-type", value });
+  const setSelectedOutputType = (value: ChartFormState["selectedOutputType"]) =>
+    dispatchChartForm({ type: "set-selected-output-type", value });
+  const setSelectedOutputValueType = (value: ChartFormState["selectedOutputValueType"]) =>
+    dispatchChartForm({ type: "set-selected-output-value-type", value });
   const setSelectedField = (value: string) =>
     dispatchChartForm({ type: "set-selected-field", value });
   const setSelectedMin = (value: string) =>
@@ -50,6 +54,8 @@ export const useChartFormControls = ({
     dispatchChartForm({ type: "set-selected-line-ticks", value });
   const setSelectedLineDecimals = (value: string) =>
     dispatchChartForm({ type: "set-selected-line-decimals", value });
+  const setSelectedStatFontSize = (value: string) =>
+    dispatchChartForm({ type: "set-selected-stat-font-size", value });
   const setSelectedLineListMode = (value: ChartFormState["selectedLineListMode"]) =>
     dispatchChartForm({ type: "set-selected-line-list-mode", value });
   const setSelectedBarOrientation = (value: ChartFormState["selectedBarOrientation"]) =>
@@ -59,6 +65,8 @@ export const useChartFormControls = ({
   const setSelectedPieShowLabels = (value: boolean) =>
     dispatchChartForm({ type: "set-selected-pie-show-labels", value });
   const setEditName = (value: string) => dispatchChartForm({ type: "set-edit-name", value });
+  const setEditOutputName = (value: string) =>
+    dispatchChartForm({ type: "set-edit-output-name", value });
   const setEditField = (value: string) => dispatchChartForm({ type: "set-edit-field", value });
   const setEditMin = (value: string) => dispatchChartForm({ type: "set-edit-min", value });
   const setEditMax = (value: string) => dispatchChartForm({ type: "set-edit-max", value });
@@ -66,6 +74,8 @@ export const useChartFormControls = ({
     dispatchChartForm({ type: "set-edit-line-ticks", value });
   const setEditLineDecimals = (value: string) =>
     dispatchChartForm({ type: "set-edit-line-decimals", value });
+  const setEditStatFontSize = (value: string) =>
+    dispatchChartForm({ type: "set-edit-stat-font-size", value });
   const setEditLineListMode = (value: ChartFormState["editLineListMode"]) =>
     dispatchChartForm({ type: "set-edit-line-list-mode", value });
   const setEditBarOrientation = (value: ChartFormState["editBarOrientation"]) =>
@@ -74,6 +84,8 @@ export const useChartFormControls = ({
     dispatchChartForm({ type: "set-edit-bar-race-mode", value });
   const setEditPieShowLabels = (value: boolean) =>
     dispatchChartForm({ type: "set-edit-pie-show-labels", value });
+  const setEditOutputValueType = (value: ChartFormState["editOutputValueType"]) =>
+    dispatchChartForm({ type: "set-edit-output-value-type", value });
   const setTimeGranularity = (value: ChartFormState["timeGranularity"]) =>
     dispatchChartForm({ type: "set-time-granularity", value });
   const setTimeStart = (value: string) => dispatchChartForm({ type: "set-time-start", value });
@@ -163,6 +175,7 @@ export const useChartFormControls = ({
 
   useEffect(() => {
     if (!isEditOpen) return;
+    if (editingChartType === "button") return;
     const allowedFields =
       editingChartType === "meter"
         ? meterAllowedFields
@@ -195,6 +208,8 @@ export const useChartFormControls = ({
     isEditLineList,
     hideLineNumericInputsInEdit,
     setSelectedChartType,
+    setSelectedOutputType,
+    setSelectedOutputValueType,
     setSelectedField,
     setSelectedMin,
     setSelectedMax,
@@ -202,20 +217,24 @@ export const useChartFormControls = ({
     setSelectedLineMax,
     setSelectedLineTicks,
     setSelectedLineDecimals,
+    setSelectedStatFontSize,
     setSelectedLineListMode,
     setSelectedBarOrientation,
     setSelectedBarRaceMode,
     setSelectedPieShowLabels,
     setEditName,
+    setEditOutputName,
     setEditField,
     setEditMin,
     setEditMax,
     setEditLineTicks,
     setEditLineDecimals,
+    setEditStatFontSize,
     setEditLineListMode,
     setEditBarOrientation,
     setEditBarRaceMode,
     setEditPieShowLabels,
+    setEditOutputValueType,
     setTimeGranularity,
     setTimeStart,
     setTimeEnd,

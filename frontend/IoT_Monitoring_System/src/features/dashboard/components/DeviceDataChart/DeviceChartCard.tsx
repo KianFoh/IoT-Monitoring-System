@@ -6,6 +6,7 @@ import { LineChart } from "../charts/Line/LineChart";
 import { PieChart } from "../charts/Pie/PieChart";
 import { BarChart } from "../charts/Bar/BarChart";
 import { StatChart } from "../charts/Stat/StatChart";
+import { ButtonChart } from "../outputs/Button/ButtonChart";
 import styles from "./DeviceDataChart.module.css";
 import type {
   ChartFilterMode,
@@ -107,6 +108,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   const isBarChart = chart.type === "bar";
   const isBarList = isBarChart && fieldType === "list";
   const isStatChart = chart.type === "stat";
+  const isButtonChart = chart.type === "button";
   const panelCases = normalizeCaseList(getChartCases?.(chart.field));
   const chartCases = normalizeCaseList(chart.value_cases);
   const lineCases = isLineText || isLineList ? (panelCases.length ? panelCases : chartCases) : [];
@@ -147,10 +149,12 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     chart.max ?? "",
     chart.tick_count ?? "",
     chart.value_decimals ?? "",
+    chart.stat_font_size ?? "",
     chart.bar_orientation ?? "",
     chart.bar_race_mode ? 1 : 0,
     (chart.pie_show_labels ?? true) ? 1 : 0,
     chart.line_list_mode ?? "",
+    chart.output_value_type ?? "",
     buildListKey(chart.value_cases),
     fieldType ?? "",
     buildListKey(panelCases),
@@ -192,6 +196,21 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     const fallback = String(rawValue);
     return formatStatUnitValue(fallback, unit);
   })();
+  const buttonState = (() => {
+    if (!isButtonChart) return false;
+    if (rawValue === null || rawValue === undefined) return false;
+    if (typeof rawValue === "boolean") return rawValue;
+    if (typeof rawValue === "number") return Number.isFinite(rawValue) ? rawValue !== 0 : false;
+    const normalized = String(rawValue).trim().toLowerCase();
+    if (!normalized) return false;
+    if (["true", "on", "yes", "1", "enabled", "active"].includes(normalized)) return true;
+    if (["false", "off", "no", "0", "disabled", "inactive"].includes(normalized)) return false;
+    return false;
+  })();
+  const statFontSize =
+    isStatChart && typeof chart.stat_font_size === "number" && Number.isFinite(chart.stat_font_size)
+      ? chart.stat_font_size
+      : undefined;
   const sourceRows = filterMode === "raw" ? rawSeries : filteredRawData;
   const lineListLabels = isLineListMulti
     ? lineCases.length
@@ -321,7 +340,14 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
         </div>
       )
     ) : chart.type === "stat" ? (
-      <StatChart key={chartConfigKey} value={statValue} color={statColor} />
+      <StatChart
+        key={chartConfigKey}
+        value={statValue}
+        color={statColor}
+        fontSize={statFontSize}
+      />
+    ) : chart.type === "button" ? (
+      <ButtonChart key={chartConfigKey} isOn={buttonState} />
     ) : (
       <div className={styles["device-chart-placeholder"]}>Chart type not supported.</div>
     );

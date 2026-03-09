@@ -14,6 +14,7 @@ type DeviceDataChartHeaderProps<T extends string> = {
   onDisplayChange: (value: T) => void;
   onOpenFilter: () => void;
   onOpenAdd: () => void;
+  onOpenOutput: () => void;
   onOpenSection: () => void;
   onEnterEdit: () => void;
   onExitEdit: () => void;
@@ -31,6 +32,7 @@ export function DeviceDataChartHeader<T extends string>({
   onDisplayChange,
   onOpenFilter,
   onOpenAdd,
+  onOpenOutput,
   onOpenSection,
   onEnterEdit,
   onExitEdit,
@@ -71,6 +73,13 @@ export function DeviceDataChartHeader<T extends string>({
               className={styles["device-data-panel-control-button"]}
             >
               Add chart
+            </Button>
+            <Button
+              onClick={onOpenOutput}
+              disabled={disabled || saving}
+              className={styles["device-data-panel-control-button"]}
+            >
+              Add output
             </Button>
             <Button
               onClick={onExitEdit}
