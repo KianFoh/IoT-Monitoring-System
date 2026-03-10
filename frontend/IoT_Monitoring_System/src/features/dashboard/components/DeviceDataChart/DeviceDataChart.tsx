@@ -645,7 +645,10 @@ export function DeviceDataChart<T extends string>({
     chartsForRender.length > 0 || sectionsForRender.length > 0 || isEditing;
 
   const renderChartCard = (chart: ChartItem) => (
-    <div key={chart.id}>
+    <div
+      key={chart.id}
+      className={activeMenuId === chart.id ? styles["device-chart-item-active"] : undefined}
+    >
       <DeviceChartCard
         chart={chart}
         isEditing={isEditing}

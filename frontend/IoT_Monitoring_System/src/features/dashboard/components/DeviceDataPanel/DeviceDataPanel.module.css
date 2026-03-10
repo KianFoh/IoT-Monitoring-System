@@ -332,6 +332,11 @@
   box-shadow: var(--shadow-lg);
 }
 
+.device-data-card-active {
+  position: relative;
+  z-index: 12;
+}
+
 .device-data-card-editing {
   cursor: grab;
 }

@@ -83,6 +83,11 @@
   overflow: visible;
 }
 
+.device-chart-item-active {
+  position: relative;
+  z-index: 12;
+}
+
 .device-chart-grid :global(.react-resizable-handle) {
   background: none !important;
   background-image: none !important;
@@ -376,6 +381,10 @@
   box-shadow: var(--shadow-lg);
 }
 
+.device-chart-card .device-chart-card-body {
+  overflow: visible;
+}
+
 .device-chart-card-editing {
   cursor: grab;
 }
@@ -428,6 +437,7 @@
   position: relative;
   min-height: 28px;
   min-width: 28px;
+  z-index: 8;
 }
 
 .device-chart-menu-button {
@@ -468,7 +478,7 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xl);
   padding: 6px;
-  z-index: 4;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   gap: 4px;

@@ -444,7 +444,7 @@ export function DeviceDataPanel<T extends string>({
         key={field}
         className={`${styles["device-data-card"]} ${
           isLayoutEditing ? styles["device-data-card-editing"] : ""
-        }`}
+        } ${activeMenuField === field ? styles["device-data-card-active"] : ""}`}
       >
         {canOpenMenu && (
           <div className={styles["device-data-card-actions"]} data-field-menu={field}>
