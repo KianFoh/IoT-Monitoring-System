@@ -153,6 +153,10 @@
   flex-wrap: wrap;
 }
 
+.dashboard-inline-row .dashboard-color-input {
+  align-self: flex-end;
+}
+
 .dashboard-inline-grow {
   flex: 1 1 240px;
   min-width: 200px;

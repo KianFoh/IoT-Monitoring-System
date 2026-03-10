@@ -80,6 +80,23 @@ const normalizeCaseItems = (items: CaseItem[]) => {
     });
 };
 
+const normalizeBooleanValue = (value: unknown) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    if (value === 0) return false;
+    if (value === 1) return true;
+    return null;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+  return null;
+};
+
 const clonePanelConfig = (config: DataPanelConfig) =>
   Object.fromEntries(
     Object.entries(config).map(([key, value]) => [key, { ...value }])
@@ -214,6 +231,10 @@ export function useDeviceDataPanel({
   const [editUnit, setEditUnit] = useState("");
   const [editType, setEditType] = useState<DataFieldType>("number");
   const [editColor, setEditColor] = useState("");
+  const [editTrueLabel, setEditTrueLabel] = useState("");
+  const [editFalseLabel, setEditFalseLabel] = useState("");
+  const [editTrueColor, setEditTrueColor] = useState("");
+  const [editFalseColor, setEditFalseColor] = useState("");
   const [editCaseItems, setEditCaseItems] = useState<CaseItem[]>([]);
   const [newFieldCaseItems, setNewFieldCaseItems] = useState<CaseItem[]>([]);
   const [caseConfigMode, setCaseConfigMode] = useState<"edit" | "new" | null>(null);
@@ -223,6 +244,10 @@ export function useDeviceDataPanel({
   const [newFieldUnit, setNewFieldUnit] = useState("");
   const [newFieldType, setNewFieldType] = useState<DataFieldType>("number");
   const [newFieldColor, setNewFieldColor] = useState("");
+  const [newFieldTrueLabel, setNewFieldTrueLabel] = useState("");
+  const [newFieldFalseLabel, setNewFieldFalseLabel] = useState("");
+  const [newFieldTrueColor, setNewFieldTrueColor] = useState("");
+  const [newFieldFalseColor, setNewFieldFalseColor] = useState("");
   const [addFieldError, setAddFieldError] = useState<string | null>(null);
   const [addFieldSaving, setAddFieldSaving] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
@@ -246,6 +271,10 @@ export function useDeviceDataPanel({
     setEditUnit("");
     setEditType("number");
     setEditColor("");
+    setEditTrueLabel("");
+    setEditFalseLabel("");
+    setEditTrueColor("");
+    setEditFalseColor("");
     setEditCaseItems([]);
     setNewFieldCaseItems([]);
     setCaseConfigMode(null);
@@ -255,6 +284,10 @@ export function useDeviceDataPanel({
     setNewFieldUnit("");
     setNewFieldType("number");
     setNewFieldColor("");
+    setNewFieldTrueLabel("");
+    setNewFieldFalseLabel("");
+    setNewFieldTrueColor("");
+    setNewFieldFalseColor("");
     setAddFieldError(null);
     setAddFieldSaving(false);
     setConfigSaving(false);
@@ -351,7 +384,8 @@ export function useDeviceDataPanel({
 
   const getFieldRawValue = (field: string) => getFieldValue(field);
   const getFieldLabel = (field: string) => panelConfig[field]?.label?.trim() || field;
-  const getFieldUnit = (field: string) => panelConfig[field]?.unit?.trim() || "";
+  const getFieldUnit = (field: string) =>
+    panelConfig[field]?.type === "boolean" ? "" : panelConfig[field]?.unit?.trim() || "";
   const getFieldType = (field: string) => panelConfig[field]?.type ?? "text";
   const getFieldColor = (field: string) => panelConfig[field]?.color?.trim() || "";
   const getFieldCases = (field: string) => panelConfig[field]?.cases ?? [];
@@ -362,8 +396,47 @@ export function useDeviceDataPanel({
     return panelSections.some((section) => section.id === sectionId) ? sectionId : null;
   };
 
+  const getFieldBooleanColors = (field: string) => {
+    const config = panelConfig[field];
+    const trueColor = config?.true_color?.trim() || "";
+    const falseColor = config?.false_color?.trim() || "";
+    if (!trueColor && !falseColor) return null;
+    return {
+      trueColor: trueColor || undefined,
+      falseColor: falseColor || undefined,
+    };
+  };
+
+  const getFieldBooleanLabels = (field: string) => {
+    const config = panelConfig[field];
+    const trueLabel = config?.true_label?.trim() || "True";
+    const falseLabel = config?.false_label?.trim() || "False";
+    return {
+      trueLabel,
+      falseLabel,
+    };
+  };
+
+  const getFieldBooleanDisplay = (field: string) => {
+    const rawValue = getFieldRawValue(field);
+    const normalized = normalizeBooleanValue(rawValue);
+    const config = panelConfig[field];
+    const trueLabel = config?.true_label?.trim() || "True";
+    const falseLabel = config?.false_label?.trim() || "False";
+    const trueColor = config?.true_color?.trim() || "";
+    const falseColor = config?.false_color?.trim() || "";
+    if (normalized === true) {
+      return { label: trueLabel, color: trueColor || undefined };
+    }
+    if (normalized === false) {
+      return { label: falseLabel, color: falseColor || undefined };
+    }
+    return { label: formatValue(rawValue), color: undefined };
+  };
+
   const getDisplayValue = (field: string) => {
     const value = formatValue(getFieldValue(field));
+    if (getFieldType(field) === "boolean") return value;
     const unit = getFieldUnit(field);
     if (!unit || value === "--") return value;
     return `${value} ${unit}`;
@@ -375,6 +448,10 @@ export function useDeviceDataPanel({
     setEditUnit(panelConfig[field]?.unit?.trim() || "");
     setEditType(panelConfig[field]?.type ?? "number");
     setEditColor(panelConfig[field]?.color?.trim() || "");
+    setEditTrueLabel(panelConfig[field]?.true_label?.trim() || "");
+    setEditFalseLabel(panelConfig[field]?.false_label?.trim() || "");
+    setEditTrueColor(panelConfig[field]?.true_color?.trim() || "");
+    setEditFalseColor(panelConfig[field]?.false_color?.trim() || "");
     setEditCaseItems(buildCaseItems(panelConfig[field]?.cases, panelConfig[field]?.case_colors));
     setCaseConfigMode(null);
     setConfigError(null);
@@ -387,6 +464,10 @@ export function useDeviceDataPanel({
     setEditUnit("");
     setEditType("number");
     setEditColor("");
+    setEditTrueLabel("");
+    setEditFalseLabel("");
+    setEditTrueColor("");
+    setEditFalseColor("");
     setEditCaseItems([]);
     setCaseConfigMode(null);
   };
@@ -420,16 +501,31 @@ export function useDeviceDataPanel({
       return acc;
     }, {});
     const caseColors = Object.keys(nextCaseColors).length ? nextCaseColors : undefined;
+    const booleanConfig =
+      editType === "boolean"
+        ? {
+            true_label: editTrueLabel.trim() || undefined,
+            false_label: editFalseLabel.trim() || undefined,
+            true_color: editTrueColor.trim() || undefined,
+            false_color: editFalseColor.trim() || undefined,
+          }
+        : {
+            true_label: undefined,
+            false_label: undefined,
+            true_color: undefined,
+            false_color: undefined,
+          };
     const nextConfig: DataPanelConfig = {
       ...panelConfig,
       [editingField]: {
         ...(panelConfig[editingField] ?? {}),
         label: editLabel.trim() || editingField,
-        unit: editUnit.trim() || undefined,
+        unit: editType === "boolean" ? undefined : editUnit.trim() || undefined,
         type: editType,
         color: editColor.trim() || undefined,
         cases: nextCases,
         case_colors: caseColors,
+        ...booleanConfig,
       },
     };
     const cleanedConfig = cleanPanelConfig(panelFields, nextConfig);
@@ -465,6 +561,10 @@ export function useDeviceDataPanel({
     setNewFieldUnit("");
     setNewFieldType("number");
     setNewFieldColor("");
+    setNewFieldTrueLabel("");
+    setNewFieldFalseLabel("");
+    setNewFieldTrueColor("");
+    setNewFieldFalseColor("");
     setNewFieldCaseItems([]);
     setCaseConfigMode(null);
     setAddFieldError(null);
@@ -503,16 +603,31 @@ export function useDeviceDataPanel({
       return acc;
     }, {});
     const caseColors = Object.keys(nextCaseColors).length ? nextCaseColors : undefined;
+    const booleanConfig =
+      newFieldType === "boolean"
+        ? {
+            true_label: newFieldTrueLabel.trim() || undefined,
+            false_label: newFieldFalseLabel.trim() || undefined,
+            true_color: newFieldTrueColor.trim() || undefined,
+            false_color: newFieldFalseColor.trim() || undefined,
+          }
+        : {
+            true_label: undefined,
+            false_label: undefined,
+            true_color: undefined,
+            false_color: undefined,
+          };
     const nextFields = [...panelFields, trimmedKey];
     const nextConfig: DataPanelConfig = {
       ...panelConfig,
       [trimmedKey]: {
         label: trimmedLabel || trimmedKey,
-        unit: trimmedUnit || undefined,
+        unit: newFieldType === "boolean" ? undefined : trimmedUnit || undefined,
         type: newFieldType,
         color: newFieldColor.trim() || undefined,
         cases: nextCases,
         case_colors: caseColors,
+        ...booleanConfig,
       },
     };
     const cleanedConfig = cleanPanelConfig(nextFields, nextConfig);
@@ -681,6 +796,9 @@ export function useDeviceDataPanel({
       getFieldRawValue,
       getFieldLabel,
       getDisplayValue,
+      getFieldBooleanDisplay,
+      getFieldBooleanColors,
+      getFieldBooleanLabels,
       getFieldUnit,
       getFieldType,
       getFieldColor,
@@ -714,6 +832,14 @@ export function useDeviceDataPanel({
       setType: setEditType,
       color: editColor,
       setColor: setEditColor,
+      trueLabel: editTrueLabel,
+      setTrueLabel: setEditTrueLabel,
+      falseLabel: editFalseLabel,
+      setFalseLabel: setEditFalseLabel,
+      trueColor: editTrueColor,
+      setTrueColor: setEditTrueColor,
+      falseColor: editFalseColor,
+      setFalseColor: setEditFalseColor,
       caseItems: editCaseItems,
       setCaseItems: setEditCaseItems,
       saving: configSaving,
@@ -731,6 +857,14 @@ export function useDeviceDataPanel({
       setType: setNewFieldType,
       color: newFieldColor,
       setColor: setNewFieldColor,
+      trueLabel: newFieldTrueLabel,
+      setTrueLabel: setNewFieldTrueLabel,
+      falseLabel: newFieldFalseLabel,
+      setFalseLabel: setNewFieldFalseLabel,
+      trueColor: newFieldTrueColor,
+      setTrueColor: setNewFieldTrueColor,
+      falseColor: newFieldFalseColor,
+      setFalseColor: setNewFieldFalseColor,
       caseItems: newFieldCaseItems,
       setCaseItems: setNewFieldCaseItems,
       saving: addFieldSaving,

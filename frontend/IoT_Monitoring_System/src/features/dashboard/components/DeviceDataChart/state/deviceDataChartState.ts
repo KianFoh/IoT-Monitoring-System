@@ -19,6 +19,8 @@ export type ChartFormState = {
   selectedChartType: ChartType;
   selectedOutputType: "button";
   selectedOutputValueType: "boolean" | "multi";
+  selectedOutputField: string;
+  selectedOutputCase: string;
   selectedField: string;
   selectedMin: string;
   selectedMax: string;
@@ -41,6 +43,8 @@ export type ChartFormState = {
   editingOutputType: "button" | null;
   editName: string;
   editOutputName: string;
+  editOutputField: string;
+  editOutputCase: string;
   editField: string;
   editMin: string;
   editMax: string;
@@ -57,7 +61,7 @@ export type ChartFormState = {
 type ChartFormAction =
   | { type: "open-add"; payload: { defaultField: string } }
   | { type: "close-add" }
-  | { type: "open-add-output" }
+  | { type: "open-add-output"; payload: { defaultField: string } }
   | { type: "close-add-output" }
   | { type: "open-edit"; payload: { chart: ChartItem } }
   | { type: "close-edit" }
@@ -70,6 +74,8 @@ type ChartFormAction =
   | { type: "set-selected-chart-type"; value: ChartType }
   | { type: "set-selected-output-type"; value: "button" }
   | { type: "set-selected-output-value-type"; value: "boolean" | "multi" }
+  | { type: "set-selected-output-field"; value: string }
+  | { type: "set-selected-output-case"; value: string }
   | { type: "set-selected-field"; value: string }
   | { type: "set-selected-min"; value: string }
   | { type: "set-selected-max"; value: string }
@@ -88,6 +94,8 @@ type ChartFormAction =
   | { type: "set-time-end"; value: string }
   | { type: "set-edit-name"; value: string }
   | { type: "set-edit-output-name"; value: string }
+  | { type: "set-edit-output-field"; value: string }
+  | { type: "set-edit-output-case"; value: string }
   | { type: "set-edit-field"; value: string }
   | { type: "set-edit-min"; value: string }
   | { type: "set-edit-max"; value: string }
@@ -112,6 +120,8 @@ export const INITIAL_CHART_FORM_STATE: ChartFormState = {
   selectedChartType: "meter",
   selectedOutputType: "button",
   selectedOutputValueType: "boolean",
+  selectedOutputField: "",
+  selectedOutputCase: "",
   selectedField: "",
   selectedMin: "",
   selectedMax: "",
@@ -134,6 +144,8 @@ export const INITIAL_CHART_FORM_STATE: ChartFormState = {
   editingOutputType: null,
   editName: "",
   editOutputName: "",
+  editOutputField: "",
+  editOutputCase: "",
   editField: "",
   editMin: "",
   editMax: "",
@@ -191,6 +203,8 @@ export const chartFormReducer = (
         isAddOutputOpen: true,
         selectedOutputType: "button",
         selectedOutputValueType: "boolean",
+        selectedOutputField: action.payload.defaultField || state.selectedOutputField,
+        selectedOutputCase: "",
       };
     case "close-add-output":
       return {
@@ -250,6 +264,9 @@ export const chartFormReducer = (
         editingOutputId: action.payload.chart.id,
         editingOutputType: action.payload.chart.type === "button" ? "button" : null,
         editOutputName: action.payload.chart.name.trim() || "Output",
+        editOutputField:
+          action.payload.chart.fields?.[0] ?? action.payload.chart.field ?? "",
+        editOutputCase: action.payload.chart.value_cases?.[0] ?? "",
         editOutputValueType:
           action.payload.chart.output_value_type === "multi" ? "multi" : "boolean",
       };
@@ -260,6 +277,8 @@ export const chartFormReducer = (
         editingOutputId: null,
         editingOutputType: null,
         editOutputName: "",
+        editOutputField: "",
+        editOutputCase: "",
         editOutputValueType: "boolean",
       };
     case "open-filter":
@@ -276,6 +295,10 @@ export const chartFormReducer = (
       return { ...state, selectedOutputType: action.value };
     case "set-selected-output-value-type":
       return { ...state, selectedOutputValueType: action.value };
+    case "set-selected-output-field":
+      return { ...state, selectedOutputField: action.value };
+    case "set-selected-output-case":
+      return { ...state, selectedOutputCase: action.value };
     case "set-selected-field":
       return { ...state, selectedField: action.value };
     case "set-selected-min":
@@ -312,6 +335,10 @@ export const chartFormReducer = (
       return { ...state, editName: action.value };
     case "set-edit-output-name":
       return { ...state, editOutputName: action.value };
+    case "set-edit-output-field":
+      return { ...state, editOutputField: action.value };
+    case "set-edit-output-case":
+      return { ...state, editOutputCase: action.value };
     case "set-edit-field":
       return { ...state, editField: action.value };
     case "set-edit-min":
@@ -356,6 +383,8 @@ export const chartFormReducer = (
         editBarRaceMode: false,
         editPieShowLabels: true,
         editOutputName: "",
+        editOutputField: "",
+        editOutputCase: "",
         editOutputValueType: "boolean",
         selectedMin: "",
         selectedMax: "",
@@ -366,6 +395,8 @@ export const chartFormReducer = (
         selectedStatFontSize: "",
         selectedLineFields: [],
         selectedLineListMode: "single",
+        selectedOutputField: "",
+        selectedOutputCase: "",
         selectedBarOrientation: "horizontal",
         selectedBarRaceMode: false,
         selectedPieShowLabels: true,

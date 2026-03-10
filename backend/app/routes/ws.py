@@ -141,6 +141,18 @@ def _build_device_command_topic(
     return f"{normalized_customer}/cmd/{device_uid}/"
 
 
+def _build_device_receive_topic(
+    customer_name: str,
+    device_uid: str,
+    distributor_name: str | None = None,
+) -> str:
+    normalized_customer = _normalize_topic_name(customer_name)
+    normalized_distributor = _normalize_topic_name(distributor_name) if distributor_name else ""
+    if normalized_distributor:
+        return f"{normalized_distributor}/{normalized_customer}/json/receive/{device_uid}/"
+    return f"{normalized_customer}/json/receive/{device_uid}/"
+
+
 @router.websocket("/ws/{channel}")
 async def websocket_endpoint(websocket: WebSocket, channel: str):
     if channel not in ALLOWED_CHANNELS:
@@ -345,6 +357,69 @@ async def device_command_websocket(
             return
 
     topic = _build_device_command_topic(
+        device.customer_name or "",
+        device_record.uid,
+        device.distributor_name,
+    )
+
+    await websocket.accept()
+    try:
+        while True:
+            text = await websocket.receive_text()
+            if not text.strip():
+                continue
+            payload_dict = None
+            try:
+                parsed = json.loads(text)
+                if isinstance(parsed, dict):
+                    payload_dict = parsed
+            except json.JSONDecodeError:
+                payload_dict = None
+            if payload_dict is not None:
+                mqtt_client.publish(topic, payload_dict)
+            else:
+                mqtt_client.publish_raw(topic, text)
+    except WebSocketDisconnect:
+        return
+    except Exception:
+        await websocket.close()
+
+
+@router.websocket("/ws/devices/{customer_name}/{department_name}/{device_uid}/receive")
+async def device_receive_websocket(
+    websocket: WebSocket,
+    customer_name: str,
+    department_name: str,
+    device_uid: str,
+):
+    user = await authenticate_websocket_with_roles(websocket, {UserRole.superuser, UserRole.user})
+    if not user:
+        return
+
+    mqtt_client = getattr(websocket.app.state, "mqtt_client", None)
+    if not mqtt_client:
+        await websocket.close(code=1011)
+        return
+
+    db = SessionLocal()
+    try:
+        device = device_crud.get_device_with_relations_by_uid(db, device_uid)
+        device_record = device_crud.get_device_by_uid(db, device_uid)
+    finally:
+        db.close()
+    if not device or not device_record:
+        await websocket.close(code=4404)
+        return
+
+    if user.role == UserRole.user:
+        if not user.department_id:
+            await websocket.close(code=4403)
+            return
+        if device_record.department_id != user.department_id:
+            await websocket.close(code=4403)
+            return
+
+    topic = _build_device_receive_topic(
         device.customer_name or "",
         device_record.uid,
         device.distributor_name,

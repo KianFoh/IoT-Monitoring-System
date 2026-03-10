@@ -6,7 +6,6 @@ import DropdownSelect from "../DropdownSelect/DropdownSelect";
 import {
   CHART_OPTIONS,
   OUTPUT_OPTIONS,
-  OUTPUT_VALUE_TYPE_OPTIONS,
   BAR_ORIENTATION_OPTIONS,
   FILTER_MODE_OPTIONS,
   LINE_GRANULARITY_OPTIONS,
@@ -17,6 +16,7 @@ import type {
   BarOrientation,
   ChartFilterMode,
   ChartRangePreset,
+  DataFieldType,
   DisplayOption,
   ChartType,
   LineGranularity,
@@ -81,6 +81,13 @@ type DeviceDataChartModalsProps = {
     onSelectedOutputTypeChange: (value: "button") => void;
     selectedOutputValueType: "boolean" | "multi";
     onSelectedOutputValueTypeChange: (value: "boolean" | "multi") => void;
+    selectedOutputField: string;
+    selectedOutputFieldType: DataFieldType | null;
+    selectedOutputCase: string;
+    outputCaseOptions: Array<DisplayOption<string>>;
+    canAddOutput: boolean;
+    onSelectedOutputFieldChange: (value: string) => void;
+    onSelectedOutputCaseChange: (value: string) => void;
     onClose: () => void;
     onAdd: () => void;
   };
@@ -88,9 +95,16 @@ type DeviceDataChartModalsProps = {
     isOpen: boolean;
     editOutputName: string;
     editOutputValueType: "boolean" | "multi";
+    editOutputField: string;
+    editOutputFieldType: DataFieldType | null;
+    editOutputCase: string;
+    editOutputCaseOptions: Array<DisplayOption<string>>;
     editingOutputType: "button" | null;
+    canSaveOutput: boolean;
     onEditOutputNameChange: (value: string) => void;
     onEditOutputValueTypeChange: (value: "boolean" | "multi") => void;
+    onEditOutputFieldChange: (value: string) => void;
+    onEditOutputCaseChange: (value: string) => void;
     onClose: () => void;
     onSave: () => void;
   };
@@ -215,7 +229,15 @@ export function DeviceDataChartModals({
           : "Add data fields in the data panel first.";
 
   const outputTypeOptions = OUTPUT_OPTIONS;
-  const canAddOutput = !disabled;
+  const outputFieldOptions = options.data;
+  const showOutputCase =
+    outputModal.selectedOutputFieldType === "text" ||
+    outputModal.selectedOutputFieldType === "list";
+  const showEditOutputCase =
+    editOutputModal.editOutputFieldType === "text" ||
+    editOutputModal.editOutputFieldType === "list";
+  const outputFieldMessage = "Add data fields in the data panel first.";
+  const outputCaseMessage = "Configure cases in the data panel first.";
 
   return (
     <>
@@ -474,14 +496,6 @@ export function DeviceDataChartModals({
       <Modal isOpen={outputModal.isOpen} onClose={outputModal.onClose} title="Add output">
         <div className={formStyles["dashboard-modal-form"]}>
           <DropdownSelect
-            id="device-output-value-type"
-            label="Output format"
-            value={outputModal.selectedOutputValueType}
-            options={OUTPUT_VALUE_TYPE_OPTIONS}
-            onChange={outputModal.onSelectedOutputValueTypeChange}
-            disabled
-          />
-          <DropdownSelect
             id="device-output-type"
             label="Output type"
             value={outputModal.selectedOutputType}
@@ -490,11 +504,41 @@ export function DeviceDataChartModals({
             onChange={outputModal.onSelectedOutputTypeChange}
             disabled={disabled}
           />
+          <DropdownSelect
+            id="device-output-field"
+            label="Data field"
+            value={outputModal.selectedOutputField}
+            options={outputFieldOptions}
+            placeholder={outputFieldOptions.length ? "Select data" : "No data fields available"}
+            onChange={outputModal.onSelectedOutputFieldChange}
+            disabled={!outputFieldOptions.length || disabled}
+          />
+          {showOutputCase && (
+            <DropdownSelect
+              id="device-output-case"
+              label="Case"
+              value={outputModal.selectedOutputCase}
+              options={outputModal.outputCaseOptions}
+              placeholder={
+                outputModal.outputCaseOptions.length ? "Select case" : "No cases available"
+              }
+              onChange={outputModal.onSelectedOutputCaseChange}
+              disabled={!outputModal.outputCaseOptions.length || disabled}
+            />
+          )}
+          {!outputFieldOptions.length && (
+            <p className={formStyles["dashboard-modal-error"]}>{outputFieldMessage}</p>
+          )}
+          {showOutputCase &&
+            outputFieldOptions.length > 0 &&
+            outputModal.outputCaseOptions.length === 0 && (
+              <p className={formStyles["dashboard-modal-error"]}>{outputCaseMessage}</p>
+            )}
           <div className={formStyles["dashboard-modal-actions"]}>
             <Button type="button" variant="cancel" onClick={outputModal.onClose}>
               Cancel
             </Button>
-            <Button type="button" onClick={outputModal.onAdd} disabled={!canAddOutput}>
+            <Button type="button" onClick={outputModal.onAdd} disabled={!outputModal.canAddOutput}>
               Add output
             </Button>
           </div>
@@ -503,14 +547,6 @@ export function DeviceDataChartModals({
 
       <Modal isOpen={editOutputModal.isOpen} onClose={editOutputModal.onClose} title="Edit output">
         <div className={formStyles["dashboard-modal-form"]}>
-          <DropdownSelect
-            id="device-edit-output-value-type"
-            label="Output format"
-            value={editOutputModal.editOutputValueType}
-            options={OUTPUT_VALUE_TYPE_OPTIONS}
-            onChange={editOutputModal.onEditOutputValueTypeChange}
-            disabled
-          />
           <Input
             id="device-edit-output-name"
             label="Output name"
@@ -518,6 +554,36 @@ export function DeviceDataChartModals({
             value={editOutputModal.editOutputName}
             onChange={(event) => editOutputModal.onEditOutputNameChange(event.target.value)}
           />
+          <DropdownSelect
+            id="device-edit-output-field"
+            label="Data field"
+            value={editOutputModal.editOutputField}
+            options={outputFieldOptions}
+            placeholder={outputFieldOptions.length ? "Select data" : "No data fields available"}
+            onChange={editOutputModal.onEditOutputFieldChange}
+            disabled={!outputFieldOptions.length || disabled}
+          />
+          {showEditOutputCase && (
+            <DropdownSelect
+              id="device-edit-output-case"
+              label="Case"
+              value={editOutputModal.editOutputCase}
+              options={editOutputModal.editOutputCaseOptions}
+              placeholder={
+                editOutputModal.editOutputCaseOptions.length ? "Select case" : "No cases available"
+              }
+              onChange={editOutputModal.onEditOutputCaseChange}
+              disabled={!editOutputModal.editOutputCaseOptions.length || disabled}
+            />
+          )}
+          {!outputFieldOptions.length && (
+            <p className={formStyles["dashboard-modal-error"]}>{outputFieldMessage}</p>
+          )}
+          {showEditOutputCase &&
+            outputFieldOptions.length > 0 &&
+            editOutputModal.editOutputCaseOptions.length === 0 && (
+              <p className={formStyles["dashboard-modal-error"]}>{outputCaseMessage}</p>
+            )}
           <div className={formStyles["dashboard-modal-actions"]}>
             <Button type="button" variant="cancel" onClick={editOutputModal.onClose}>
               Cancel
@@ -525,7 +591,7 @@ export function DeviceDataChartModals({
             <Button
               type="button"
               onClick={editOutputModal.onSave}
-              disabled={!editOutputModal.editOutputName.trim()}
+              disabled={!editOutputModal.canSaveOutput}
             >
               Save
             </Button>

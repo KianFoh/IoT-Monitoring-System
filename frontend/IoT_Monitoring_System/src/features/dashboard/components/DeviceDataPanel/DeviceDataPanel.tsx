@@ -115,6 +115,7 @@ export function DeviceDataPanel<T extends string>({
   getFieldSectionId,
   getFieldRawValue,
   getFieldValue,
+  getFieldBooleanDisplay,
   getFieldType,
   getFieldUnit,
   getFieldColor,
@@ -227,6 +228,15 @@ export function DeviceDataPanel<T extends string>({
       const count = getListCount(rawValue);
       const display = unit ? `${count} ${unit}` : String(count);
       return <span className={styles["device-data-list-value"]}>{display}</span>;
+    }
+    if (fieldType === "boolean") {
+      const display = getFieldBooleanDisplay?.(field);
+      const label = display?.label ?? getFieldValue(field);
+      const color = display?.color?.trim();
+      if (color) {
+        return <span style={{ color }}>{label}</span>;
+      }
+      return label;
     }
     const displayValue = getFieldValue(field);
     if (fieldType !== "text") {

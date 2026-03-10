@@ -31,19 +31,40 @@ import {
   resolveListCount,
 } from "./utils/deviceChartHelpers";
 
+const normalizeBooleanValue = (value: unknown) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    if (value === 0) return false;
+    if (value === 1) return true;
+    return null;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+  return null;
+};
+
 type DeviceChartCardProps = HTMLAttributes<HTMLDivElement> & {
   chart: ChartItem;
   isEditing: boolean;
+  disabled?: boolean;
+  readOnly?: boolean;
   activeMenuId: string | null;
   setActiveMenuId: Dispatch<SetStateAction<string | null>>;
   onEdit: (chart: ChartItem) => void;
   onRemove: (chartId: string) => void;
+  onOutputSend?: (field: string, value: string | number | boolean) => void;
   filterMode: ChartFilterMode;
   rangePreset: ChartRangePreset;
   timeGranularity: LineGranularity;
   rawSeries: Array<{ ts: number; data: Record<string, unknown> }>;
   filteredRawData: Array<{ ts: number; data: Record<string, unknown> }>;
   filteredLatestValues: Record<string, unknown>;
+  frozenValues?: Record<string, unknown> | null;
   zoomResetKey: string;
   getChartValue?: (field: string) => unknown;
   getChartUnit?: (field: string) => string;
@@ -52,22 +73,32 @@ type DeviceChartCardProps = HTMLAttributes<HTMLDivElement> & {
   getChartColor?: (field: string) => string;
   getChartCases?: (field: string) => string[] | null | undefined;
   getChartCaseColors?: (field: string) => Record<string, string> | null | undefined;
+  getChartBooleanColors?: (
+    field: string
+  ) => { trueColor?: string; falseColor?: string } | null | undefined;
+  getChartBooleanLabels?: (
+    field: string
+  ) => { trueLabel?: string; falseLabel?: string } | null | undefined;
 };
 
 export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(function DeviceChartCard(
   {
     chart,
     isEditing,
+    disabled,
+    readOnly,
     activeMenuId,
     setActiveMenuId,
     onEdit,
     onRemove,
+    onOutputSend,
     filterMode,
     rangePreset,
     timeGranularity,
     rawSeries,
     filteredRawData,
     filteredLatestValues,
+    frozenValues,
     zoomResetKey,
     getChartValue,
     getChartUnit,
@@ -76,6 +107,8 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     getChartColor,
     getChartCases,
     getChartCaseColors,
+    getChartBooleanColors,
+    getChartBooleanLabels,
     className,
     style,
     ...containerProps
@@ -87,9 +120,11 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   }${className ? ` ${className}` : ""}`;
   const rawValue =
     filterMode === "raw"
-      ? getChartValue
-        ? getChartValue(chart.field)
-        : null
+      ? isEditing && frozenValues
+        ? frozenValues[chart.field] ?? null
+        : getChartValue
+          ? getChartValue(chart.field)
+          : null
       : filteredLatestValues[chart.field] ?? null;
   const numericValue = parseNumericValue(rawValue);
   const unit = getChartUnit ? getChartUnit(chart.field) : "";
@@ -102,6 +137,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   const isLineChart = chart.type === "line" || chart.type === "area";
   const lineFieldType = isLineChart ? fieldType : null;
   const isLineText = lineFieldType === "text";
+  const isLineBoolean = lineFieldType === "boolean";
   const isLineList = lineFieldType === "list";
   const isPieChart = chart.type === "pie";
   const isPieList = isPieChart && fieldType === "list";
@@ -111,11 +147,35 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   const isButtonChart = chart.type === "button";
   const panelCases = normalizeCaseList(getChartCases?.(chart.field));
   const chartCases = normalizeCaseList(chart.value_cases);
-  const lineCases = isLineText || isLineList ? (panelCases.length ? panelCases : chartCases) : [];
+  const booleanCaseLabels = (() => {
+    if (!isLineBoolean) return [];
+    const labels = getChartBooleanLabels?.(chart.field) ?? null;
+    const trueLabel = labels?.trueLabel?.trim() || "True";
+    const falseLabel = labels?.falseLabel?.trim() || "False";
+    return [falseLabel, trueLabel];
+  })();
+  const lineCases =
+    isLineText || isLineList
+      ? (panelCases.length ? panelCases : chartCases)
+      : isLineBoolean
+        ? booleanCaseLabels
+        : [];
   const pieCases = isPieChart ? (panelCases.length ? panelCases : chartCases) : [];
   const barCases = isBarChart ? (panelCases.length ? panelCases : chartCases) : [];
   const panelCaseColors = getChartCaseColors?.(chart.field) ?? null;
   const caseColors = panelCases.length ? panelCaseColors : null;
+  const booleanCaseColors = (() => {
+    if (!isLineBoolean) return null;
+    const colors = getChartBooleanColors?.(chart.field) ?? null;
+    const trueColor = colors?.trueColor?.trim() || "";
+    const falseColor = colors?.falseColor?.trim() || "";
+    const [falseLabel, trueLabel] = booleanCaseLabels;
+    const map: Record<string, string> = {};
+    if (falseLabel && falseColor) map[falseLabel] = falseColor;
+    if (trueLabel && trueColor) map[trueLabel] = trueColor;
+    return Object.keys(map).length ? map : null;
+  })();
+  const lineCaseColors = isLineBoolean ? booleanCaseColors : caseColors;
   const caseColorMap = caseColors
     ? (() => {
         const map = new Map<string, string>();
@@ -133,7 +193,10 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     const color = caseColorMap.get(label.trim().toLowerCase());
     return color || undefined;
   };
-  const useCategoricalAxis = isLineText && lineCases.length > 0;
+  const outputCase = chart.value_cases?.[0] ?? "";
+  const outputCaseLabel = outputCase.trim();
+  const outputCaseColor = outputCaseLabel ? resolveCaseColor(outputCaseLabel) : undefined;
+  const useCategoricalAxis = (isLineText || isLineBoolean) && lineCases.length > 0;
   const lineListMode = isLineList && chart.line_list_mode === "multi" ? "multi" : "single";
   const isLineListMulti = isLineList && lineListMode === "multi";
   const lineMin = useCategoricalAxis ? undefined : meterMin;
@@ -159,12 +222,21 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     fieldType ?? "",
     buildListKey(panelCases),
     buildListKey(chartCases),
-    buildCaseColorsKey(caseColors),
+    buildCaseColorsKey(isLineBoolean ? lineCaseColors : caseColors),
     lineColor,
     unit,
   ]);
   const statColor = (() => {
     if (!isStatChart) return lineColor || undefined;
+    if (fieldType === "boolean") {
+      const colors = getChartBooleanColors?.(chart.field) ?? null;
+      const trueColor = colors?.trueColor?.trim() || "";
+      const falseColor = colors?.falseColor?.trim() || "";
+      const normalized = normalizeBooleanValue(rawValue);
+      if (normalized === true) return trueColor || lineColor || undefined;
+      if (normalized === false) return falseColor || lineColor || undefined;
+      return lineColor || undefined;
+    }
     if (fieldType === "text") {
       const caseColors = getChartCaseColors?.(chart.field) ?? null;
       if (caseColors && rawValue !== null && rawValue !== undefined) {
@@ -183,6 +255,17 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
       const safeCount = typeof count === "number" && Number.isFinite(count) ? count : 0;
       return formatStatUnitValue(safeCount, unit);
     }
+    if (fieldType === "boolean") {
+      const labels = getChartBooleanLabels?.(chart.field) ?? null;
+      const trueLabel = labels?.trueLabel?.trim() || "True";
+      const falseLabel = labels?.falseLabel?.trim() || "False";
+      const normalized = normalizeBooleanValue(rawValue);
+      if (normalized === true) return trueLabel;
+      if (normalized === false) return falseLabel;
+      if (rawValue === null || rawValue === undefined) return "--";
+      const fallback = String(rawValue);
+      return fallback || "--";
+    }
     if (fieldType === "text") {
       if (rawValue === null || rawValue === undefined) return "--";
       const text = String(rawValue).trim();
@@ -196,9 +279,26 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     const fallback = String(rawValue);
     return formatStatUnitValue(fallback, unit);
   })();
+  const isLiveMode = filterMode === "raw";
+  const isOutputEnabled =
+    isButtonChart &&
+    isLiveMode &&
+    !isEditing &&
+    !disabled &&
+    !readOnly &&
+    typeof onOutputSend === "function";
   const buttonState = (() => {
     if (!isButtonChart) return false;
     if (rawValue === null || rawValue === undefined) return false;
+    if ((fieldType === "text" || fieldType === "list") && outputCaseLabel) {
+      if (fieldType === "list") {
+        const count = resolveListCount([outputCaseLabel], rawValue);
+        return typeof count === "number" ? count > 0 : false;
+      }
+      const normalizedValue = String(rawValue).trim().toLowerCase();
+      if (!normalizedValue) return false;
+      return normalizedValue === outputCaseLabel.toLowerCase();
+    }
     if (typeof rawValue === "boolean") return rawValue;
     if (typeof rawValue === "number") return Number.isFinite(rawValue) ? rawValue !== 0 : false;
     const normalized = String(rawValue).trim().toLowerCase();
@@ -206,6 +306,61 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     if (["true", "on", "yes", "1", "enabled", "active"].includes(normalized)) return true;
     if (["false", "off", "no", "0", "disabled", "inactive"].includes(normalized)) return false;
     return false;
+  })();
+  const outputSendValue = (() => {
+    if (!isButtonChart) return null;
+    if (fieldType === "boolean") {
+      return buttonState ? "false" : "true";
+    }
+    if ((fieldType === "text" || fieldType === "list") && outputCaseLabel) {
+      return outputCaseLabel;
+    }
+    return null;
+  })();
+  const handleButtonPress = () => {
+    if (!isOutputEnabled || outputSendValue === null) return;
+    onOutputSend?.(chart.field, outputSendValue);
+  };
+  const { buttonOnColor, buttonOffColor } = (() => {
+    if (!isButtonChart) {
+      return { buttonOnColor: undefined, buttonOffColor: undefined };
+    }
+    if (fieldType === "boolean") {
+      const booleanColors = getChartBooleanColors?.(chart.field) ?? null;
+      const trueColor = booleanColors?.trueColor?.trim() || "";
+      const falseColor = booleanColors?.falseColor?.trim() || "";
+      return {
+        buttonOnColor: trueColor || undefined,
+        buttonOffColor: falseColor || undefined,
+      };
+    }
+    if (fieldType === "text" || fieldType === "list") {
+      const caseColor = outputCaseColor?.trim() || "";
+      if (!caseColor) {
+        return { buttonOnColor: undefined, buttonOffColor: undefined };
+      }
+      return { buttonOnColor: caseColor, buttonOffColor: caseColor };
+    }
+    const numericColor = lineColor?.trim() || "";
+    if (!numericColor) {
+      return { buttonOnColor: undefined, buttonOffColor: undefined };
+    }
+    return { buttonOnColor: numericColor, buttonOffColor: numericColor };
+  })();
+  const { buttonOnLabel, buttonOffLabel } = (() => {
+    if (!isButtonChart) {
+      return { buttonOnLabel: undefined, buttonOffLabel: undefined };
+    }
+    if (fieldType === "boolean") {
+      const booleanLabels = getChartBooleanLabels?.(chart.field) ?? null;
+      const trueLabel = booleanLabels?.trueLabel?.trim() || "True";
+      const falseLabel = booleanLabels?.falseLabel?.trim() || "False";
+      return { buttonOnLabel: trueLabel, buttonOffLabel: falseLabel };
+    }
+    if ((fieldType === "text" || fieldType === "list") && outputCaseLabel) {
+      return { buttonOnLabel: outputCaseLabel, buttonOffLabel: outputCaseLabel };
+    }
+    return { buttonOnLabel: undefined, buttonOffLabel: undefined };
   })();
   const statFontSize =
     isStatChart && typeof chart.stat_font_size === "number" && Number.isFinite(chart.stat_font_size)
@@ -221,6 +376,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     isLineList,
     isLineListMulti,
     isLineText,
+    isLineBoolean,
     lineCases,
     lineListLabels,
     parseNumericValue,
@@ -301,7 +457,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
         cases={useCategoricalAxis ? lineCases : undefined}
         listCaseLabels={listCaseBreakdowns ? lineCases : undefined}
         listCaseBreakdowns={listCaseBreakdowns}
-        caseColors={caseColors ?? undefined}
+        caseColors={lineCaseColors ?? undefined}
         lineColor={lineColor || undefined}
         variant={chart.type === "area" ? "area" : "line"}
         stackSeries={isLineListMulti && chart.type === "area"}
@@ -347,7 +503,17 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
         fontSize={statFontSize}
       />
     ) : chart.type === "button" ? (
-      <ButtonChart key={chartConfigKey} isOn={buttonState} />
+      <ButtonChart
+        key={chartConfigKey}
+        isOn={buttonState}
+        onColor={buttonOnColor}
+        offColor={buttonOffColor}
+        onLabel={buttonOnLabel}
+        offLabel={buttonOffLabel}
+        filledIndicator={fieldType === "boolean" || fieldType === "text" || fieldType === "list"}
+        onPress={handleButtonPress}
+        disabled={!isOutputEnabled}
+      />
     ) : (
       <div className={styles["device-chart-placeholder"]}>Chart type not supported.</div>
     );

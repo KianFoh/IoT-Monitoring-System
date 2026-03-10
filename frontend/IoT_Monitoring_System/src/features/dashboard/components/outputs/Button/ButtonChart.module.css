@@ -22,6 +22,11 @@
   user-select: none;
 }
 
+:global(.aws-btn--disabled).button-3d,
+:global(.aws-btn--disabled).button-3d :global(.aws-btn__content) {
+  cursor: default;
+}
+
 .toggle-content {
   display: inline-flex;
   align-items: center;
@@ -36,16 +41,11 @@
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
+.toggle-indicator-filled {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
 .toggle-label {
   font-size: 0.85rem;
-}
-
-.toggle-on {
-  --button-success-color: #2fb24d;
-  --button-success-color-dark: #1f8c3e;
-}
-
-.toggle-off {
-  --button-danger-color: #e23a3a;
-  --button-danger-color-dark: #b52626;
 }

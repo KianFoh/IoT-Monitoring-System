@@ -1,8 +1,7 @@
 from datetime import datetime
-import math
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.crud.postgres import device as device_crud
@@ -11,252 +10,17 @@ from app.crud.mongodb import devices_data as device_data_crud
 from app.models.user import User as UserModel
 from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRecentOut, DeviceListResponse
 from app.models.enum.user_role import UserRole
+from app.utils.device_data import (
+    aggregate_device_data,
+    extract_panel_fields_and_config,
+    filter_raw_data,
+    normalize_field_type,
+)
+from app.utils.device_events import publish_device_event
 from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
-DEVICE_EVENT_PREFIX = "internal/devices/events"
-_AGGREGATION_DATE_FORMATS = {
-    "sec": "%Y-%m-%dT%H:%M:%S",
-    "second": "%Y-%m-%dT%H:%M:%S",
-    "minute": "%Y-%m-%dT%H:%M",
-    "hour": "%Y-%m-%dT%H",
-    "day": "%Y-%m-%d",
-    "month": "%Y-%m",
-    "year": "%Y",
-}
-
-
-def _normalize_field_type(value: Any) -> str:
-    if not isinstance(value, str):
-        return "text"
-    normalized = value.strip().lower()
-    if normalized in {"list", "array"}:
-        return "list"
-    if normalized in {"number", "numeric", "float", "int"}:
-        return "number"
-    if normalized in {"text", "string"}:
-        return "text"
-    return "text"
-
-
-def _extract_panel_fields_and_config(
-    dashboard_config: Optional[dict],
-) -> Tuple[List[str], Dict[str, dict]]:
-    if not isinstance(dashboard_config, dict):
-        return [], {}
-    if "data_panel" in dashboard_config:
-        panel = dashboard_config.get("data_panel") or {}
-        fields = panel.get("fields") or []
-        config = panel.get("config") or {}
-    else:
-        fields = dashboard_config.get("data_panel_fields") or []
-        config = dashboard_config.get("data_panel_config") or {}
-    fields = [
-        field.strip()
-        for field in fields
-        if isinstance(field, str) and field.strip()
-    ]
-    if not isinstance(config, dict):
-        config = {}
-    return fields, config
-
-
-def _coerce_datetime(value: Any) -> Optional[datetime]:
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, str):
-        try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    return None
-
-
-def _coerce_number(value: Any) -> Optional[float]:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        num = float(value)
-        return num if math.isfinite(num) else None
-    if isinstance(value, str):
-        try:
-            num = float(value)
-            return num if math.isfinite(num) else None
-        except ValueError:
-            return None
-    return None
-
-
-def _bucket_key_and_id(ts: datetime, granularity: str) -> Tuple[Tuple[Any, ...], dict]:
-    if granularity == "week":
-        iso = ts.isocalendar()
-        return ("week", iso.year, iso.week), {"isoWeekYear": iso.year, "isoWeek": iso.week}
-    fmt = _AGGREGATION_DATE_FORMATS.get(granularity)
-    if not fmt:
-        raise ValueError(f"Unsupported granularity: {granularity}")
-    bucket_value = ts.strftime(fmt)
-    return (granularity, bucket_value), {"bucket": bucket_value}
-
-
-def _update_list_counts(counts: Dict[str, float], value: Any) -> None:
-    if value is None:
-        return
-    if isinstance(value, dict):
-        for key, entry in value.items():
-            count_key = str(key)
-            inc = 1
-            if not isinstance(entry, bool) and isinstance(entry, (int, float)):
-                inc = float(entry)
-            counts[count_key] = counts.get(count_key, 0) + inc
-        return
-    if isinstance(value, (list, tuple, set)):
-        for item in value:
-            count_key = str(item)
-            counts[count_key] = counts.get(count_key, 0) + 1
-        return
-    count_key = str(value)
-    counts[count_key] = counts.get(count_key, 0) + 1
-
-
-def _aggregate_device_data(
-    docs: List[dict],
-    field_types: Dict[str, str],
-    granularity: str,
-) -> List[dict]:
-    buckets: Dict[Tuple[Any, ...], dict] = {}
-    for doc in docs:
-        ts = _coerce_datetime(doc.get("ts") or doc.get("_ts"))
-        if not ts:
-            continue
-        bucket_key, bucket_id = _bucket_key_and_id(ts, granularity)
-        bucket = buckets.get(bucket_key)
-        if not bucket:
-            bucket = {
-                "_id": bucket_id,
-                "device_id": doc.get("device_id"),
-                "ts": ts,
-                "_number": {},
-                "_text": {},
-                "_list": {},
-            }
-            buckets[bucket_key] = bucket
-        else:
-            if ts > bucket["ts"]:
-                bucket["ts"] = ts
-            if not bucket.get("device_id"):
-                bucket["device_id"] = doc.get("device_id")
-
-        data = doc.get("data") or {}
-        if not isinstance(data, dict):
-            continue
-        for key, value in data.items():
-            field_type = field_types.get(key)
-            if not field_type:
-                continue
-            if field_type == "number":
-                numeric_value = _coerce_number(value)
-                if numeric_value is None:
-                    continue
-                aggregate = bucket["_number"].setdefault(key, {"sum": 0.0, "count": 0})
-                aggregate["sum"] += numeric_value
-                aggregate["count"] += 1
-            elif field_type == "list":
-                counts = bucket["_list"].setdefault(key, {})
-                _update_list_counts(counts, value)
-            else:
-                if value is None:
-                    continue
-                current = bucket["_text"].get(key)
-                if not current or ts >= current["ts"]:
-                    bucket["_text"][key] = {"ts": ts, "value": value}
-
-    results: List[dict] = []
-    for bucket in buckets.values():
-        data: Dict[str, Any] = {}
-        for key, agg in bucket["_number"].items():
-            if agg["count"]:
-                data[key] = agg["sum"] / agg["count"]
-        for key, entry in bucket["_text"].items():
-            if entry["ts"] is not None:
-                data[key] = entry["value"]
-        for key, counts in bucket["_list"].items():
-            if counts:
-                data[key] = counts
-        if not data:
-            continue
-        results.append(
-            {
-                "_id": bucket["_id"],
-                "device_id": bucket.get("device_id"),
-                "ts": bucket["ts"],
-                "data": data,
-            }
-        )
-
-    results.sort(key=lambda item: item.get("ts") or datetime.min, reverse=True)
-    return results
-
-
-def _filter_raw_data(docs: List[dict], field_set: set[str]) -> List[dict]:
-    filtered: List[dict] = []
-    for doc in docs:
-        data = doc.get("data")
-        if not isinstance(data, dict):
-            continue
-        filtered_data = {key: data[key] for key in field_set if key in data}
-        if not filtered_data:
-            continue
-        next_doc = dict(doc)
-        next_doc["data"] = filtered_data
-        filtered.append(next_doc)
-    return filtered
-
-
-def _normalize_topic_name(value: str) -> str:
-    return (value or "").strip().lower()
-
-
-def _build_device_event_topic(
-    customer_name: str,
-    department_name: str,
-    device_uid: str,
-    distributor_name: str | None = None,
-) -> str:
-    normalized_customer = _normalize_topic_name(customer_name)
-    normalized_department = _normalize_topic_name(department_name)
-    normalized_distributor = _normalize_topic_name(distributor_name) if distributor_name else ""
-    if normalized_distributor:
-        return f"{DEVICE_EVENT_PREFIX}/{normalized_distributor}/{normalized_customer}/{normalized_department}/{device_uid}/"
-    return f"{DEVICE_EVENT_PREFIX}/{normalized_customer}/{normalized_department}/{device_uid}/"
-
-
-def _publish_device_event(
-    request: Request,
-    customer_name: str,
-    department_name: str,
-    payload: dict,
-    distributor_name: str | None = None,
-) -> None:
-    mqtt_client = getattr(request.app.state, "mqtt_client", None)
-    if not mqtt_client:
-        return
-    payload_to_send = dict(payload)
-    normalized_customer = _normalize_topic_name(customer_name)
-    normalized_department = _normalize_topic_name(department_name)
-    payload_to_send["customer_name"] = normalized_customer
-    payload_to_send["department_name"] = normalized_department
-    if distributor_name:
-        payload_to_send["distributor_name"] = _normalize_topic_name(distributor_name)
-    mqtt_client.publish(
-        _build_device_event_topic(
-            normalized_customer,
-            normalized_department,
-            payload_to_send.get("uid"),
-            distributor_name,
-        ),
-        payload_to_send,
-    )
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)
@@ -314,7 +78,7 @@ async def create_device(
         db_device, from_attributes=True
     )
     await broadcast_device_event("add", device_out)
-    _publish_device_event(
+    publish_device_event(
         request,
         device_out.customer_name,
         device_out.department_name,
@@ -439,7 +203,7 @@ async def update_device(
             updated_device, from_attributes=True
         )
         await broadcast_device_event("update", device_out)
-        _publish_device_event(
+        publish_device_event(
             request,
             device_out.customer_name,
             device_out.department_name,
@@ -475,7 +239,7 @@ async def update_device(
         updated_device, from_attributes=True
     )
     await broadcast_device_event("update", device_out)
-    _publish_device_event(
+    publish_device_event(
         request,
         device_out.customer_name,
         device_out.department_name,
@@ -520,7 +284,7 @@ async def delete_device(
     customer_name = device_out.customer_name if device_out else ""
     department_name = device_out.department_name if device_out else ""
     uid = device_out.uid if device_out else device.uid
-    _publish_device_event(
+    publish_device_event(
         request,
         customer_name,
         department_name,
@@ -610,11 +374,11 @@ def fetch_device_data(
             detail="start must be before end",
         )
 
-    panel_fields, panel_config = _extract_panel_fields_and_config(device.dashboard_config)
+    panel_fields, panel_config = extract_panel_fields_and_config(device.dashboard_config)
     if not panel_fields:
         return []
     field_types = {
-        field: _normalize_field_type(
+        field: normalize_field_type(
             panel_config.get(field, {}).get("type")
             if isinstance(panel_config.get(field, {}), dict)
             else None
@@ -633,8 +397,8 @@ def fetch_device_data(
         return []
 
     if not selected_granularity:
-        filtered = _filter_raw_data(raw_data, field_set)
+        filtered = filter_raw_data(raw_data, field_set)
         return [serialize_document(doc) for doc in filtered]
 
-    aggregated = _aggregate_device_data(raw_data, field_types, selected_granularity)
+    aggregated = aggregate_device_data(raw_data, field_types, selected_granularity)
     return [serialize_document(doc) for doc in aggregated]

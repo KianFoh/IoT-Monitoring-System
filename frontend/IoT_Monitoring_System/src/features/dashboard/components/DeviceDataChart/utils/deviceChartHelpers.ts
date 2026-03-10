@@ -41,10 +41,27 @@ export const resolveCaseIndex = (cases: string[], value: unknown) => {
   const raw =
     typeof value === "string" || typeof value === "number" || typeof value === "boolean"
       ? String(value).trim().toLowerCase()
-      : "";
+    : "";
   if (!raw) return null;
   const index = cases.findIndex((item) => item.toLowerCase() === raw);
   return index >= 0 ? index : null;
+};
+
+export const resolveBooleanIndex = (value: unknown) => {
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    if (value === 0) return 0;
+    if (value === 1) return 1;
+    return null;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === "true" || normalized === "1") return 1;
+    if (normalized === "false" || normalized === "0") return 0;
+  }
+  return null;
 };
 
 export const resolveListCount = (cases: string[], value: unknown) => {
@@ -240,6 +257,7 @@ export const buildLineData = (
     isLineList: boolean;
     isLineListMulti: boolean;
     isLineText: boolean;
+    isLineBoolean: boolean;
     lineCases: string[];
     lineListLabels: string[];
     parseNumericValue: (value: unknown) => number | null;
@@ -249,6 +267,7 @@ export const buildLineData = (
     isLineList,
     isLineListMulti,
     isLineText,
+    isLineBoolean,
     lineCases,
     lineListLabels,
     parseNumericValue,
@@ -281,7 +300,11 @@ export const buildLineData = (
         : resolveListCount(lineCases, rawValue);
       return { ts: row.ts, [field]: value } as LineChartPoint;
     }
-    const value = isLineText ? resolveCaseIndex(lineCases, rawValue) : parseNumericValue(rawValue);
+    const value = isLineText
+      ? resolveCaseIndex(lineCases, rawValue)
+      : isLineBoolean
+        ? resolveBooleanIndex(rawValue)
+        : parseNumericValue(rawValue);
     return { ts: row.ts, [field]: value } as LineChartPoint;
   });
   return { lineData, listCaseBreakdowns };

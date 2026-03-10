@@ -1,4 +1,4 @@
-export type DataFieldType = "number" | "text" | "list";
+export type DataFieldType = "number" | "text" | "list" | "boolean";
 
 export type GridLayoutItem = {
   i: string;
@@ -23,6 +23,10 @@ export type DataPanelFieldConfig = {
   color?: string;
   cases?: string[] | null;
   case_colors?: Record<string, string> | null;
+  true_label?: string;
+  false_label?: string;
+  true_color?: string;
+  false_color?: string;
   section_id?: string | null;
 };
 

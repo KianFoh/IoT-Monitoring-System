@@ -1,5 +1,7 @@
+import { useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { wsManager } from "@/services/ws";
 import { DeviceDashboardHeader } from "../../components/DeviceDashboardHeader/DeviceDashboardHeader";
 import { DeviceDashboardMeta } from "../../components/DeviceDashboardMeta/DeviceDashboardMeta";
 import { DeviceDataPanel } from "../../components/DeviceDataPanel/DeviceDataPanel";
@@ -10,10 +12,11 @@ import styles from "./DeviceDashboardPage.module.css";
 import formStyles from "../../components/DashboardForm/DashboardForm.module.css";
 import badgeStyles from "../../styles/StatusBadge.module.css";
 
-const DATA_FIELD_TYPE_OPTIONS: Array<{ value: "number" | "text" | "list"; label: string }> = [
+const DATA_FIELD_TYPE_OPTIONS: Array<{ value: "number" | "text" | "list" | "boolean"; label: string }> = [
   { value: "number", label: "Numeric" },
   { value: "text", label: "Text" },
   { value: "list", label: "List" },
+  { value: "boolean", label: "Boolean" },
 ];
 
 export function DeviceDashboardPage() {
@@ -33,6 +36,20 @@ export function DeviceDashboardPage() {
     lastUpdateLabel,
   } = deviceState;
   const { mode: displayMode, setMode: setDisplayMode, options: displayOptions } = display;
+  const handleOutputSend = useCallback(
+    (field: string, value: string | number | boolean) => {
+      if (isReadOnly || !device) return;
+      const customer = device.customer_name?.trim().toLowerCase() || "";
+      const department = device.department_name?.trim().toLowerCase() || "";
+      const uid = device.uid?.trim() || "";
+      const key = field.trim();
+      if (!customer || !department || !uid || !key) return;
+      const receiveKey = `device-receive:${customer}/${department}/${uid}`;
+      const payloadValue = typeof value === "boolean" ? (value ? "true" : "false") : value;
+      wsManager.sendStream(receiveKey, { [key]: payloadValue });
+    },
+    [device?.customer_name, device?.department_name, device?.uid, isReadOnly]
+  );
 
   const statusClass =
     deviceStatus === "online"
@@ -78,6 +95,7 @@ export function DeviceDashboardPage() {
     getFieldSectionId: panel.getters.getFieldSectionId,
     getFieldRawValue: panel.getters.getFieldRawValue,
     getFieldValue: panel.getters.getDisplayValue,
+    getFieldBooleanDisplay: panel.getters.getFieldBooleanDisplay,
     getFieldType: panel.getters.getFieldType,
     getFieldUnit: panel.getters.getFieldUnit,
     getFieldColor: panel.getters.getFieldColor,
@@ -111,6 +129,9 @@ export function DeviceDashboardPage() {
     getChartColor: panel.getters.getFieldColor,
     getChartCases: panel.getters.getFieldCases,
     getChartCaseColors: panel.getters.getFieldCaseColors,
+    getChartBooleanColors: panel.getters.getFieldBooleanColors,
+    getChartBooleanLabels: panel.getters.getFieldBooleanLabels,
+    onOutputSend: handleOutputSend,
     onFilterModeChange: chart.setFilterMode,
     rawTimestamp: lastUpdate,
     savedCharts: chart.items,

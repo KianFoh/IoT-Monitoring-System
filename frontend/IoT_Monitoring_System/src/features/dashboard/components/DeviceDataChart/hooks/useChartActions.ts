@@ -23,6 +23,8 @@ type UseChartActionsParams = {
   selectedChartType: ChartType;
   selectedOutputType: "button";
   selectedOutputValueType: "boolean" | "multi";
+  selectedOutputField: string;
+  selectedOutputCase: string;
   selectedField: string;
   selectedLineFields: string[];
   selectedLineFieldType: DataFieldType | null;
@@ -43,6 +45,8 @@ type UseChartActionsParams = {
   editingOutputType: "button" | null;
   editName: string;
   editOutputName: string;
+  editOutputField: string;
+  editOutputCase: string;
   editField: string;
   editMin: string;
   editMax: string;
@@ -69,6 +73,8 @@ export const useChartActions = ({
   selectedChartType,
   selectedOutputType,
   selectedOutputValueType,
+  selectedOutputField,
+  selectedOutputCase,
   selectedField,
   selectedLineFields,
   selectedLineFieldType,
@@ -89,6 +95,8 @@ export const useChartActions = ({
   editingOutputType,
   editName,
   editOutputName,
+  editOutputField,
+  editOutputCase,
   editField,
   editMin,
   editMax,
@@ -122,7 +130,12 @@ export const useChartActions = ({
 
   const handleOpenAddOutput = () => {
     if (readOnly || disabled) return;
-    dispatchChartForm({ type: "open-add-output" });
+    dispatchChartForm({
+      type: "open-add-output",
+      payload: {
+        defaultField: selectedOutputField || availableFields[0] || "",
+      },
+    });
   };
 
   const handleCloseAddOutput = () => {
@@ -242,6 +255,11 @@ export const useChartActions = ({
 
   const handleAddOutput = () => {
     if (readOnly || disabled) return;
+    if (!selectedOutputField) return;
+    const outputFieldType = getChartType?.(selectedOutputField) ?? null;
+    const requiresCase = outputFieldType === "text" || outputFieldType === "list";
+    const outputCase = selectedOutputCase.trim();
+    if (requiresCase && !outputCase) return;
     const id = `chart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const nextLayout = {
       i: id,
@@ -256,9 +274,10 @@ export const useChartActions = ({
       {
         id,
         type: outputType,
-        field: "",
+        field: selectedOutputField,
         name: "Output",
         output_value_type: selectedOutputValueType,
+        ...(requiresCase && outputCase ? { value_cases: [outputCase] } : {}),
       },
     ]);
     setDraftLayout((prev) => {
@@ -397,13 +416,21 @@ export const useChartActions = ({
     const name = editOutputName.trim() || "Output";
     const outputValueType =
       editingOutputType === "button" ? "boolean" : editOutputValueType;
+    if (!editOutputField) return;
+    const outputFieldType = getChartType?.(editOutputField) ?? null;
+    const requiresCase = outputFieldType === "text" || outputFieldType === "list";
+    const outputCase = editOutputCase.trim();
+    if (requiresCase && !outputCase) return;
+    const nextCases = requiresCase && outputCase ? [outputCase] : undefined;
     setDraftCharts((prev) =>
       prev.map((chart) =>
         chart.id === editingOutputId
           ? {
               ...chart,
               name,
+              field: editOutputField,
               output_value_type: outputValueType,
+              value_cases: nextCases,
             }
           : chart
       )

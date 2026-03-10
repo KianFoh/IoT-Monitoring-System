@@ -3,7 +3,7 @@ export type DisplayOption<T extends string> = {
   label: string;
 };
 
-export type FieldType = "number" | "text" | "list";
+export type FieldType = "number" | "text" | "list" | "boolean";
 
 export type PanelLayoutItem = {
   i: string;
@@ -44,6 +44,7 @@ export type DeviceDataPanelProps<T extends string> = {
   getFieldSectionId: (field: string) => string | null;
   getFieldRawValue: (field: string) => unknown;
   getFieldValue: (field: string) => string;
+  getFieldBooleanDisplay?: (field: string) => { label: string; color?: string };
   getFieldType: (field: string) => FieldType;
   getFieldUnit: (field: string) => string;
   getFieldColor?: (field: string) => string;

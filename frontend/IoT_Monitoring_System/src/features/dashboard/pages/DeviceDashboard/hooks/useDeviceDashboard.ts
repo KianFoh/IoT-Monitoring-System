@@ -213,7 +213,12 @@ export function useDeviceDashboard(deviceUid?: string) {
     const uid = device?.uid;
     if (!access_token || !customer || !department || !uid) return;
     const streamKey = `device:${customer}/${department}/${uid}`;
-    const path = `/ws/devices/${encodeURIComponent(customer)}/${encodeURIComponent(department)}/${encodeURIComponent(uid)}`;
+    const receiveKey = `device-receive:${customer}/${department}/${uid}`;
+    const encodedCustomer = encodeURIComponent(customer);
+    const encodedDepartment = encodeURIComponent(department);
+    const encodedUid = encodeURIComponent(uid);
+    const path = `/ws/devices/${encodedCustomer}/${encodedDepartment}/${encodedUid}`;
+    const receivePath = `${path}/receive`;
     let cancelled = false;
     setWsStatus("connecting");
 
@@ -236,11 +241,13 @@ export function useDeviceDashboard(deviceUid?: string) {
       .catch(() => {
         if (!cancelled) setWsStatus("failed");
       });
+    wsManager.connectStream(receiveKey, receivePath).catch(() => {});
 
     return () => {
       cancelled = true;
       unsubscribe();
       wsManager.disconnectStream(streamKey);
+      wsManager.disconnectStream(receiveKey);
       setWsStatus("idle");
     };
   }, [

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import type { ChartFormState } from "../state/deviceDataChartState";
 import type { ChartFilterMode, DataFieldType } from "../types/deviceDataChartTypes";
+import { normalizeCaseList } from "../utils/deviceChartHelpers";
 
 type UseChartFormControlsParams = {
   chartForm: ChartFormState;
@@ -9,6 +10,7 @@ type UseChartFormControlsParams = {
   meterAllowedFields: string[];
   listAllowedFields: string[];
   getChartType?: (field: string) => DataFieldType;
+  getChartCases?: (field: string) => string[] | null | undefined;
   disabled?: boolean;
   readOnly?: boolean;
   onFilterModeChange?: (value: ChartFilterMode) => void;
@@ -21,6 +23,7 @@ export const useChartFormControls = ({
   meterAllowedFields,
   listAllowedFields,
   getChartType,
+  getChartCases,
   disabled,
   readOnly,
   onFilterModeChange,
@@ -29,9 +32,14 @@ export const useChartFormControls = ({
     selectedChartType,
     selectedField,
     selectedLineFields,
+    selectedOutputField,
+    selectedOutputCase,
     editingChartType,
     editField,
     isEditOpen,
+    isEditOutputOpen,
+    editOutputField,
+    editOutputCase,
   } = chartForm;
 
   const setSelectedChartType = (value: ChartFormState["selectedChartType"]) =>
@@ -40,6 +48,10 @@ export const useChartFormControls = ({
     dispatchChartForm({ type: "set-selected-output-type", value });
   const setSelectedOutputValueType = (value: ChartFormState["selectedOutputValueType"]) =>
     dispatchChartForm({ type: "set-selected-output-value-type", value });
+  const setSelectedOutputField = (value: string) =>
+    dispatchChartForm({ type: "set-selected-output-field", value });
+  const setSelectedOutputCase = (value: string) =>
+    dispatchChartForm({ type: "set-selected-output-case", value });
   const setSelectedField = (value: string) =>
     dispatchChartForm({ type: "set-selected-field", value });
   const setSelectedMin = (value: string) =>
@@ -67,6 +79,10 @@ export const useChartFormControls = ({
   const setEditName = (value: string) => dispatchChartForm({ type: "set-edit-name", value });
   const setEditOutputName = (value: string) =>
     dispatchChartForm({ type: "set-edit-output-name", value });
+  const setEditOutputField = (value: string) =>
+    dispatchChartForm({ type: "set-edit-output-field", value });
+  const setEditOutputCase = (value: string) =>
+    dispatchChartForm({ type: "set-edit-output-case", value });
   const setEditField = (value: string) => dispatchChartForm({ type: "set-edit-field", value });
   const setEditMin = (value: string) => dispatchChartForm({ type: "set-edit-min", value });
   const setEditMax = (value: string) => dispatchChartForm({ type: "set-edit-max", value });
@@ -119,6 +135,10 @@ export const useChartFormControls = ({
   const selectedLineField = selectedLineFields[0] ?? "";
   const selectedLineFieldType =
     selectedLineField && getChartType ? getChartType(selectedLineField) : null;
+  const selectedOutputFieldType =
+    selectedOutputField && getChartType ? getChartType(selectedOutputField) : null;
+  const editOutputFieldType =
+    editOutputField && getChartType ? getChartType(editOutputField) : null;
   const isSelectedLineText = selectedLineFieldType === "text";
   const isSelectedLineList = selectedLineFieldType === "list";
   const hideLineNumericInputsInAdd = isSelectedLineText;
@@ -196,9 +216,110 @@ export const useChartFormControls = ({
     listAllowedFields,
   ]);
 
+  useEffect(() => {
+    if (!availableFields.length) {
+      if (selectedOutputField) {
+        dispatchChartForm({ type: "set-selected-output-field", value: "" });
+      }
+      return;
+    }
+    if (!selectedOutputField || !availableFields.includes(selectedOutputField)) {
+      dispatchChartForm({ type: "set-selected-output-field", value: availableFields[0] });
+    }
+  }, [availableFields, selectedOutputField, dispatchChartForm]);
+
+  useEffect(() => {
+    if (!isEditOutputOpen) return;
+    if (!availableFields.length) {
+      if (editOutputField) {
+        dispatchChartForm({ type: "set-edit-output-field", value: "" });
+      }
+      return;
+    }
+    if (!editOutputField || !availableFields.includes(editOutputField)) {
+      dispatchChartForm({ type: "set-edit-output-field", value: availableFields[0] });
+    }
+  }, [availableFields, editOutputField, isEditOutputOpen, dispatchChartForm]);
+
+  useEffect(() => {
+    if (!selectedOutputField) {
+      if (selectedOutputCase) {
+        dispatchChartForm({ type: "set-selected-output-case", value: "" });
+      }
+      return;
+    }
+    if (selectedOutputFieldType !== "text" && selectedOutputFieldType !== "list") {
+      if (selectedOutputCase) {
+        dispatchChartForm({ type: "set-selected-output-case", value: "" });
+      }
+      return;
+    }
+    const cases = normalizeCaseList(getChartCases?.(selectedOutputField));
+    if (!cases.length) {
+      if (selectedOutputCase) {
+        dispatchChartForm({ type: "set-selected-output-case", value: "" });
+      }
+      return;
+    }
+    const current = selectedOutputCase.trim().toLowerCase();
+    const matched = current
+      ? cases.find((item) => item.toLowerCase() === current)
+      : null;
+    if (!matched) {
+      dispatchChartForm({ type: "set-selected-output-case", value: cases[0] });
+    } else if (matched !== selectedOutputCase) {
+      dispatchChartForm({ type: "set-selected-output-case", value: matched });
+    }
+  }, [
+    selectedOutputField,
+    selectedOutputFieldType,
+    selectedOutputCase,
+    getChartCases,
+    dispatchChartForm,
+  ]);
+
+  useEffect(() => {
+    if (!isEditOutputOpen) return;
+    if (!editOutputField) {
+      if (editOutputCase) {
+        dispatchChartForm({ type: "set-edit-output-case", value: "" });
+      }
+      return;
+    }
+    if (editOutputFieldType !== "text" && editOutputFieldType !== "list") {
+      if (editOutputCase) {
+        dispatchChartForm({ type: "set-edit-output-case", value: "" });
+      }
+      return;
+    }
+    const cases = normalizeCaseList(getChartCases?.(editOutputField));
+    if (!cases.length) {
+      if (editOutputCase) {
+        dispatchChartForm({ type: "set-edit-output-case", value: "" });
+      }
+      return;
+    }
+    const current = editOutputCase.trim().toLowerCase();
+    const matched = current ? cases.find((item) => item.toLowerCase() === current) : null;
+    if (!matched) {
+      dispatchChartForm({ type: "set-edit-output-case", value: cases[0] });
+    } else if (matched !== editOutputCase) {
+      dispatchChartForm({ type: "set-edit-output-case", value: matched });
+    }
+  }, [
+    isEditOutputOpen,
+    editOutputField,
+    editOutputFieldType,
+    editOutputCase,
+    getChartCases,
+    dispatchChartForm,
+  ]);
+
   return {
     canAddChart,
     editFieldType,
+    selectedOutputFieldType,
+    editOutputFieldType,
     selectedLineField,
     selectedLineFieldType,
     isSelectedLineText,
@@ -210,6 +331,8 @@ export const useChartFormControls = ({
     setSelectedChartType,
     setSelectedOutputType,
     setSelectedOutputValueType,
+    setSelectedOutputField,
+    setSelectedOutputCase,
     setSelectedField,
     setSelectedMin,
     setSelectedMax,
@@ -224,6 +347,8 @@ export const useChartFormControls = ({
     setSelectedPieShowLabels,
     setEditName,
     setEditOutputName,
+    setEditOutputField,
+    setEditOutputCase,
     setEditField,
     setEditMin,
     setEditMax,

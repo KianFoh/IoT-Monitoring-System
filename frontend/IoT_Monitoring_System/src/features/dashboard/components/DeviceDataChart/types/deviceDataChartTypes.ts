@@ -3,7 +3,7 @@ export type DisplayOption<T extends string> = {
   label: string;
 };
 
-export type DataFieldType = "number" | "text" | "list";
+export type DataFieldType = "number" | "text" | "list" | "boolean";
 
 export type ChartType = "meter" | "line" | "area" | "pie" | "stat" | "bar" | "button";
 
@@ -99,6 +99,13 @@ export type DeviceDataChartProps<T extends string> = {
   getChartColor?: (field: string) => string;
   getChartCases?: (field: string) => string[] | null | undefined;
   getChartCaseColors?: (field: string) => Record<string, string> | null | undefined;
+  getChartBooleanColors?: (
+    field: string
+  ) => { trueColor?: string; falseColor?: string } | null | undefined;
+  getChartBooleanLabels?: (
+    field: string
+  ) => { trueLabel?: string; falseLabel?: string } | null | undefined;
+  onOutputSend?: (field: string, value: string | number | boolean) => void;
   onFilterModeChange?: (value: ChartFilterMode) => void;
   rawTimestamp?: Date | null;
   savedCharts?: ChartItemConfig[];

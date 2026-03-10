@@ -6,7 +6,7 @@ import DropdownSelect from "../../components/DropdownSelect/DropdownSelect";
 import formStyles from "../../components/DashboardForm/DashboardForm.module.css";
 import inputStyles from "@/components/Input/Input.module.css";
 
-type FieldTypeOption = { value: "number" | "text" | "list"; label: string };
+type FieldTypeOption = { value: "number" | "text" | "list" | "boolean"; label: string };
 type CaseItem = { id: string; label: string; color: string };
 
 const DEFAULT_FIELD_COLOR = "#c7ddff";
@@ -58,10 +58,18 @@ type DeviceDashboardPanelState = {
     setLabel: (value: string) => void;
     unit: string;
     setUnit: (value: string) => void;
-    type: "number" | "text" | "list";
-    setType: (value: "number" | "text" | "list") => void;
+    type: "number" | "text" | "list" | "boolean";
+    setType: (value: "number" | "text" | "list" | "boolean") => void;
     color: string;
     setColor: (value: string) => void;
+    trueLabel: string;
+    setTrueLabel: (value: string) => void;
+    falseLabel: string;
+    setFalseLabel: (value: string) => void;
+    trueColor: string;
+    setTrueColor: (value: string) => void;
+    falseColor: string;
+    setFalseColor: (value: string) => void;
     caseItems: CaseItem[];
     setCaseItems: (value: CaseItem[] | ((prev: CaseItem[]) => CaseItem[])) => void;
     saving: boolean;
@@ -75,10 +83,18 @@ type DeviceDashboardPanelState = {
     setLabel: (value: string) => void;
     unit: string;
     setUnit: (value: string) => void;
-    type: "number" | "text" | "list";
-    setType: (value: "number" | "text" | "list") => void;
+    type: "number" | "text" | "list" | "boolean";
+    setType: (value: "number" | "text" | "list" | "boolean") => void;
     color: string;
     setColor: (value: string) => void;
+    trueLabel: string;
+    setTrueLabel: (value: string) => void;
+    falseLabel: string;
+    setFalseLabel: (value: string) => void;
+    trueColor: string;
+    setTrueColor: (value: string) => void;
+    falseColor: string;
+    setFalseColor: (value: string) => void;
     caseItems: CaseItem[];
     setCaseItems: (value: CaseItem[] | ((prev: CaseItem[]) => CaseItem[])) => void;
     saving: boolean;
@@ -111,6 +127,10 @@ export function DeviceDashboardPageModals({
   const { panel, fieldTypeOptions } = modalState;
   const editColorPicker = toPickerColor(panel.edit.color);
   const newFieldColorPicker = toPickerColor(panel.addField.color);
+  const editTrueColorPicker = toPickerColor(panel.edit.trueColor);
+  const editFalseColorPicker = toPickerColor(panel.edit.falseColor);
+  const newTrueColorPicker = toPickerColor(panel.addField.trueColor);
+  const newFalseColorPicker = toPickerColor(panel.addField.falseColor);
   const editCaseCount = panel.edit.caseItems.filter((item) => item.label.trim()).length;
   const newCaseCount = panel.addField.caseItems.filter((item) => item.label.trim()).length;
   const isCaseConfigOpen = panel.caseConfig.mode !== null;
@@ -185,13 +205,15 @@ export function DeviceDashboardPageModals({
               />
             </div>
           </div>
-          <Input
-            id="device-field-unit"
-            label="Unit"
-            placeholder="Enter Unit"
-            value={panel.edit.unit}
-            onChange={(event) => panel.edit.setUnit(event.target.value)}
-          />
+          {panel.edit.type !== "boolean" && (
+            <Input
+              id="device-field-unit"
+              label="Unit"
+              placeholder="Enter Unit"
+              value={panel.edit.unit}
+              onChange={(event) => panel.edit.setUnit(event.target.value)}
+            />
+          )}
           <DropdownSelect
             id="device-field-type"
             label="Field type"
@@ -199,6 +221,60 @@ export function DeviceDashboardPageModals({
             options={fieldTypeOptions}
             onChange={(value) => panel.edit.setType(value)}
           />
+          {panel.edit.type === "boolean" && (
+            <>
+              <div className={formStyles["dashboard-modal-field"]}>
+                <label
+                  className={inputStyles["gen-inputLabel"]}
+                  htmlFor="device-field-true-label"
+                >
+                  True label
+                </label>
+                <div className={formStyles["dashboard-label-row"]}>
+                  <Input
+                    id="device-field-true-label"
+                    placeholder="e.g. On"
+                    value={panel.edit.trueLabel}
+                    onChange={(event) => panel.edit.setTrueLabel(event.target.value)}
+                    groupClassName={formStyles["dashboard-label-field"]}
+                    inputClassName={formStyles["dashboard-label-input"]}
+                  />
+                  <input
+                    type="color"
+                    className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                    value={editTrueColorPicker}
+                    onChange={(event) => panel.edit.setTrueColor(hexToRgb(event.target.value))}
+                    aria-label="True color picker"
+                  />
+                </div>
+              </div>
+              <div className={formStyles["dashboard-modal-field"]}>
+                <label
+                  className={inputStyles["gen-inputLabel"]}
+                  htmlFor="device-field-false-label"
+                >
+                  False label
+                </label>
+                <div className={formStyles["dashboard-label-row"]}>
+                  <Input
+                    id="device-field-false-label"
+                    placeholder="e.g. Off"
+                    value={panel.edit.falseLabel}
+                    onChange={(event) => panel.edit.setFalseLabel(event.target.value)}
+                    groupClassName={formStyles["dashboard-label-field"]}
+                    inputClassName={formStyles["dashboard-label-input"]}
+                  />
+                  <input
+                    type="color"
+                    className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                    value={editFalseColorPicker}
+                    onChange={(event) => panel.edit.setFalseColor(hexToRgb(event.target.value))}
+                    aria-label="False color picker"
+                  />
+                </div>
+              </div>
+            </>
+          )}
           {(panel.edit.type === "text" || panel.edit.type === "list") && (
             <div className={formStyles["dashboard-modal-field"]}>
               <label className={inputStyles["gen-inputLabel"]}>Cases (Optional)</label>
@@ -263,13 +339,15 @@ export function DeviceDashboardPageModals({
               />
             </div>
           </div>
-          <Input
-            id="device-data-field-unit"
-            label="Unit (optional)"
-            placeholder="e.g. C"
-            value={panel.addField.unit}
-            onChange={(event) => panel.addField.setUnit(event.target.value)}
-          />
+          {panel.addField.type !== "boolean" && (
+            <Input
+              id="device-data-field-unit"
+              label="Unit (optional)"
+              placeholder="e.g. C"
+              value={panel.addField.unit}
+              onChange={(event) => panel.addField.setUnit(event.target.value)}
+            />
+          )}
           <DropdownSelect
             id="device-data-field-type"
             label="Field type"
@@ -277,6 +355,60 @@ export function DeviceDashboardPageModals({
             options={fieldTypeOptions}
             onChange={(value) => panel.addField.setType(value)}
           />
+          {panel.addField.type === "boolean" && (
+            <>
+              <div className={formStyles["dashboard-modal-field"]}>
+                <label
+                  className={inputStyles["gen-inputLabel"]}
+                  htmlFor="device-data-field-true-label"
+                >
+                  True label
+                </label>
+                <div className={formStyles["dashboard-label-row"]}>
+                  <Input
+                    id="device-data-field-true-label"
+                    placeholder="e.g. On"
+                    value={panel.addField.trueLabel}
+                    onChange={(event) => panel.addField.setTrueLabel(event.target.value)}
+                    groupClassName={formStyles["dashboard-label-field"]}
+                    inputClassName={formStyles["dashboard-label-input"]}
+                  />
+                  <input
+                    type="color"
+                    className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                    value={newTrueColorPicker}
+                    onChange={(event) => panel.addField.setTrueColor(hexToRgb(event.target.value))}
+                    aria-label="True color picker"
+                  />
+                </div>
+              </div>
+              <div className={formStyles["dashboard-modal-field"]}>
+                <label
+                  className={inputStyles["gen-inputLabel"]}
+                  htmlFor="device-data-field-false-label"
+                >
+                  False label
+                </label>
+                <div className={formStyles["dashboard-label-row"]}>
+                  <Input
+                    id="device-data-field-false-label"
+                    placeholder="e.g. Off"
+                    value={panel.addField.falseLabel}
+                    onChange={(event) => panel.addField.setFalseLabel(event.target.value)}
+                    groupClassName={formStyles["dashboard-label-field"]}
+                    inputClassName={formStyles["dashboard-label-input"]}
+                  />
+                  <input
+                    type="color"
+                    className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                    value={newFalseColorPicker}
+                    onChange={(event) => panel.addField.setFalseColor(hexToRgb(event.target.value))}
+                    aria-label="False color picker"
+                  />
+                </div>
+              </div>
+            </>
+          )}
           {(panel.addField.type === "text" || panel.addField.type === "list") && (
             <div className={formStyles["dashboard-modal-field"]}>
               <label className={inputStyles["gen-inputLabel"]}>Cases (Optional)</label>

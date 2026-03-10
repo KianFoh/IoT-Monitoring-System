@@ -1,4 +1,4 @@
-import { type Ref, useEffect, useMemo, useReducer, useState } from "react";
+import { type Ref, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { FaChevronDown, FaChevronRight, FaEllipsisV } from "react-icons/fa";
 import {
   GridLayout,
@@ -44,7 +44,7 @@ import {
   isSectionKey,
   normalizeChart,
 } from "./utils/deviceDataChartUtils";
-import { getRangeGranularity } from "./utils/deviceChartHelpers";
+import { getRangeGranularity, normalizeCaseList } from "./utils/deviceChartHelpers";
 
 const getRangeRefreshSpec = (granularity: LineGranularity) => {
   switch (granularity) {
@@ -92,6 +92,9 @@ export function DeviceDataChart<T extends string>({
   getChartColor,
   getChartCases,
   getChartCaseColors,
+  getChartBooleanColors,
+  getChartBooleanLabels,
+  onOutputSend,
   onFilterModeChange,
   rawTimestamp,
   savedCharts = [],
@@ -122,6 +125,8 @@ export function DeviceDataChart<T extends string>({
   const [rangeRefreshMs, setRangeRefreshMs] = useState<number>(5000);
   const [chartViewToken, setChartViewToken] = useState(0);
   const [observedWidth, setObservedWidth] = useState<number | null>(null);
+  const [frozenValues, setFrozenValues] = useState<Record<string, unknown> | null>(null);
+  const wasEditingRef = useRef(false);
   const maxRawGapMs = useMemo(() => {
     if (typeof dataIntervalSeconds !== "number" || !Number.isFinite(dataIntervalSeconds)) {
       return null;
@@ -138,6 +143,8 @@ export function DeviceDataChart<T extends string>({
     selectedChartType,
     selectedOutputType,
     selectedOutputValueType,
+    selectedOutputField,
+    selectedOutputCase,
     selectedField,
     selectedMin,
     selectedMax,
@@ -160,6 +167,8 @@ export function DeviceDataChart<T extends string>({
     editingOutputType,
     editName,
     editOutputName,
+    editOutputField,
+    editOutputCase,
     editField,
     editMin,
     editMax,
@@ -196,6 +205,7 @@ export function DeviceDataChart<T extends string>({
     timeEnd,
     rangeRefreshMs,
     getChartType,
+    suspendLive: isEditing,
   });
   const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
   const { width, containerRef, measureWidth, mounted } = useContainerWidth({
@@ -236,6 +246,8 @@ export function DeviceDataChart<T extends string>({
   );
   const {
     canAddChart,
+    selectedOutputFieldType,
+    editOutputFieldType,
     selectedLineFieldType,
     isSelectedLineList,
     hideLineNumericInputsInAdd,
@@ -244,6 +256,8 @@ export function DeviceDataChart<T extends string>({
     setSelectedChartType,
     setSelectedOutputType,
     setSelectedOutputValueType,
+    setSelectedOutputField,
+    setSelectedOutputCase,
     setSelectedField,
     setSelectedMin,
     setSelectedMax,
@@ -258,6 +272,8 @@ export function DeviceDataChart<T extends string>({
     setSelectedPieShowLabels,
     setEditName,
     setEditOutputName,
+    setEditOutputField,
+    setEditOutputCase,
     setEditField,
     setEditMin,
     setEditMax,
@@ -281,10 +297,61 @@ export function DeviceDataChart<T extends string>({
     meterAllowedFields,
     listAllowedFields,
     getChartType,
+    getChartCases,
     disabled,
     readOnly,
     onFilterModeChange,
   });
+  const selectedOutputCases = useMemo(
+    () => normalizeCaseList(getChartCases?.(selectedOutputField)),
+    [getChartCases, selectedOutputField]
+  );
+  const selectedOutputCaseOptions = useMemo(
+    () => selectedOutputCases.map((label) => ({ value: label, label })),
+    [selectedOutputCases]
+  );
+  const editOutputCases = useMemo(
+    () => normalizeCaseList(getChartCases?.(editOutputField)),
+    [getChartCases, editOutputField]
+  );
+  const editOutputCaseOptions = useMemo(
+    () => editOutputCases.map((label) => ({ value: label, label })),
+    [editOutputCases]
+  );
+  const requiresOutputCase =
+    selectedOutputFieldType === "text" || selectedOutputFieldType === "list";
+  const requiresEditOutputCase =
+    editOutputFieldType === "text" || editOutputFieldType === "list";
+  const canAddOutput = useMemo(() => {
+    if (disabled || readOnly) return false;
+    if (!selectedOutputField) return false;
+    if (!requiresOutputCase) return true;
+    if (!selectedOutputCaseOptions.length) return false;
+    return Boolean(selectedOutputCase.trim());
+  }, [
+    disabled,
+    readOnly,
+    selectedOutputField,
+    requiresOutputCase,
+    selectedOutputCaseOptions.length,
+    selectedOutputCase,
+  ]);
+  const canSaveOutput = useMemo(() => {
+    if (disabled || readOnly) return false;
+    if (!editOutputName.trim()) return false;
+    if (!editOutputField) return false;
+    if (!requiresEditOutputCase) return true;
+    if (!editOutputCaseOptions.length) return false;
+    return Boolean(editOutputCase.trim());
+  }, [
+    disabled,
+    readOnly,
+    editOutputName,
+    editOutputField,
+    requiresEditOutputCase,
+    editOutputCaseOptions.length,
+    editOutputCase,
+  ]);
   const {
     sectionsForRender,
     dragBounded,
@@ -354,6 +421,8 @@ export function DeviceDataChart<T extends string>({
     selectedChartType,
     selectedOutputType,
     selectedOutputValueType,
+    selectedOutputField,
+    selectedOutputCase,
     selectedField,
     selectedLineFields,
     selectedLineFieldType,
@@ -363,10 +432,10 @@ export function DeviceDataChart<T extends string>({
     selectedPieShowLabels,
     selectedMin,
     selectedMax,
-      selectedLineMin,
-      selectedLineMax,
-      selectedLineTicks,
-      selectedLineDecimals,
+    selectedLineMin,
+    selectedLineMax,
+    selectedLineTicks,
+    selectedLineDecimals,
     selectedStatFontSize,
     editingChartId,
     editingChartType,
@@ -374,13 +443,15 @@ export function DeviceDataChart<T extends string>({
     editingOutputType,
     editName,
     editOutputName,
+    editOutputField,
+    editOutputCase,
     editField,
-      editMin,
-      editMax,
-      editLineTicks,
-      editLineDecimals,
-      editStatFontSize,
-      editLineListMode,
+    editMin,
+    editMax,
+    editLineTicks,
+    editLineDecimals,
+    editStatFontSize,
+    editLineListMode,
     editBarOrientation,
     editBarRaceMode,
     editPieShowLabels,
@@ -444,6 +515,24 @@ export function DeviceDataChart<T extends string>({
       setIsEditing(false);
     }
   }, [readOnly, isEditing]);
+
+  useEffect(() => {
+    if (isEditing && !wasEditingRef.current) {
+      if (!getChartValue || !availableFields.length) {
+        setFrozenValues({});
+      } else {
+        const snapshot: Record<string, unknown> = {};
+        availableFields.forEach((field) => {
+          const value = getChartValue(field);
+          if (value !== undefined) snapshot[field] = value;
+        });
+        setFrozenValues(snapshot);
+      }
+    } else if (!isEditing && wasEditingRef.current) {
+      setFrozenValues(null);
+    }
+    wasEditingRef.current = isEditing;
+  }, [isEditing, availableFields, getChartValue]);
 
   useEffect(() => {
     if (filterMode !== "range") return;
@@ -570,6 +659,7 @@ export function DeviceDataChart<T extends string>({
         rawSeries={rawSeries}
         filteredRawData={filteredRawData}
         filteredLatestValues={filteredLatestValues}
+        frozenValues={frozenValues}
         zoomResetKey={zoomResetKey}
         getChartValue={getChartValue}
         getChartUnit={getChartUnit}
@@ -578,6 +668,11 @@ export function DeviceDataChart<T extends string>({
         getChartColor={getChartColor}
         getChartCases={getChartCases}
         getChartCaseColors={getChartCaseColors}
+        getChartBooleanColors={getChartBooleanColors}
+        getChartBooleanLabels={getChartBooleanLabels}
+        onOutputSend={onOutputSend}
+        disabled={disabled}
+        readOnly={readOnly}
       />
     </div>
   );
@@ -722,8 +817,15 @@ export function DeviceDataChart<T extends string>({
     isOpen: isAddOutputOpen,
     selectedOutputType,
     selectedOutputValueType,
+    selectedOutputField,
+    selectedOutputFieldType,
+    selectedOutputCase,
+    outputCaseOptions: selectedOutputCaseOptions,
+    canAddOutput,
     onSelectedOutputTypeChange: setSelectedOutputType,
     onSelectedOutputValueTypeChange: setSelectedOutputValueType,
+    onSelectedOutputFieldChange: setSelectedOutputField,
+    onSelectedOutputCaseChange: setSelectedOutputCase,
     onClose: handleCloseAddOutput,
     onAdd: handleAddOutput,
   };
@@ -731,9 +833,16 @@ export function DeviceDataChart<T extends string>({
     isOpen: isEditOutputOpen,
     editOutputName,
     editOutputValueType,
+    editOutputField,
+    editOutputFieldType,
+    editOutputCase,
+    editOutputCaseOptions,
     editingOutputType,
+    canSaveOutput,
     onEditOutputNameChange: setEditOutputName,
     onEditOutputValueTypeChange: setEditOutputValueType,
+    onEditOutputFieldChange: setEditOutputField,
+    onEditOutputCaseChange: setEditOutputCase,
     onClose: handleCloseEditOutput,
     onSave: handleSaveEditOutput,
   };
