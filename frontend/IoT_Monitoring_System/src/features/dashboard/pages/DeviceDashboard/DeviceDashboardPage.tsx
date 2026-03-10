@@ -102,6 +102,7 @@ export function DeviceDashboardPage() {
     getFieldCaseColors: panel.getters.getFieldCaseColors,
     onOpenFieldConfig: canEdit ? panel.actions.openFieldConfig : noop,
     onAddField: canEdit ? panel.actions.openAddField : noop,
+    onDuplicateField: canEdit ? panel.actions.duplicateField : undefined,
     onRemoveField: canEdit ? panel.actions.removeField : noop,
     onAddSection: canEdit ? panel.actions.addSection : noop,
     onRenameSection: canEdit ? panel.actions.renameSection : noop,

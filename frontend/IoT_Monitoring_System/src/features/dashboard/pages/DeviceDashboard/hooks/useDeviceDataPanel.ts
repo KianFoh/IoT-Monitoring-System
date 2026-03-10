@@ -97,6 +97,43 @@ const normalizeBooleanValue = (value: unknown) => {
   return null;
 };
 
+const normalizeFieldKey = (value: string) => value.trim().toLowerCase();
+
+const getDuplicateKeySeed = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return { base: "", start: 1 };
+  const match = /^(.*?)(\d+)$/.exec(trimmed);
+  if (!match || !match[1]) return { base: trimmed, start: 1 };
+  const base = match[1].trim() || trimmed;
+  const parsedStart = Number(match[2]);
+  const start = Number.isFinite(parsedStart) && parsedStart >= 0 ? parsedStart + 1 : 1;
+  return { base, start };
+};
+
+const buildDuplicateKey = (value: string, fields: string[]) => {
+  const { base, start } = getDuplicateKeySeed(value);
+  if (!base) return "";
+  const used = new Set(fields.map(normalizeFieldKey));
+  let index = Math.max(1, start);
+  let candidate = `${base}${index}`;
+  while (used.has(normalizeFieldKey(candidate))) {
+    index += 1;
+    candidate = `${base}${index}`;
+  }
+  return candidate;
+};
+
+const isDuplicateKey = (value: string, fields: string[], currentKey?: string | null) => {
+  const normalized = normalizeFieldKey(value);
+  if (!normalized) return false;
+  const currentNormalized = currentKey ? normalizeFieldKey(currentKey) : "";
+  return fields.some((field) => {
+    const fieldNormalized = normalizeFieldKey(field);
+    if (currentNormalized && fieldNormalized === currentNormalized) return false;
+    return fieldNormalized === normalized;
+  });
+};
+
 const clonePanelConfig = (config: DataPanelConfig) =>
   Object.fromEntries(
     Object.entries(config).map(([key, value]) => [key, { ...value }])
@@ -231,6 +268,7 @@ export function useDeviceDataPanel({
   const [editUnit, setEditUnit] = useState("");
   const [editType, setEditType] = useState<DataFieldType>("number");
   const [editColor, setEditColor] = useState("");
+  const [editKey, setEditKey] = useState("");
   const [editTrueLabel, setEditTrueLabel] = useState("");
   const [editFalseLabel, setEditFalseLabel] = useState("");
   const [editTrueColor, setEditTrueColor] = useState("");
@@ -260,6 +298,7 @@ export function useDeviceDataPanel({
     layout: PanelLayoutConfig;
     sections: PanelSection[];
   } | null>(null);
+  const fieldRenamesRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     setPanelFields([]);
@@ -271,6 +310,7 @@ export function useDeviceDataPanel({
     setEditUnit("");
     setEditType("number");
     setEditColor("");
+    setEditKey("");
     setEditTrueLabel("");
     setEditFalseLabel("");
     setEditTrueColor("");
@@ -295,6 +335,7 @@ export function useDeviceDataPanel({
     setPanelLayoutSaving(false);
     setPanelLayoutError(null);
     panelSnapshotRef.current = null;
+    fieldRenamesRef.current = {};
   }, [deviceUid]);
 
   useEffect(() => {
@@ -448,6 +489,7 @@ export function useDeviceDataPanel({
     setEditUnit(panelConfig[field]?.unit?.trim() || "");
     setEditType(panelConfig[field]?.type ?? "number");
     setEditColor(panelConfig[field]?.color?.trim() || "");
+    setEditKey(field);
     setEditTrueLabel(panelConfig[field]?.true_label?.trim() || "");
     setEditFalseLabel(panelConfig[field]?.false_label?.trim() || "");
     setEditTrueColor(panelConfig[field]?.true_color?.trim() || "");
@@ -464,6 +506,7 @@ export function useDeviceDataPanel({
     setEditUnit("");
     setEditType("number");
     setEditColor("");
+    setEditKey("");
     setEditTrueLabel("");
     setEditFalseLabel("");
     setEditTrueColor("");
@@ -485,10 +528,33 @@ export function useDeviceDataPanel({
     setCaseConfigMode(null);
   };
 
+  const recordFieldRename = (from: string, to: string) => {
+    if (from === to) return;
+    const next = { ...fieldRenamesRef.current };
+    Object.entries(next).forEach(([original, mapped]) => {
+      if (mapped === from) {
+        next[original] = to;
+      }
+    });
+    next[from] = to;
+    fieldRenamesRef.current = next;
+  };
+
   const handleSaveConfig = async () => {
     if (!device || !editingField) return;
     setConfigSaving(true);
     setConfigError(null);
+    const trimmedKey = editKey.trim();
+    if (!trimmedKey) {
+      setConfigSaving(false);
+      setConfigError("Data key is required.");
+      return;
+    }
+    if (isDuplicateKey(trimmedKey, panelFields, editingField)) {
+      setConfigSaving(false);
+      setConfigError("Data key already exists.");
+      return;
+    }
     const normalizedCases =
       editType === "text" || editType === "list" ? normalizeCaseItems(editCaseItems) : [];
     const nextCases = normalizedCases.length
@@ -515,20 +581,38 @@ export function useDeviceDataPanel({
             true_color: undefined,
             false_color: undefined,
           };
-    const nextConfig: DataPanelConfig = {
-      ...panelConfig,
-      [editingField]: {
-        ...(panelConfig[editingField] ?? {}),
-        label: editLabel.trim() || editingField,
-        unit: editType === "boolean" ? undefined : editUnit.trim() || undefined,
-        type: editType,
-        color: editColor.trim() || undefined,
-        cases: nextCases,
-        case_colors: caseColors,
-        ...booleanConfig,
-      },
+    const nextEntry = {
+      ...(panelConfig[editingField] ?? {}),
+      label: editLabel.trim() || trimmedKey,
+      unit: editType === "boolean" ? undefined : editUnit.trim() || undefined,
+      type: editType,
+      color: editColor.trim() || undefined,
+      cases: nextCases,
+      case_colors: caseColors,
+      ...booleanConfig,
     };
-    const cleanedConfig = cleanPanelConfig(panelFields, nextConfig);
+    if (trimmedKey !== editingField) {
+      recordFieldRename(editingField, trimmedKey);
+    }
+    const nextFields =
+      trimmedKey === editingField
+        ? panelFields
+        : panelFields.map((field) => (field === editingField ? trimmedKey : field));
+    const nextConfig: DataPanelConfig =
+      trimmedKey === editingField
+        ? {
+            ...panelConfig,
+            [editingField]: nextEntry,
+          }
+        : (() => {
+            const { [editingField]: _removed, ...rest } = panelConfig;
+            return {
+              ...rest,
+              [trimmedKey]: nextEntry,
+            } as DataPanelConfig;
+          })();
+    const cleanedConfig = cleanPanelConfig(nextFields, nextConfig);
+    setPanelFields(nextFields);
     setPanelConfig(cleanedConfig);
     setEditingField(null);
     setConfigSaving(false);
@@ -577,9 +661,7 @@ export function useDeviceDataPanel({
       setAddFieldError("Data key is required.");
       return;
     }
-    const duplicate = panelFields.some(
-      (field) => field.trim().toLowerCase() === trimmedKey.toLowerCase()
-    );
+    const duplicate = isDuplicateKey(trimmedKey, panelFields);
     if (duplicate) {
       setAddFieldError("Data key already exists.");
       return;
@@ -637,6 +719,26 @@ export function useDeviceDataPanel({
     setAddFieldSaving(false);
   };
 
+  const duplicateField = (field: string) => {
+    if (!panelFields.includes(field)) return;
+    const duplicateKey = buildDuplicateKey(field, panelFields);
+    if (!duplicateKey) return;
+    const source = panelConfig[field] ?? {};
+    const nextFields = [...panelFields, duplicateKey];
+    const nextConfig: DataPanelConfig = {
+      ...panelConfig,
+      [duplicateKey]: {
+        ...source,
+        label: source.label?.trim() || field,
+        cases: Array.isArray(source.cases) ? [...source.cases] : source.cases,
+        case_colors: source.case_colors ? { ...source.case_colors } : source.case_colors,
+      },
+    };
+    const cleanedConfig = cleanPanelConfig(nextFields, nextConfig);
+    setPanelFields(nextFields);
+    setPanelConfig(cleanedConfig);
+  };
+
   const addSection = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -691,6 +793,7 @@ export function useDeviceDataPanel({
       layout: clonePanelLayout(panelLayout),
       sections: panelSections.map((section) => ({ ...section })),
     };
+    fieldRenamesRef.current = {};
     setConfigError(null);
     setAddFieldError(null);
   };
@@ -704,6 +807,7 @@ export function useDeviceDataPanel({
       setPanelSections(snapshot.sections.map((section) => ({ ...section })));
     }
     panelSnapshotRef.current = null;
+    fieldRenamesRef.current = {};
     closeAddField();
     closeFieldConfig();
     setConfigError(null);
@@ -748,8 +852,21 @@ export function useDeviceDataPanel({
     ) as DataPanelConfig;
     const currentConfig = normalizeDashboardConfig(device.dashboard_config);
     const chartItems = currentConfig.data_chart.items.filter(Boolean);
+    const renameMap = fieldRenamesRef.current;
+    const resolveRenamedField = (field: string) => renameMap[field] ?? field;
+    const renamedCharts = chartItems.map((chart) => {
+      const updatedField = chart.field ? resolveRenamedField(chart.field) : chart.field;
+      const updatedFields = Array.isArray(chart.fields)
+        ? chart.fields.map(resolveRenamedField)
+        : chart.fields;
+      return {
+        ...chart,
+        field: updatedField,
+        fields: updatedFields,
+      };
+    });
     const fieldSet = new Set(panelFields);
-    const remainingCharts = chartItems.filter((chart) => {
+    const remainingCharts = renamedCharts.filter((chart) => {
       if (chart.field && !fieldSet.has(chart.field)) return false;
       if (Array.isArray(chart.fields) && chart.fields.some((field) => !fieldSet.has(field))) {
         return false;
@@ -774,6 +891,7 @@ export function useDeviceDataPanel({
         },
       });
       panelSnapshotRef.current = null;
+      fieldRenamesRef.current = {};
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to save data panel layout";
       setPanelLayoutError(message);
@@ -811,6 +929,7 @@ export function useDeviceDataPanel({
       closeFieldConfig,
       saveFieldConfig: handleSaveConfig,
       removeField: handleRemoveField,
+      duplicateField,
       openAddField,
       closeAddField,
       addField: handleAddField,
@@ -832,6 +951,8 @@ export function useDeviceDataPanel({
       setType: setEditType,
       color: editColor,
       setColor: setEditColor,
+      key: editKey,
+      setKey: setEditKey,
       trueLabel: editTrueLabel,
       setTrueLabel: setEditTrueLabel,
       falseLabel: editFalseLabel,

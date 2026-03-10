@@ -51,6 +51,7 @@ export type DeviceDataPanelProps<T extends string> = {
   getFieldCaseColors?: (field: string) => Record<string, string> | null;
   onOpenFieldConfig: (field: string) => void;
   onAddField: () => void;
+  onDuplicateField?: (field: string) => void;
   onRemoveField: (field: string) => void;
   onAddSection: (name: string) => void;
   onRenameSection: (sectionId: string, name: string) => void;

@@ -122,6 +122,7 @@ export function DeviceDataPanel<T extends string>({
   getFieldCaseColors,
   onOpenFieldConfig,
   onAddField,
+  onDuplicateField,
   onRemoveField,
   onAddSection,
   onRenameSection,
@@ -141,6 +142,7 @@ export function DeviceDataPanel<T extends string>({
   const [draftAssignments, setDraftAssignments] = useState<Record<string, string | null>>({});
   // Guard against layout updates triggered by props or effects vs user interactions.
   const isUserInteraction = useRef(false);
+  const previousFieldsRef = useRef<string[]>(panelFields);
   const currentAssignments = useMemo(() => {
     const map: Record<string, string | null> = {};
     panelFields.forEach((field) => {
@@ -210,10 +212,31 @@ export function DeviceDataPanel<T extends string>({
   }, [normalizedLayout, isLayoutEditing]);
 
   useEffect(() => {
-    if (!isLayoutEditing) return;
-    setDraftLayout((prev) =>
-      ensurePanelLayout(panelFields, panelSections, prev as PanelLayoutItem[]) as Layout
-    );
+    if (!isLayoutEditing) {
+      previousFieldsRef.current = panelFields;
+      return;
+    }
+    setDraftLayout((prev) => {
+      let nextLayout = prev as PanelLayoutItem[];
+      const previousFields = previousFieldsRef.current;
+      const removed = previousFields.filter((field) => !panelFields.includes(field));
+      const added = panelFields.filter((field) => !previousFields.includes(field));
+      if (removed.length === 1 && added.length === 1) {
+        const [from] = removed;
+        const [to] = added;
+        nextLayout = nextLayout.map((item) =>
+          item.i === from ? { ...item, i: to } : item
+        );
+        setDraftAssignments((prevAssignments) => {
+          if (!(from in prevAssignments)) return prevAssignments;
+          const nextAssignments = { ...prevAssignments, [to]: prevAssignments[from] ?? null };
+          delete nextAssignments[from];
+          return nextAssignments;
+        });
+      }
+      previousFieldsRef.current = panelFields;
+      return ensurePanelLayout(panelFields, panelSections, nextLayout) as Layout;
+    });
   }, [panelFields, panelSections, isLayoutEditing]);
 
   useEffect(() => {
@@ -467,6 +490,17 @@ export function DeviceDataPanel<T extends string>({
                     >
                       Edit
                     </button>
+                    {onDuplicateField && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveMenuField(null);
+                          onDuplicateField(field);
+                        }}
+                      >
+                        Duplicate
+                      </button>
+                    )}
                     <button
                       type="button"
                       className={styles["device-data-menu-remove"]}

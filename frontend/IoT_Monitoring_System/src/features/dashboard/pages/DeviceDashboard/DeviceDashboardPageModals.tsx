@@ -54,6 +54,8 @@ const hexToRgb = (hex: string) => {
 type DeviceDashboardPanelState = {
   edit: {
     field: string | null;
+    key: string;
+    setKey: (value: string) => void;
     label: string;
     setLabel: (value: string) => void;
     unit: string;
@@ -139,11 +141,12 @@ export function DeviceDashboardPageModals({
   const setActiveCaseItems = isEditCaseConfig
     ? panel.edit.setCaseItems
     : panel.addField.setCaseItems;
-  const activeFieldLabel = panel.edit.field ? `Configure ${panel.edit.field}` : "Configure field";
+  const activeFieldKey = panel.edit.key?.trim() || panel.edit.field || "";
+  const activeFieldLabel = activeFieldKey ? `Configure ${activeFieldKey}` : "Configure field";
   const newCaseFieldName =
     panel.addField.label.trim() || panel.addField.key.trim() || "new field";
   const caseConfigTitle = isEditCaseConfig
-    ? `Cases for ${panel.edit.field ?? "field"}`
+    ? `Cases for ${panel.edit.key?.trim() || panel.edit.field || "field"}`
     : `Cases for ${newCaseFieldName}`;
   const createCaseItem = (): CaseItem => ({
     id: `case-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -180,8 +183,8 @@ export function DeviceDashboardPageModals({
             id="device-field-key"
             label="Data key"
             placeholder="Enter data key"
-            value={panel.edit.field ?? ""}
-            disabled
+            value={panel.edit.key}
+            onChange={(event) => panel.edit.setKey(event.target.value)}
           />
           <div className={formStyles["dashboard-modal-field"]}>
             <label className={inputStyles["gen-inputLabel"]} htmlFor="device-field-label">
