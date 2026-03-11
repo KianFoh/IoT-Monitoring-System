@@ -30,6 +30,7 @@ type UseDeviceChartDataParams = {
   rangeRefreshMs: number;
   getChartType?: (field: string) => DataFieldType;
   suspendLive?: boolean;
+  suspendRange?: boolean;
 };
 
 const LINE_BUFFER_LIMIT = 20;
@@ -128,6 +129,7 @@ export const useDeviceChartData = ({
   rangeRefreshMs,
   getChartType,
   suspendLive = false,
+  suspendRange = false,
 }: UseDeviceChartDataParams) => {
   const [rawSeries, setRawSeries] = useState<Array<{ ts: number; data: Record<string, unknown> }>>(
     []
@@ -211,6 +213,9 @@ export const useDeviceChartData = ({
     if (filterMode === "raw") {
       setFilteredRawData([]);
       setFilteredLatestValues({});
+      return;
+    }
+    if (filterMode === "range" && suspendRange) {
       return;
     }
     if (!deviceUid) {
@@ -300,13 +305,14 @@ export const useDeviceChartData = ({
 
   useEffect(() => {
     if (filterMode !== "range") return;
+    if (suspendRange) return;
     if (!deviceUid) return;
     if (!Number.isFinite(rangeRefreshMs) || rangeRefreshMs <= 0) return;
     const intervalId = window.setInterval(() => {
       setRangeRefreshToken((prev) => prev + 1);
     }, rangeRefreshMs);
     return () => window.clearInterval(intervalId);
-  }, [filterMode, deviceUid, rangeRefreshMs]);
+  }, [filterMode, deviceUid, rangeRefreshMs, suspendRange]);
 
   return { rawSeries, filteredRawData, filteredLatestValues };
 };

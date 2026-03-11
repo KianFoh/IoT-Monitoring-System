@@ -206,6 +206,7 @@ export function DeviceDataChart<T extends string>({
     rangeRefreshMs,
     getChartType,
     suspendLive: isEditing,
+    suspendRange: isEditing,
   });
   const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
   const { width, containerRef, measureWidth, mounted } = useContainerWidth({
