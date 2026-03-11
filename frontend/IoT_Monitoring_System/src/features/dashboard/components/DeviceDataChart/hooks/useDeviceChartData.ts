@@ -35,6 +35,47 @@ type UseDeviceChartDataParams = {
 
 const LINE_BUFFER_LIMIT = 20;
 
+const toBucketEnd = (value: string, granularity: LineGranularity) => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  const end = new Date(date.getTime());
+  switch (granularity) {
+    case "sec":
+      end.setMilliseconds(999);
+      return end;
+    case "minute":
+      end.setSeconds(59, 999);
+      return end;
+    case "hour":
+      end.setMinutes(59, 59, 999);
+      return end;
+    case "day":
+      end.setHours(23, 59, 59, 999);
+      return end;
+    case "week": {
+      const day = end.getDay();
+      const diffToMonday = (day + 6) % 7;
+      const monday = new Date(end.getTime());
+      monday.setDate(end.getDate() - diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+      const sunday = new Date(monday.getTime());
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+      return sunday;
+    }
+    case "month": {
+      const monthEnd = new Date(end.getFullYear(), end.getMonth() + 1, 0, 23, 59, 59, 999);
+      return monthEnd;
+    }
+    case "year": {
+      const yearEnd = new Date(end.getFullYear(), 11, 31, 23, 59, 59, 999);
+      return yearEnd;
+    }
+    default:
+      return end;
+  }
+};
+
 const buildRangeWindow = (preset: ChartRangePreset) => {
   const end = new Date();
   const start = new Date(end.getTime());
@@ -245,6 +286,13 @@ export const useDeviceChartData = ({
       params.start = customWindow.start;
       params.end = customWindow.end;
       params.granularity = customWindow.granularity;
+    }
+
+    if (params.end && params.granularity) {
+      const endBucket = toBucketEnd(params.end, params.granularity as LineGranularity);
+      if (endBucket) {
+        params.end = endBucket.toISOString();
+      }
     }
 
     devicesApi

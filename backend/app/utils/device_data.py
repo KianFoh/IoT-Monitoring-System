@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -12,11 +12,15 @@ _AGGREGATION_DATE_FORMATS = {
     "year": "%Y",
 }
 
+_MIN_AWARE = datetime.min.replace(tzinfo=timezone.utc)
+
 
 def normalize_field_type(value: Any) -> str:
     if not isinstance(value, str):
         return "text"
     normalized = value.strip().lower()
+    if normalized in {"boolean", "bool"}:
+        return "boolean"
     if normalized in {"list", "array"}:
         return "list"
     if normalized in {"number", "numeric", "float", "int"}:
@@ -50,13 +54,68 @@ def extract_panel_fields_and_config(
 
 def _coerce_datetime(value: Any) -> Optional[datetime]:
     if isinstance(value, datetime):
-        return value
+        return _normalize_datetime(value)
     if isinstance(value, str):
         try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return _normalize_datetime(parsed)
         except ValueError:
             return None
     return None
+
+
+def _normalize_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _floor_datetime(value: datetime, granularity: str) -> datetime:
+    tzinfo = value.tzinfo
+    if granularity in {"sec", "second"}:
+        return value.replace(microsecond=0)
+    if granularity == "minute":
+        return value.replace(second=0, microsecond=0)
+    if granularity == "hour":
+        return value.replace(minute=0, second=0, microsecond=0)
+    if granularity == "day":
+        return value.replace(hour=0, minute=0, second=0, microsecond=0)
+    if granularity == "week":
+        iso = value.isocalendar()
+        week_start = datetime.fromisocalendar(iso.year, iso.week, 1)
+        return week_start.replace(tzinfo=tzinfo)
+    if granularity == "month":
+        return datetime(value.year, value.month, 1, tzinfo=tzinfo)
+    if granularity == "year":
+        return datetime(value.year, 1, 1, tzinfo=tzinfo)
+    return value.replace(microsecond=0)
+
+
+def _advance_datetime(value: datetime, granularity: str) -> datetime:
+    if granularity in {"sec", "second"}:
+        return value + timedelta(seconds=1)
+    if granularity == "minute":
+        return value + timedelta(minutes=1)
+    if granularity == "hour":
+        return value + timedelta(hours=1)
+    if granularity == "day":
+        return value + timedelta(days=1)
+    if granularity == "week":
+        return value + timedelta(weeks=1)
+    if granularity == "month":
+        year = value.year + (value.month // 12)
+        month = 1 if value.month == 12 else value.month + 1
+        return datetime(year, month, 1, tzinfo=value.tzinfo)
+    if granularity == "year":
+        return datetime(value.year + 1, 1, 1, tzinfo=value.tzinfo)
+    return value + timedelta(seconds=1)
+
+
+def _align_range_start(value: datetime, granularity: str) -> datetime:
+    floored = _floor_datetime(value, granularity)
+    if floored < value:
+        return _advance_datetime(floored, granularity)
+    return floored
 
 
 def _coerce_number(value: Any) -> Optional[float]:
@@ -83,6 +142,10 @@ def _bucket_key_and_id(ts: datetime, granularity: str) -> Tuple[Tuple[Any, ...],
         raise ValueError(f"Unsupported granularity: {granularity}")
     bucket_value = ts.strftime(fmt)
     return (granularity, bucket_value), {"bucket": bucket_value}
+
+
+def _bucket_start(ts: datetime, granularity: str) -> datetime:
+    return _floor_datetime(ts, granularity)
 
 
 def _update_list_counts(counts: Dict[str, float], value: Any) -> None:
@@ -121,15 +184,13 @@ def aggregate_device_data(
             bucket = {
                 "_id": bucket_id,
                 "device_id": doc.get("device_id"),
-                "ts": ts,
+                "ts": _bucket_start(ts, granularity),
                 "_number": {},
                 "_text": {},
                 "_list": {},
             }
             buckets[bucket_key] = bucket
         else:
-            if ts > bucket["ts"]:
-                bucket["ts"] = ts
             if not bucket.get("device_id"):
                 bucket["device_id"] = doc.get("device_id")
 
@@ -180,7 +241,10 @@ def aggregate_device_data(
             }
         )
 
-    results.sort(key=lambda item: item.get("ts") or datetime.min, reverse=True)
+    results.sort(
+        key=lambda item: _coerce_datetime(item.get("ts") or item.get("_ts")) or _MIN_AWARE,
+        reverse=True,
+    )
     return results
 
 
@@ -197,3 +261,153 @@ def filter_raw_data(docs: List[dict], field_set: set[str]) -> List[dict]:
         next_doc["data"] = filtered_data
         filtered.append(next_doc)
     return filtered
+
+
+def build_seed_values(
+    docs: List[dict],
+    field_types: Dict[str, str],
+) -> Dict[str, Any]:
+    if not docs:
+        return {}
+    fill_fields = [
+        field
+        for field, field_type in field_types.items()
+        if field_type in {"text", "boolean"}
+    ]
+    if not fill_fields:
+        return {}
+    seed: Dict[str, Any] = {}
+    for doc in docs:
+        data = doc.get("data")
+        if not isinstance(data, dict):
+            continue
+        for field in fill_fields:
+            if field in seed:
+                continue
+            if field not in data:
+                continue
+            value = data.get(field)
+            if value is None:
+                continue
+            seed[field] = value
+        if len(seed) == len(fill_fields):
+            break
+    return seed
+
+
+def fill_missing_state(
+    docs: List[dict],
+    field_types: Dict[str, str],
+    seed_values: Optional[Dict[str, Any]] = None,
+) -> List[dict]:
+    if not docs:
+        return docs
+    fill_fields = [
+        field
+        for field, field_type in field_types.items()
+        if field_type in {"text", "boolean"}
+    ]
+    if not fill_fields:
+        return docs
+    ordered = sorted(
+        docs,
+        key=lambda item: _coerce_datetime(item.get("ts") or item.get("_ts")) or _MIN_AWARE,
+    )
+    last_values: Dict[str, Any] = dict(seed_values or {})
+    for doc in ordered:
+        data = doc.get("data")
+        if not isinstance(data, dict):
+            continue
+        for field in fill_fields:
+            if field in data:
+                value = data.get(field)
+                if value is None:
+                    if field in last_values:
+                        data[field] = last_values[field]
+                else:
+                    last_values[field] = value
+                continue
+            if field in last_values:
+                data[field] = last_values[field]
+        doc["data"] = data
+    ordered.sort(
+        key=lambda item: _coerce_datetime(item.get("ts") or item.get("_ts")) or _MIN_AWARE,
+        reverse=True,
+    )
+    return ordered
+
+
+def densify_device_data(
+    docs: List[dict],
+    field_types: Dict[str, str],
+    granularity: str,
+    start: datetime,
+    end: datetime,
+    device_id: Optional[str] = None,
+    seed_values: Optional[Dict[str, Any]] = None,
+) -> List[dict]:
+    if start is None or end is None:
+        return fill_missing_state(docs, field_types, seed_values)
+    start = _normalize_datetime(start)
+    end = _normalize_datetime(end)
+    fill_fields = [
+        field
+        for field, field_type in field_types.items()
+        if field_type in {"text", "boolean"}
+    ]
+    if not fill_fields:
+        return docs
+
+    existing: Dict[Tuple[Any, ...], dict] = {}
+    for doc in docs:
+        ts = _coerce_datetime(doc.get("ts") or doc.get("_ts"))
+        if not ts:
+            continue
+        bucket_key, _ = _bucket_key_and_id(ts, granularity)
+        existing[bucket_key] = doc
+
+    cursor = _align_range_start(start, granularity)
+    end_cursor = _floor_datetime(end, granularity)
+    last_values: Dict[str, Any] = dict(seed_values or {})
+    dense: List[dict] = []
+
+    while cursor <= end_cursor:
+        bucket_key, bucket_id = _bucket_key_and_id(cursor, granularity)
+        current = existing.get(bucket_key)
+        if current:
+            data = current.get("data")
+            if not isinstance(data, dict):
+                data = {}
+            else:
+                data = dict(data)
+            entry = dict(current)
+        else:
+            data = {}
+            entry = {
+                "_id": bucket_id,
+                "device_id": device_id,
+                "ts": cursor,
+                "data": data,
+            }
+
+        for field in fill_fields:
+            if field in data:
+                value = data.get(field)
+                if value is None:
+                    if field in last_values:
+                        data[field] = last_values[field]
+                else:
+                    last_values[field] = value
+                continue
+            if field in last_values:
+                data[field] = last_values[field]
+
+        entry["data"] = data
+        dense.append(entry)
+        cursor = _advance_datetime(cursor, granularity)
+
+    dense.sort(
+        key=lambda item: _coerce_datetime(item.get("ts") or item.get("_ts")) or _MIN_AWARE,
+        reverse=True,
+    )
+    return dense

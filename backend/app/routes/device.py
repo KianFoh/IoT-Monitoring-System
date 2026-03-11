@@ -12,7 +12,10 @@ from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRece
 from app.models.enum.user_role import UserRole
 from app.utils.device_data import (
     aggregate_device_data,
+    build_seed_values,
+    densify_device_data,
     extract_panel_fields_and_config,
+    fill_missing_state,
     filter_raw_data,
     normalize_field_type,
 )
@@ -396,9 +399,46 @@ def fetch_device_data(
     if not raw_data:
         return []
 
+    seed_values = {}
+    if start:
+        seed_docs = device_data_crud.get_by_uid(
+            device_uid,
+            start=None,
+            end=start,
+            granularity=None,
+            limit=500,
+        )
+        seed_values = build_seed_values(seed_docs, field_types)
+    fill_fields = [field for field, field_type in field_types.items() if field_type in {"text", "boolean"}]
+    if fill_fields:
+        latest_doc = device_data_crud.get_latest_by_uid(device_uid)
+        if latest_doc:
+            latest_data = latest_doc.get("data")
+            if isinstance(latest_data, dict):
+                for field in fill_fields:
+                    if field in seed_values:
+                        continue
+                    value = latest_data.get(field)
+                    if value is None:
+                        continue
+                    seed_values[field] = value
+
     if not selected_granularity:
         filtered = filter_raw_data(raw_data, field_set)
-        return [serialize_document(doc) for doc in filtered]
+        filled = fill_missing_state(filtered, field_types, seed_values)
+        return [serialize_document(doc) for doc in filled]
 
     aggregated = aggregate_device_data(raw_data, field_types, selected_granularity)
-    return [serialize_document(doc) for doc in aggregated]
+    if start and end:
+        filled = densify_device_data(
+            aggregated,
+            field_types,
+            selected_granularity,
+            start,
+            end,
+            device_id=device_uid,
+            seed_values=seed_values,
+        )
+    else:
+        filled = fill_missing_state(aggregated, field_types, seed_values)
+    return [serialize_document(doc) for doc in filled]
