@@ -52,6 +52,7 @@ type DeviceDataChartModalsProps = {
     selectedLineDecimals: string;
     selectedStatFontSize: string;
     selectedLineListMode: LineListMode;
+    selectedLineSmooth: boolean;
     selectedBarOrientation: BarOrientation;
     selectedBarRaceMode: boolean;
     selectedPieShowLabels: boolean;
@@ -68,6 +69,7 @@ type DeviceDataChartModalsProps = {
     onSelectedLineDecimalsChange: (value: string) => void;
     onSelectedStatFontSizeChange: (value: string) => void;
     onSelectedLineListModeChange: (value: LineListMode) => void;
+    onSelectedLineSmoothChange: (value: boolean) => void;
     onSelectedBarOrientationChange: (value: BarOrientation) => void;
     onSelectedBarRaceModeChange: (value: boolean) => void;
     onSelectedPieShowLabelsChange: (value: boolean) => void;
@@ -118,6 +120,7 @@ type DeviceDataChartModalsProps = {
     editLineDecimals: string;
     editStatFontSize: string;
     editLineListMode: LineListMode;
+    editLineSmooth: boolean;
     editBarOrientation: BarOrientation;
     editBarRaceMode: boolean;
     editPieShowLabels: boolean;
@@ -132,6 +135,7 @@ type DeviceDataChartModalsProps = {
     onEditLineDecimalsChange: (value: string) => void;
     onEditStatFontSizeChange: (value: string) => void;
     onEditLineListModeChange: (value: LineListMode) => void;
+    onEditLineSmoothChange: (value: boolean) => void;
     onEditBarOrientationChange: (value: BarOrientation) => void;
     onEditBarRaceModeChange: (value: boolean) => void;
     onEditPieShowLabelsChange: (value: boolean) => void;
@@ -392,6 +396,14 @@ export function DeviceDataChartModals({
                 disabled={disabled}
               />
             )}
+            <div className={formStyles["dashboard-checkbox-row"]}>
+              <Switch
+                checked={addModal.selectedLineSmooth}
+                onChange={addModal.onSelectedLineSmoothChange}
+                label="Smooth line"
+                disabled={disabled || addModal.hideLineNumericInputs}
+              />
+            </div>
             {!addModal.hideLineNumericInputs && (
               <>
                   <div className={formStyles["dashboard-inline-row"]}>
@@ -706,6 +718,16 @@ export function DeviceDataChartModals({
               onChange={editModal.onEditLineListModeChange}
               disabled={disabled}
             />
+          )}
+          {(editModal.editingChartType === "line" || editModal.editingChartType === "area") && (
+            <div className={formStyles["dashboard-checkbox-row"]}>
+              <Switch
+                checked={editModal.editLineSmooth}
+                onChange={editModal.onEditLineSmoothChange}
+                label="Smooth line"
+                disabled={disabled || editModal.hideLineNumericInputs}
+              />
+            </div>
           )}
           {(editModal.editingChartType === "meter" ||
             editModal.editingChartType === "line" ||

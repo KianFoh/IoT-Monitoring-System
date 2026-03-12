@@ -279,6 +279,16 @@ export const buildLineData = (
   const lineData: LineChartPoint[] = rows.map((row) => {
     const rawValue = row.data[field];
     if (isLineList) {
+      if (rawValue === null || rawValue === undefined) {
+        if (isLineListMulti) {
+          const rowData: LineChartPoint = { ts: row.ts };
+          lineListLabels.forEach((label) => {
+            rowData[label] = null;
+          });
+          return rowData;
+        }
+        return { ts: row.ts, [field]: null } as LineChartPoint;
+      }
       if (isLineListMulti) {
         const breakdown = lineCases.length
           ? buildListCaseCounts(lineListLabels, rawValue)

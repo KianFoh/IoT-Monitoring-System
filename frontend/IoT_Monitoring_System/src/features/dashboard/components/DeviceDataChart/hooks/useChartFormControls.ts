@@ -70,6 +70,8 @@ export const useChartFormControls = ({
     dispatchChartForm({ type: "set-selected-stat-font-size", value });
   const setSelectedLineListMode = (value: ChartFormState["selectedLineListMode"]) =>
     dispatchChartForm({ type: "set-selected-line-list-mode", value });
+  const setSelectedLineSmooth = (value: boolean) =>
+    dispatchChartForm({ type: "set-selected-line-smooth", value });
   const setSelectedBarOrientation = (value: ChartFormState["selectedBarOrientation"]) =>
     dispatchChartForm({ type: "set-selected-bar-orientation", value });
   const setSelectedBarRaceMode = (value: boolean) =>
@@ -94,6 +96,8 @@ export const useChartFormControls = ({
     dispatchChartForm({ type: "set-edit-stat-font-size", value });
   const setEditLineListMode = (value: ChartFormState["editLineListMode"]) =>
     dispatchChartForm({ type: "set-edit-line-list-mode", value });
+  const setEditLineSmooth = (value: boolean) =>
+    dispatchChartForm({ type: "set-edit-line-smooth", value });
   const setEditBarOrientation = (value: ChartFormState["editBarOrientation"]) =>
     dispatchChartForm({ type: "set-edit-bar-orientation", value });
   const setEditBarRaceMode = (value: boolean) =>
@@ -342,6 +346,7 @@ export const useChartFormControls = ({
     setSelectedLineDecimals,
     setSelectedStatFontSize,
     setSelectedLineListMode,
+    setSelectedLineSmooth,
     setSelectedBarOrientation,
     setSelectedBarRaceMode,
     setSelectedPieShowLabels,
@@ -356,6 +361,7 @@ export const useChartFormControls = ({
     setEditLineDecimals,
     setEditStatFontSize,
     setEditLineListMode,
+    setEditLineSmooth,
     setEditBarOrientation,
     setEditBarRaceMode,
     setEditPieShowLabels,

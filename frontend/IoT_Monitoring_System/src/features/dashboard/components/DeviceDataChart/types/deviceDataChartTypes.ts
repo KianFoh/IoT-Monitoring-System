@@ -40,6 +40,7 @@ export type ChartItemConfig = {
   bar_race_mode?: boolean | null;
   pie_show_labels?: boolean | null;
   line_list_mode?: LineListMode | null;
+  line_smooth?: boolean | null;
   output_value_type?: "boolean" | "multi" | null;
 };
 
@@ -80,6 +81,7 @@ export type ChartItem = {
   bar_race_mode?: boolean;
   pie_show_labels?: boolean;
   line_list_mode?: LineListMode;
+  line_smooth?: boolean;
   output_value_type?: "boolean" | "multi";
 };
 

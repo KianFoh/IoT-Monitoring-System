@@ -30,6 +30,7 @@ type LineChartProps = {
   resetZoomKey?: string;
   timeGranularity?: "sec" | "minute" | "hour" | "day" | "week" | "month" | "year";
   assumeSorted?: boolean;
+  smooth?: boolean;
 };
 
 const Y_TICK_COUNT = 6;
@@ -138,6 +139,7 @@ export function LineChart({
   resetZoomKey,
   timeGranularity,
   assumeSorted = false,
+  smooth,
 }: LineChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ReactECharts | null>(null);
@@ -210,6 +212,7 @@ export function LineChart({
     [cases]
   );
   const hasCases = normalizedCases.length >= 2;
+  const smoothLine = hasCases ? false : typeof smooth === "boolean" ? smooth : true;
   // For categorical area charts, use a value axis so the fill anchors to the baseline.
   const useValueAxisForCases = hasCases && variant === "area";
   const caseColorMap = useMemo(() => {
@@ -444,7 +447,7 @@ export function LineChart({
           type: "line",
           stack: stackSeries ? "total" : undefined,
           encode: { x: 0, y: 1 },
-          smooth: !hasCases,
+          smooth: smoothLine,
           step: hasCases ? "end" : false,
           showSymbol: true,
           symbol: "circle",
@@ -484,6 +487,7 @@ export function LineChart({
       stackSeries,
       hoveredDataIndex,
       hasSinglePoint,
+      smoothLine,
     ]
   );
 

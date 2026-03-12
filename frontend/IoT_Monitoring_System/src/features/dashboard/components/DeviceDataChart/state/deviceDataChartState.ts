@@ -31,6 +31,7 @@ export type ChartFormState = {
   selectedLineDecimals: string;
   selectedStatFontSize: string;
   selectedLineListMode: LineListMode;
+  selectedLineSmooth: boolean;
   selectedBarOrientation: BarOrientation;
   selectedBarRaceMode: boolean;
   selectedPieShowLabels: boolean;
@@ -52,6 +53,7 @@ export type ChartFormState = {
   editLineDecimals: string;
   editStatFontSize: string;
   editLineListMode: LineListMode;
+  editLineSmooth: boolean;
   editBarOrientation: BarOrientation;
   editBarRaceMode: boolean;
   editPieShowLabels: boolean;
@@ -86,6 +88,7 @@ type ChartFormAction =
   | { type: "set-selected-line-decimals"; value: string }
   | { type: "set-selected-stat-font-size"; value: string }
   | { type: "set-selected-line-list-mode"; value: LineListMode }
+  | { type: "set-selected-line-smooth"; value: boolean }
   | { type: "set-selected-bar-orientation"; value: BarOrientation }
   | { type: "set-selected-bar-race-mode"; value: boolean }
   | { type: "set-selected-pie-show-labels"; value: boolean }
@@ -103,6 +106,7 @@ type ChartFormAction =
   | { type: "set-edit-line-decimals"; value: string }
   | { type: "set-edit-stat-font-size"; value: string }
   | { type: "set-edit-line-list-mode"; value: LineListMode }
+  | { type: "set-edit-line-smooth"; value: boolean }
   | { type: "set-edit-bar-orientation"; value: BarOrientation }
   | { type: "set-edit-bar-race-mode"; value: boolean }
   | { type: "set-edit-pie-show-labels"; value: boolean }
@@ -132,6 +136,7 @@ export const INITIAL_CHART_FORM_STATE: ChartFormState = {
   selectedLineDecimals: "",
   selectedStatFontSize: "",
   selectedLineListMode: "single",
+  selectedLineSmooth: true,
   selectedBarOrientation: "horizontal",
   selectedBarRaceMode: false,
   selectedPieShowLabels: true,
@@ -153,6 +158,7 @@ export const INITIAL_CHART_FORM_STATE: ChartFormState = {
   editLineDecimals: "",
   editStatFontSize: "",
   editLineListMode: "single",
+  editLineSmooth: true,
   editBarOrientation: "horizontal",
   editBarRaceMode: false,
   editPieShowLabels: true,
@@ -170,6 +176,7 @@ export const chartFormReducer = (
         isAddOpen: true,
         selectedBarRaceMode: false,
         selectedPieShowLabels: true,
+        selectedLineSmooth: true,
         selectedMin: "",
         selectedMax: "",
         selectedLineMin: "",
@@ -187,6 +194,7 @@ export const chartFormReducer = (
         isAddOpen: false,
         selectedBarRaceMode: false,
         selectedPieShowLabels: true,
+        selectedLineSmooth: true,
         selectedMin: "",
         selectedMax: "",
         selectedLineMin: "",
@@ -235,6 +243,10 @@ export const chartFormReducer = (
             : "",
         editLineListMode:
           action.payload.chart.line_list_mode === "multi" ? "multi" : "single",
+        editLineSmooth:
+          typeof action.payload.chart.line_smooth === "boolean"
+            ? action.payload.chart.line_smooth
+            : true,
         editBarOrientation:
           action.payload.chart.bar_orientation ??
           (action.payload.chart.type === "bar" ? "horizontal" : state.editBarOrientation),
@@ -253,6 +265,7 @@ export const chartFormReducer = (
         editLineDecimals: "",
         editStatFontSize: "",
         editLineListMode: "single",
+        editLineSmooth: true,
         editBarOrientation: "horizontal",
         editBarRaceMode: false,
         editPieShowLabels: true,
@@ -319,6 +332,8 @@ export const chartFormReducer = (
       return { ...state, selectedStatFontSize: action.value };
     case "set-selected-line-list-mode":
       return { ...state, selectedLineListMode: action.value };
+    case "set-selected-line-smooth":
+      return { ...state, selectedLineSmooth: action.value };
     case "set-selected-bar-orientation":
       return { ...state, selectedBarOrientation: action.value };
     case "set-selected-bar-race-mode":
@@ -353,6 +368,8 @@ export const chartFormReducer = (
       return { ...state, editStatFontSize: action.value };
     case "set-edit-line-list-mode":
       return { ...state, editLineListMode: action.value };
+    case "set-edit-line-smooth":
+      return { ...state, editLineSmooth: action.value };
     case "set-edit-bar-orientation":
       return { ...state, editBarOrientation: action.value };
     case "set-edit-bar-race-mode":
@@ -379,6 +396,7 @@ export const chartFormReducer = (
         editLineDecimals: "",
         editStatFontSize: "",
         editLineListMode: "single",
+        editLineSmooth: true,
         editBarOrientation: "horizontal",
         editBarRaceMode: false,
         editPieShowLabels: true,
@@ -395,6 +413,7 @@ export const chartFormReducer = (
         selectedStatFontSize: "",
         selectedLineFields: [],
         selectedLineListMode: "single",
+        selectedLineSmooth: true,
         selectedOutputField: "",
         selectedOutputCase: "",
         selectedBarOrientation: "horizontal",

@@ -54,6 +54,12 @@ export const normalizeChart = (chart: ChartItemConfig): ChartItem => {
           ? "single"
           : undefined
       : undefined;
+  const lineSmooth =
+    safeType === "line" || safeType === "area"
+      ? typeof chart.line_smooth === "boolean"
+        ? chart.line_smooth
+        : undefined
+      : undefined;
   const pieShowLabels =
     safeType === "pie"
       ? chart.pie_show_labels === false
@@ -86,6 +92,7 @@ export const normalizeChart = (chart: ChartItemConfig): ChartItem => {
     bar_race_mode: barRaceMode ?? chart.bar_race_mode ?? undefined,
     pie_show_labels: pieShowLabels ?? chart.pie_show_labels ?? undefined,
     line_list_mode: lineListMode ?? chart.line_list_mode ?? undefined,
+    line_smooth: lineSmooth ?? undefined,
     output_value_type: outputValueType ?? chart.output_value_type ?? undefined,
   };
 };

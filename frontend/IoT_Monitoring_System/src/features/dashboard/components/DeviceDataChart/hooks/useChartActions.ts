@@ -54,6 +54,8 @@ type UseChartActionsParams = {
   editLineDecimals: string;
   editStatFontSize: string;
   editLineListMode: LineListMode;
+  selectedLineSmooth: boolean;
+  editLineSmooth: boolean;
   editBarOrientation: BarOrientation;
   editBarRaceMode: boolean;
   editPieShowLabels: boolean;
@@ -89,6 +91,7 @@ export const useChartActions = ({
   selectedLineTicks,
   selectedLineDecimals,
   selectedStatFontSize,
+  selectedLineSmooth,
   editingChartId,
   editingChartType,
   editingOutputId,
@@ -104,6 +107,7 @@ export const useChartActions = ({
   editLineDecimals,
   editStatFontSize,
   editLineListMode,
+  editLineSmooth,
   editBarOrientation,
   editBarRaceMode,
   editPieShowLabels,
@@ -214,6 +218,7 @@ export const useChartActions = ({
               max: lineMax,
               tick_count: tickCount,
               value_decimals: valueDecimals,
+              line_smooth: selectedLineSmooth,
               fields: selectedLineFields.length ? [selectedLineFields[0]] : [],
               ...(selectedLineFieldType === "list"
                 ? { line_list_mode: selectedLineListMode }
@@ -401,6 +406,7 @@ export const useChartActions = ({
                 ? {
                     fields: field ? [field] : [],
                     line_list_mode: fieldType === "list" ? editLineListMode : undefined,
+                    line_smooth: editLineSmooth,
                   }
                 : {}),
               ...(isStatChart ? { stat_font_size: statFontSize } : {}),

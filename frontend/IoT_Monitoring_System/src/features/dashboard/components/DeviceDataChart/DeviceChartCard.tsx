@@ -217,6 +217,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     chart.bar_race_mode ? 1 : 0,
     (chart.pie_show_labels ?? true) ? 1 : 0,
     chart.line_list_mode ?? "",
+    typeof chart.line_smooth === "boolean" ? (chart.line_smooth ? 1 : 0) : "",
     chart.output_value_type ?? "",
     buildListKey(chart.value_cases),
     fieldType ?? "",
@@ -459,6 +460,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
         listCaseBreakdowns={listCaseBreakdowns}
         caseColors={lineCaseColors ?? undefined}
         lineColor={lineColor || undefined}
+        smooth={chart.line_smooth}
         variant={chart.type === "area" ? "area" : "line"}
         stackSeries={isLineListMulti && chart.type === "area"}
         totalLabel={isLineList ? fieldLabel : undefined}
