@@ -9,7 +9,6 @@ from typing import Optional
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 
-SEC = 1
 TEMP_MIN = -20
 TEMP_MAX = 100
 TEMP_STEP_LIMIT = 50
@@ -36,6 +35,16 @@ def _get_env_int(name: str, default: int) -> int:
         return default
     try:
         return int(value)
+    except ValueError:
+        return default
+
+
+def _get_env_float(name: str, default: float) -> float:
+    value = _get_env(name)
+    if value is None:
+        return default
+    try:
+        return float(value)
     except ValueError:
         return default
 
@@ -93,8 +102,9 @@ def _parse_p1_state(value: object) -> Optional[str]:
 def main() -> None:
     _load_env()
 
-    global SEC
-    SEC = max(1, _get_env_int("TEST_PUBLISH_INTERVAL", SEC))
+    interval = _get_env_float("TEST_PUBLISH_INTERVAL", 1.0)
+    if interval <= 0:
+        interval = 1.0
     host = _get_env("MQTT_BROKER_HOST", "localhost")
     port = int(_get_env("MQTT_BROKER_PORT", "1883") or "1883")
     username = _get_env("MQTT_USERNAME")
@@ -146,7 +156,7 @@ def main() -> None:
         client.subscribe(receive_topic)
         print(f"Listening for state changes on {receive_topic}")
     client.loop_start()
-    print(f"Publishing to {topic} every {SEC} Seconds. Ctrl+C to stop.")
+    print(f"Publishing to {topic} every {interval} Seconds. Ctrl+C to stop.")
 
     current_temp: Optional[int] = None
     try:
@@ -171,7 +181,7 @@ def main() -> None:
                         pending_output["p100_stat"] = False
                     if send_p1:
                         pending_output["p1_stat"] = False
-            time.sleep(SEC)
+            time.sleep(interval)
     except KeyboardInterrupt:
         print("Stopped publishing.")
     finally:
