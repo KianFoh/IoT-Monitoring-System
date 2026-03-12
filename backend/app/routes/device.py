@@ -11,7 +11,6 @@ from app.models.user import User as UserModel
 from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRecentOut, DeviceListResponse
 from app.models.enum.user_role import UserRole
 from app.utils.device_data import (
-    aggregate_device_data,
     densify_device_data,
     extract_panel_fields_and_config,
     fill_missing_state,
@@ -394,15 +393,6 @@ def fetch_device_data(
     }
     field_set = set(panel_fields)
 
-    raw_data = device_data_crud.get_by_uid(
-        device_uid,
-        start=start,
-        end=end,
-        granularity=None,
-    )
-    if not raw_data:
-        return []
-
     fill_fields = [field for field, field_type in field_types.items() if field_type in {"text", "boolean"}]
     seed_values = {}
     if start and fill_fields:
@@ -421,6 +411,15 @@ def fetch_device_data(
                     seed_values[field] = value
 
     if not selected_granularity:
+        raw_data = device_data_crud.get_by_uid(
+            device_uid,
+            start=start,
+            end=end,
+            granularity=None,
+            fields=panel_fields,
+        )
+        if not raw_data:
+            return []
         filtered = filter_raw_data(raw_data, field_set)
         if not fill_state:
             return [serialize_document(doc) for doc in filtered]
@@ -428,7 +427,16 @@ def fetch_device_data(
         return [serialize_document(doc) for doc in filled]
 
     tz_offset_minutes = int(tz_offset or 0)
-    aggregated = aggregate_device_data(raw_data, field_types, selected_granularity, tz_offset_minutes)
+    aggregated = device_data_crud.get_aggregated_by_uid(
+        device_uid,
+        start=start,
+        end=end,
+        granularity=selected_granularity,
+        field_types=field_types,
+        tz_offset_minutes=tz_offset_minutes,
+    )
+    if not aggregated:
+        return []
     if not fill_state:
         return [serialize_document(doc) for doc in aggregated]
     if start and end:

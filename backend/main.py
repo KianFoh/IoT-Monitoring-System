@@ -14,6 +14,7 @@ from app.services.device_processed_bridge import DeviceProcessedBridge
 from app.services.device_response_bridge import DeviceResponseBridge
 from app.services.device_status_bridge import DeviceStatusBridge
 from app.services.device_stream_manager import DeviceStreamManager
+from app.crud.mongodb import devices_data as device_data_crud
 from app.routes import health, user, auth, customer, distributor, department, device, mqtt_user, ws
 
 # Get settings
@@ -27,6 +28,7 @@ _mqtt_client: MQTTClient | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _mqtt_client
+    device_data_crud.ensure_indexes()
     loop = asyncio.get_running_loop()
     _mqtt_client = MQTTClient()
     app.state.mqtt_client = _mqtt_client
