@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Sequence, Dict, Any
 
 from app.core.database import devices_data_collection, devices_latest_collection
 
@@ -116,3 +116,50 @@ def get_by_uid(
 
 def get_latest_by_uid(uid: str):
     return devices_latest_collection.find_one({"device_id": uid})
+
+
+def get_seed_values_before(
+    uid: str,
+    before: datetime,
+    fields: Sequence[str],
+    limit: int = 100000,
+) -> Dict[str, Any]:
+    if not before or not fields:
+        return {}
+
+    pipeline: list[dict] = [
+        {"$match": {"device_id": uid}},
+        {
+            "$addFields": {
+                "_ts": {
+                    "$convert": {
+                        "input": "$ts",
+                        "to": "date",
+                        "onError": None,
+                        "onNull": None,
+                    }
+                }
+            }
+        },
+        {"$match": {"_ts": {"$lte": before}}},
+        {"$sort": {"_ts": -1}},
+    ]
+    if limit:
+        pipeline.append({"$limit": limit})
+    pipeline.append({"$project": {"data": 1}})
+
+    seed: Dict[str, Any] = {}
+    for doc in devices_data_collection.aggregate(pipeline):
+        data = doc.get("data")
+        if not isinstance(data, dict):
+            continue
+        for field in fields:
+            if field in seed:
+                continue
+            value = data.get(field)
+            if value is None:
+                continue
+            seed[field] = value
+        if len(seed) == len(fields):
+            break
+    return seed

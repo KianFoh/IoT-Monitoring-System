@@ -50,6 +50,7 @@ export const devicesApi = {
       start?: string;
       end?: string;
       granularity?: string;
+      tz_offset?: number;
     }
   ) {
     return api.get<Array<Record<string, unknown>>>(`${BASE_PATH}/data/${deviceUid}`, { params });

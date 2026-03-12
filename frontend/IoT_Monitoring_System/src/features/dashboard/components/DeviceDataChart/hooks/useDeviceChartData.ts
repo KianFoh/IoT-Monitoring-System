@@ -266,7 +266,8 @@ export const useDeviceChartData = ({
     }
 
     let cancelled = false;
-    const params: { start?: string; end?: string; granularity?: string } = {};
+    const nowTime = Date.now();
+    const params: { start?: string; end?: string; granularity?: string; tz_offset?: number } = {};
 
     if (filterMode === "range") {
       if (!rangeWindow) {
@@ -294,6 +295,13 @@ export const useDeviceChartData = ({
         params.end = endBucket.toISOString();
       }
     }
+    params.tz_offset = new Date().getTimezoneOffset();
+    if (params.end) {
+      const endTime = new Date(params.end).getTime();
+      if (Number.isFinite(endTime) && endTime > nowTime) {
+        params.end = new Date(nowTime).toISOString();
+      }
+    }
 
     devicesApi
       .data(deviceUid, params)
@@ -307,7 +315,8 @@ export const useDeviceChartData = ({
             const data = row.data && typeof row.data === "object" ? row.data : {};
             return { ts, data };
           })
-          .filter((row): row is { ts: number; data: Record<string, unknown> } => Boolean(row));
+          .filter((row): row is { ts: number; data: Record<string, unknown> } => Boolean(row))
+          .filter((row) => row.ts <= nowTime);
 
         const orderedRows = [...parsedRows].sort((a, b) => a.ts - b.ts);
         const latestValues: Record<string, unknown> = {};

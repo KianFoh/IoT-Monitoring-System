@@ -90,6 +90,25 @@ def _floor_datetime(value: datetime, granularity: str) -> datetime:
         return datetime(value.year, 1, 1, tzinfo=tzinfo)
     return value.replace(microsecond=0)
 
+def _shift_datetime(value: datetime, tz_offset_minutes: int) -> datetime:
+    if not tz_offset_minutes:
+        return value
+    return value + timedelta(minutes=-tz_offset_minutes)
+
+
+def _unshift_datetime(value: datetime, tz_offset_minutes: int) -> datetime:
+    if not tz_offset_minutes:
+        return value
+    return value + timedelta(minutes=tz_offset_minutes)
+
+
+def _floor_datetime_with_offset(
+    value: datetime, granularity: str, tz_offset_minutes: int
+) -> datetime:
+    local_value = _shift_datetime(value, tz_offset_minutes)
+    local_floor = _floor_datetime(local_value, granularity)
+    return _unshift_datetime(local_floor, tz_offset_minutes)
+
 
 def _advance_datetime(value: datetime, granularity: str) -> datetime:
     if granularity in {"sec", "second"}:
@@ -110,12 +129,16 @@ def _advance_datetime(value: datetime, granularity: str) -> datetime:
         return datetime(value.year + 1, 1, 1, tzinfo=value.tzinfo)
     return value + timedelta(seconds=1)
 
+def _advance_datetime_with_offset(
+    value: datetime, granularity: str, tz_offset_minutes: int
+) -> datetime:
+    local_value = _shift_datetime(value, tz_offset_minutes)
+    local_next = _advance_datetime(local_value, granularity)
+    return _unshift_datetime(local_next, tz_offset_minutes)
 
-def _align_range_start(value: datetime, granularity: str) -> datetime:
-    floored = _floor_datetime(value, granularity)
-    if floored < value:
-        return _advance_datetime(floored, granularity)
-    return floored
+
+def _align_range_start(value: datetime, granularity: str, tz_offset_minutes: int) -> datetime:
+    return _floor_datetime_with_offset(value, granularity, tz_offset_minutes)
 
 
 def _coerce_number(value: Any) -> Optional[float]:
@@ -133,19 +156,22 @@ def _coerce_number(value: Any) -> Optional[float]:
     return None
 
 
-def _bucket_key_and_id(ts: datetime, granularity: str) -> Tuple[Tuple[Any, ...], dict]:
+def _bucket_key_and_id(
+    ts: datetime, granularity: str, tz_offset_minutes: int
+) -> Tuple[Tuple[Any, ...], dict]:
+    local_ts = _shift_datetime(ts, tz_offset_minutes)
     if granularity == "week":
-        iso = ts.isocalendar()
+        iso = local_ts.isocalendar()
         return ("week", iso.year, iso.week), {"isoWeekYear": iso.year, "isoWeek": iso.week}
     fmt = _AGGREGATION_DATE_FORMATS.get(granularity)
     if not fmt:
         raise ValueError(f"Unsupported granularity: {granularity}")
-    bucket_value = ts.strftime(fmt)
+    bucket_value = local_ts.strftime(fmt)
     return (granularity, bucket_value), {"bucket": bucket_value}
 
 
-def _bucket_start(ts: datetime, granularity: str) -> datetime:
-    return _floor_datetime(ts, granularity)
+def _bucket_start(ts: datetime, granularity: str, tz_offset_minutes: int) -> datetime:
+    return _floor_datetime_with_offset(ts, granularity, tz_offset_minutes)
 
 
 def _update_list_counts(counts: Dict[str, float], value: Any) -> None:
@@ -172,19 +198,20 @@ def aggregate_device_data(
     docs: List[dict],
     field_types: Dict[str, str],
     granularity: str,
+    tz_offset_minutes: int = 0,
 ) -> List[dict]:
     buckets: Dict[Tuple[Any, ...], dict] = {}
     for doc in docs:
         ts = _coerce_datetime(doc.get("ts") or doc.get("_ts"))
         if not ts:
             continue
-        bucket_key, bucket_id = _bucket_key_and_id(ts, granularity)
+        bucket_key, bucket_id = _bucket_key_and_id(ts, granularity, tz_offset_minutes)
         bucket = buckets.get(bucket_key)
         if not bucket:
             bucket = {
                 "_id": bucket_id,
                 "device_id": doc.get("device_id"),
-                "ts": _bucket_start(ts, granularity),
+                "ts": _bucket_start(ts, granularity, tz_offset_minutes),
                 "_number": {},
                 "_text": {},
                 "_list": {},
@@ -345,6 +372,7 @@ def densify_device_data(
     end: datetime,
     device_id: Optional[str] = None,
     seed_values: Optional[Dict[str, Any]] = None,
+    tz_offset_minutes: int = 0,
 ) -> List[dict]:
     if start is None or end is None:
         return fill_missing_state(docs, field_types, seed_values)
@@ -363,16 +391,18 @@ def densify_device_data(
         ts = _coerce_datetime(doc.get("ts") or doc.get("_ts"))
         if not ts:
             continue
-        bucket_key, _ = _bucket_key_and_id(ts, granularity)
+        bucket_key, _ = _bucket_key_and_id(ts, granularity, tz_offset_minutes)
         existing[bucket_key] = doc
 
-    cursor = _align_range_start(start, granularity)
-    end_cursor = _floor_datetime(end, granularity)
+    cursor = _align_range_start(start, granularity, tz_offset_minutes)
+    end_cursor = _floor_datetime_with_offset(end, granularity, tz_offset_minutes)
+    now_cutoff = _floor_datetime_with_offset(datetime.now(timezone.utc), granularity, tz_offset_minutes)
+    fill_cutoff = end_cursor if end_cursor <= now_cutoff else now_cutoff
     last_values: Dict[str, Any] = dict(seed_values or {})
     dense: List[dict] = []
 
     while cursor <= end_cursor:
-        bucket_key, bucket_id = _bucket_key_and_id(cursor, granularity)
+        bucket_key, bucket_id = _bucket_key_and_id(cursor, granularity, tz_offset_minutes)
         current = existing.get(bucket_key)
         if current:
             data = current.get("data")
@@ -394,17 +424,17 @@ def densify_device_data(
             if field in data:
                 value = data.get(field)
                 if value is None:
-                    if field in last_values:
+                    if field in last_values and cursor <= fill_cutoff:
                         data[field] = last_values[field]
                 else:
                     last_values[field] = value
                 continue
-            if field in last_values:
+            if field in last_values and cursor <= fill_cutoff:
                 data[field] = last_values[field]
 
         entry["data"] = data
         dense.append(entry)
-        cursor = _advance_datetime(cursor, granularity)
+        cursor = _advance_datetime_with_offset(cursor, granularity, tz_offset_minutes)
 
     dense.sort(
         key=lambda item: _coerce_datetime(item.get("ts") or item.get("_ts")) or _MIN_AWARE,

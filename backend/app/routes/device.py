@@ -12,7 +12,6 @@ from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRece
 from app.models.enum.user_role import UserRole
 from app.utils.device_data import (
     aggregate_device_data,
-    build_seed_values,
     densify_device_data,
     extract_panel_fields_and_config,
     fill_missing_state,
@@ -338,6 +337,11 @@ def fetch_device_data(
     granuality: Optional[str] = Query(None, include_in_schema=False),
     start: Optional[datetime] = Query(None, description="ISO 8601 start datetime"),
     end: Optional[datetime] = Query(None, description="ISO 8601 end datetime"),
+    fill_state: bool = Query(True, description="Carry forward text/boolean state across buckets"),
+    tz_offset: Optional[int] = Query(
+        None,
+        description="Timezone offset in minutes (JS Date.getTimezoneOffset)",
+    ),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -399,18 +403,11 @@ def fetch_device_data(
     if not raw_data:
         return []
 
-    seed_values = {}
-    if start:
-        seed_docs = device_data_crud.get_by_uid(
-            device_uid,
-            start=None,
-            end=start,
-            granularity=None,
-            limit=500,
-        )
-        seed_values = build_seed_values(seed_docs, field_types)
     fill_fields = [field for field, field_type in field_types.items() if field_type in {"text", "boolean"}]
-    if fill_fields:
+    seed_values = {}
+    if start and fill_fields:
+        seed_values = device_data_crud.get_seed_values_before(device_uid, start, fill_fields)
+    if fill_fields and not start:
         latest_doc = device_data_crud.get_latest_by_uid(device_uid)
         if latest_doc:
             latest_data = latest_doc.get("data")
@@ -425,10 +422,15 @@ def fetch_device_data(
 
     if not selected_granularity:
         filtered = filter_raw_data(raw_data, field_set)
+        if not fill_state:
+            return [serialize_document(doc) for doc in filtered]
         filled = fill_missing_state(filtered, field_types, seed_values)
         return [serialize_document(doc) for doc in filled]
 
-    aggregated = aggregate_device_data(raw_data, field_types, selected_granularity)
+    tz_offset_minutes = int(tz_offset or 0)
+    aggregated = aggregate_device_data(raw_data, field_types, selected_granularity, tz_offset_minutes)
+    if not fill_state:
+        return [serialize_document(doc) for doc in aggregated]
     if start and end:
         filled = densify_device_data(
             aggregated,
@@ -438,6 +440,7 @@ def fetch_device_data(
             end,
             device_id=device_uid,
             seed_values=seed_values,
+            tz_offset_minutes=tz_offset_minutes,
         )
     else:
         filled = fill_missing_state(aggregated, field_types, seed_values)

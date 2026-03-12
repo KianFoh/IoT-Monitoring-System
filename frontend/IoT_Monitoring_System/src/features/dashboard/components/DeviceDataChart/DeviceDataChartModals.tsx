@@ -170,6 +170,20 @@ export function DeviceDataChartModals({
   editModal,
   filterModal,
 }: DeviceDataChartModalsProps) {
+  const formatDateValue = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const formatDateTimeValue = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
   const CUSTOM_RANGE_LIMIT_LABELS: Record<LineGranularity, string> = {
     sec: "1 minute",
     minute: "1 hour",
@@ -189,6 +203,24 @@ export function DeviceDataChartModals({
     endTimeValue && Number.isFinite(new Date(endTimeValue).getTime())
       ? new Date(endTimeValue).getTime()
       : null;
+  const maxEndDate = (() => {
+    const now = new Date();
+    if (filterModal.timeDateInputType === "date") {
+      return formatDateValue(now);
+    }
+    if (filterModal.timeDateInputType === "datetime-local") {
+      const aligned = new Date(now.getTime());
+      if (typeof filterModal.timeDateStep === "number") {
+        if (filterModal.timeDateStep >= 3600) {
+          aligned.setMinutes(0, 0, 0);
+        } else if (filterModal.timeDateStep >= 60) {
+          aligned.setSeconds(0, 0);
+        }
+      }
+      return formatDateTimeValue(aligned);
+    }
+    return undefined;
+  })();
   const hasTimeRangeError = startTime !== null && endTime !== null && startTime > endTime;
   const maxCustomRangeEnd =
     startTime !== null ? getCustomRangeLimitEnd(startTime, filterModal.timeGranularity) : null;
@@ -827,6 +859,7 @@ export function DeviceDataChartModals({
                 onChange={(event) => filterModal.onTimeEndChange(event.target.value)}
                 disabled={disabled}
                 min={startTimeValue || undefined}
+                max={maxEndDate}
               />
               {hasTimeRangeError && (
                 <p className={formStyles["dashboard-modal-error"]}>
