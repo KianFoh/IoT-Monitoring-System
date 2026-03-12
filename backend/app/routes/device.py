@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -22,6 +22,14 @@ from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+
+
+def _normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)
@@ -374,6 +382,8 @@ def fetch_device_data(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid granularity. Use sec, minute, hour, day, week, month, or year.",
         )
+    start = _normalize_datetime(start)
+    end = _normalize_datetime(end)
     if start and end and start > end:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -428,14 +438,34 @@ def fetch_device_data(
 
     tz_offset_minutes = int(tz_offset or 0)
     use_rollup = selected_granularity in {"hour", "day", "week", "month", "year"}
-    rollup_min_ts = None
-    if use_rollup:
-        rollup_min_ts = device_data_crud.get_rollup_min_ts(device_uid)
-        if not rollup_min_ts:
-            use_rollup = False
-        elif not start or (start and start < rollup_min_ts):
-            use_rollup = False
-    if use_rollup:
+    rollup_min_ts = (
+        _normalize_datetime(device_data_crud.get_rollup_min_ts(device_uid))
+        if use_rollup
+        else None
+    )
+
+    aggregated: List[dict]
+    if use_rollup and rollup_min_ts and start and end and start < rollup_min_ts < end:
+        raw_end = rollup_min_ts - timedelta(microseconds=1)
+        raw_part = device_data_crud.get_aggregated_by_uid(
+            device_uid,
+            start=start,
+            end=raw_end,
+            granularity=selected_granularity,
+            field_types=field_types,
+            tz_offset_minutes=tz_offset_minutes,
+        )
+        rollup_part = device_data_crud.get_rollup_aggregated_by_uid(
+            device_uid,
+            start=rollup_min_ts,
+            end=end,
+            granularity=selected_granularity,
+            field_types=field_types,
+            tz_offset_minutes=tz_offset_minutes,
+        )
+        aggregated = [*raw_part, *rollup_part]
+        aggregated.sort(key=lambda item: item.get("ts"), reverse=True)
+    elif use_rollup and rollup_min_ts and (not start or start >= rollup_min_ts):
         aggregated = device_data_crud.get_rollup_aggregated_by_uid(
             device_uid,
             start=start,
