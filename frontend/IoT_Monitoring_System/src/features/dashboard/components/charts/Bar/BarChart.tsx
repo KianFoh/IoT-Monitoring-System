@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
+import { config } from "@/config";
 import styles from "./BarChart.module.css";
 import {
   buildBarChartTheme,
@@ -20,8 +21,6 @@ type BarChartProps = {
   unit?: string;
   raceMode?: boolean;
 };
-
-const RACE_ANIMATION_MS = 1000;
 
 export function BarChart({
   data,
@@ -168,8 +167,8 @@ export function BarChart({
   const option = useMemo<EChartsOption>(
     () => ({
       animation: true,
-      animationDuration: raceMode ? 0 : 1000,
-      animationDurationUpdate: raceMode ? RACE_ANIMATION_MS : 1000,
+      animationDuration: config.chart.animationMs,
+      animationDurationUpdate: config.chart.animationMs,
       animationEasingUpdate: raceMode ? "linear" : "cubicOut",
       grid: { ...gridPadding, containLabel: true },
       tooltip: {
@@ -204,7 +203,12 @@ export function BarChart({
           ? {
               ...categoryAxis,
               inverse: true,
-              ...(raceMode ? { animationDuration: 300, animationDurationUpdate: 300 } : {}),
+              ...(raceMode
+                ? {
+                    animationDuration: config.chart.animationMs,
+                    animationDurationUpdate: config.chart.animationMs,
+                  }
+                : {}),
             }
           : valueAxis,
       series: [

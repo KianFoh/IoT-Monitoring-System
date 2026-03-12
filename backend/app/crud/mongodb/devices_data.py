@@ -1,7 +1,11 @@
 from datetime import datetime
 from typing import Optional, Sequence, Dict, Any, List
 
-from app.core.database import devices_data_collection, devices_latest_collection
+from app.core.database import (
+    devices_data_collection,
+    devices_latest_collection,
+    devices_rollup_hour_collection,
+)
 
 _FORMAT_BY_GRANULARITY = {
     "sec": "%Y-%m-%dT%H:%M:%S",
@@ -56,6 +60,10 @@ def ensure_indexes() -> None:
     if not _has_index(devices_latest_collection, latest_keys, unique=True):
         devices_latest_collection.create_index(latest_keys, unique=True)
 
+    if devices_rollup_hour_collection is not None:
+        if not _has_index(devices_rollup_hour_collection, data_keys):
+            devices_rollup_hour_collection.create_index(data_keys)
+
 
 def _build_group_id(granularity: str) -> dict:
     if granularity == "week":
@@ -83,6 +91,10 @@ def _build_bucket_expression(granularity: str, timezone: str) -> dict:
 def _build_bucket_id_expression(granularity: str, timezone: str) -> dict:
     fmt = _FORMAT_BY_GRANULARITY.get(granularity, "%Y-%m-%d")
     return {"$dateToString": {"format": fmt, "date": "$_bucket", "timezone": timezone}}
+
+
+def _floor_to_hour(value: datetime) -> datetime:
+    return value.replace(minute=0, second=0, microsecond=0)
 
 
 def get_by_uid(
@@ -467,6 +479,290 @@ def get_aggregated_by_uid(
     return list(devices_data_collection.aggregate(pipeline))
 
 
+def get_rollup_aggregated_by_uid(
+    uid: str,
+    start: Optional[datetime],
+    end: Optional[datetime],
+    granularity: str,
+    field_types: Dict[str, str],
+    tz_offset_minutes: int = 0,
+) -> List[Dict[str, Any]]:
+    if not field_types:
+        return []
+    timezone = _timezone_from_offset(tz_offset_minutes)
+    bucket_expr = _build_bucket_expression(granularity, timezone)
+    bucket_id_expr = _build_bucket_id_expression(granularity, timezone)
+
+    pipeline: list[dict] = [{"$match": {"device_id": uid}}]
+    if start or end:
+        time_filter: dict = {}
+        if start:
+            time_filter["$gte"] = _floor_to_hour(start)
+        if end:
+            time_filter["$lte"] = _floor_to_hour(end)
+        pipeline.append({"$match": {"ts": time_filter}})
+
+    pipeline.append({"$addFields": {"_bucket": bucket_expr}})
+    pipeline.append({"$addFields": {"_bucket_id": bucket_id_expr}})
+
+    numeric_fields = [field for field, ftype in field_types.items() if ftype == "number"]
+    text_fields = [
+        field
+        for field, ftype in field_types.items()
+        if ftype in {"text", "boolean"}
+    ]
+    list_fields = [field for field, ftype in field_types.items() if ftype == "list"]
+
+    meta_num_sum = {field: f"$meta.num_sum.{field}" for field in numeric_fields}
+    meta_num_count = {field: f"$meta.num_count.{field}" for field in numeric_fields}
+    meta_text_last = {field: f"$meta.text_last_ts.{field}" for field in text_fields}
+    data_projection = {field: f"$data.{field}" for field in field_types.keys()}
+
+    pipeline.append(
+        {
+            "$project": {
+                "device_id": 1,
+                "ts": 1,
+                "_bucket": 1,
+                "_bucket_id": 1,
+                "data": data_projection,
+                "meta": {
+                    "num_sum": meta_num_sum,
+                    "num_count": meta_num_count,
+                    "text_last_ts": meta_text_last,
+                },
+            }
+        }
+    )
+
+    facets: Dict[str, list] = {}
+    facet_keys: list[str] = []
+
+    if numeric_fields:
+        numeric_project: dict = {
+            "_bucket": 1,
+            "_bucket_id": 1,
+            "device_id": 1,
+        }
+        for field in numeric_fields:
+            numeric_project[f"{field}_sum"] = {
+                "$ifNull": [f"$meta.num_sum.{field}", 0]
+            }
+            numeric_project[f"{field}_count"] = {
+                "$ifNull": [f"$meta.num_count.{field}", 0]
+            }
+        numeric_group: dict = {
+            "_id": {"bucket": "$_bucket_id"},
+            "device_id": {"$first": "$device_id"},
+            "ts": {"$first": "$_bucket"},
+        }
+        for field in numeric_fields:
+            numeric_group[f"{field}_sum"] = {"$sum": f"${field}_sum"}
+            numeric_group[f"{field}_count"] = {"$sum": f"${field}_count"}
+        numeric_project_out = {
+            "_id": 1,
+            "device_id": 1,
+            "ts": 1,
+            "data": {
+                field: {
+                    "$cond": [
+                        {"$gt": [f"${field}_count", 0]},
+                        {"$divide": [f"${field}_sum", f"${field}_count"]},
+                        "$$REMOVE",
+                    ]
+                }
+                for field in numeric_fields
+            },
+        }
+        facets["numeric"] = [
+            {"$project": numeric_project},
+            {"$group": numeric_group},
+            {"$project": numeric_project_out},
+        ]
+        facet_keys.append("numeric")
+
+    if text_fields:
+        text_group: dict = {
+            "_id": {"bucket": "$_bucket_id"},
+            "device_id": {"$first": "$device_id"},
+            "ts": {"$first": "$_bucket"},
+        }
+        for field in text_fields:
+            text_group[field] = {
+                "$max": {
+                    "$cond": [
+                        {
+                            "$ne": [
+                                {"$ifNull": [f"$meta.text_last_ts.{field}", None]},
+                                None,
+                            ]
+                        },
+                        {
+                            "ts": f"$meta.text_last_ts.{field}",
+                            "value": f"$data.{field}",
+                        },
+                        None,
+                    ]
+                }
+            }
+        text_project_out = {
+            "_id": 1,
+            "device_id": 1,
+            "ts": 1,
+            "data": {
+                field: {
+                    "$cond": [
+                        {"$ne": [f"${field}.value", None]},
+                        f"${field}.value",
+                        "$$REMOVE",
+                    ]
+                }
+                for field in text_fields
+            },
+        }
+        facets["text"] = [
+            {"$group": text_group},
+            {"$project": text_project_out},
+        ]
+        facet_keys.append("text")
+
+    for idx, field in enumerate(list_fields):
+        list_value = f"$data.{field}"
+        list_items = {
+            "$cond": [
+                {"$isArray": list_value},
+                {
+                    "$map": {
+                        "input": list_value,
+                        "as": "item",
+                        "in": {"k": "$$item", "v": 1},
+                    }
+                },
+                {
+                    "$cond": [
+                        {"$eq": [{"$type": list_value}, "object"]},
+                        {
+                            "$map": {
+                                "input": {"$objectToArray": list_value},
+                                "as": "kv",
+                                "in": {
+                                    "k": "$$kv.k",
+                                    "v": {
+                                        "$cond": [
+                                            {"$isNumber": "$$kv.v"},
+                                            "$$kv.v",
+                                            1,
+                                        ]
+                                    },
+                                },
+                            }
+                        },
+                        [],
+                    ]
+                },
+            ]
+        }
+        facet_name = f"list_{idx}"
+        facets[facet_name] = [
+            {
+                "$project": {
+                    "_bucket": 1,
+                    "_bucket_id": 1,
+                    "device_id": 1,
+                    "items": list_items,
+                }
+            },
+            {"$unwind": "$items"},
+            {
+                "$group": {
+                    "_id": {
+                        "bucket": "$_bucket_id",
+                        "device_id": "$device_id",
+                        "key": "$items.k",
+                    },
+                    "ts": {"$first": "$_bucket"},
+                    "total": {"$sum": "$items.v"},
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "bucket": "$_id.bucket",
+                        "device_id": "$_id.device_id",
+                    },
+                    "ts": {"$first": "$ts"},
+                    "device_id": {"$first": "$_id.device_id"},
+                    "items": {"$push": {"k": "$_id.key", "v": "$total"}},
+                }
+            },
+            {
+                "$project": {
+                    "_id": {"bucket": "$_id.bucket"},
+                    "device_id": 1,
+                    "ts": 1,
+                    "data": {field: {"$arrayToObject": "$items"}},
+                }
+            },
+        ]
+        facet_keys.append(facet_name)
+
+    if not facet_keys:
+        return []
+
+    pipeline.append({"$facet": facets})
+    pipeline.append(
+        {
+            "$project": {
+                "all": {
+                    "$concatArrays": [f"${key}" for key in facet_keys],
+                }
+            }
+        }
+    )
+    pipeline.append({"$unwind": "$all"})
+    pipeline.append({"$replaceRoot": {"newRoot": "$all"}})
+    pipeline.append(
+        {
+            "$group": {
+                "_id": "$_id",
+                "device_id": {"$first": "$device_id"},
+                "ts": {"$first": "$ts"},
+                "data": {"$push": "$data"},
+            }
+        }
+    )
+    pipeline.append(
+        {
+            "$project": {
+                "_id": 1,
+                "device_id": 1,
+                "ts": 1,
+                "data": {
+                    "$reduce": {
+                        "input": "$data",
+                        "initialValue": {},
+                        "in": {
+                            "$mergeObjects": [
+                                "$$value",
+                                {
+                                    "$cond": [
+                                        {"$eq": [{"$type": "$$this"}, "object"]},
+                                        "$$this",
+                                        {},
+                                    ]
+                                },
+                            ]
+                        },
+                    }
+                },
+            }
+        }
+    )
+    pipeline.append({"$sort": {"ts": -1}})
+
+    return list(devices_rollup_hour_collection.aggregate(pipeline))
+
+
 def get_seed_values_before(
     uid: str,
     before: datetime,
@@ -499,3 +795,14 @@ def get_seed_values_before(
         if len(seed) == len(fields):
             break
     return seed
+
+
+def get_rollup_min_ts(uid: str) -> Optional[datetime]:
+    doc = devices_rollup_hour_collection.find_one(
+        {"device_id": uid},
+        sort=[("ts", 1)],
+        projection={"ts": 1},
+    )
+    if not doc:
+        return None
+    return doc.get("ts")

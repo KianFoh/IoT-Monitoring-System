@@ -427,14 +427,41 @@ def fetch_device_data(
         return [serialize_document(doc) for doc in filled]
 
     tz_offset_minutes = int(tz_offset or 0)
-    aggregated = device_data_crud.get_aggregated_by_uid(
-        device_uid,
-        start=start,
-        end=end,
-        granularity=selected_granularity,
-        field_types=field_types,
-        tz_offset_minutes=tz_offset_minutes,
-    )
+    use_rollup = selected_granularity in {"hour", "day", "week", "month", "year"}
+    rollup_min_ts = None
+    if use_rollup:
+        rollup_min_ts = device_data_crud.get_rollup_min_ts(device_uid)
+        if not rollup_min_ts:
+            use_rollup = False
+        elif not start or (start and start < rollup_min_ts):
+            use_rollup = False
+    if use_rollup:
+        aggregated = device_data_crud.get_rollup_aggregated_by_uid(
+            device_uid,
+            start=start,
+            end=end,
+            granularity=selected_granularity,
+            field_types=field_types,
+            tz_offset_minutes=tz_offset_minutes,
+        )
+        if not aggregated:
+            aggregated = device_data_crud.get_aggregated_by_uid(
+                device_uid,
+                start=start,
+                end=end,
+                granularity=selected_granularity,
+                field_types=field_types,
+                tz_offset_minutes=tz_offset_minutes,
+            )
+    else:
+        aggregated = device_data_crud.get_aggregated_by_uid(
+            device_uid,
+            start=start,
+            end=end,
+            granularity=selected_granularity,
+            field_types=field_types,
+            tz_offset_minutes=tz_offset_minutes,
+        )
     if not aggregated:
         return []
     if not fill_state:

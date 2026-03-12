@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
+import { config } from "@/config";
 import styles from "./PieChart.module.css";
 
 export type PieChartDatum = {
@@ -192,8 +193,8 @@ export function PieChart({ data, legendData, seriesName, showLabels = true }: Pi
     () => ({
       animationTypeUpdate: "transition",
       animation: true,
-      animationDuration: 1000,
-      animationDurationUpdate: 1000,
+      animationDuration: config.chart.animationMs,
+      animationDurationUpdate: config.chart.animationMs,
       tooltip: {
         trigger: "item",
         formatter: (params: any) => {

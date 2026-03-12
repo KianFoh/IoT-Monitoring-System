@@ -30,6 +30,16 @@ def _get_env(name: str, default: Optional[str] = None) -> Optional[str]:
     return value
 
 
+def _get_env_int(name: str, default: int) -> int:
+    value = _get_env(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
 def _next_temp(prev: Optional[int]) -> int:
     if prev is None:
         return random.randint(TEMP_MIN, TEMP_MAX)
@@ -83,6 +93,8 @@ def _parse_p1_state(value: object) -> Optional[str]:
 def main() -> None:
     _load_env()
 
+    global SEC
+    SEC = max(1, _get_env_int("TEST_PUBLISH_INTERVAL", SEC))
     host = _get_env("MQTT_BROKER_HOST", "localhost")
     port = int(_get_env("MQTT_BROKER_PORT", "1883") or "1883")
     username = _get_env("MQTT_USERNAME")
@@ -117,10 +129,10 @@ def main() -> None:
         next_p1 = _parse_p1_state(p1_value)
 
         with state_lock:
-            if next_p100 is not None and next_p100 != output_state["p100_stat"]:
+            if next_p100 is not None:
                 output_state["p100_stat"] = next_p100
                 pending_output["p100_stat"] = True
-            if next_p1 is not None and next_p1 != output_state["p1_stat"]:
+            if next_p1 is not None:
                 output_state["p1_stat"] = next_p1
                 pending_output["p1_stat"] = True
 

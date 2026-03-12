@@ -1,8 +1,13 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional, Tuple
+import math
 
-from app.core.mongo import get_data_collection, get_latest_collection
+from app.core.mongo import (
+    get_data_collection,
+    get_latest_collection,
+    get_rollup_hour_collection,
+)
 from app.core.postgresql import SessionLocal
 from app.models.device import Device
 from app.services.custom_processing import get_device_processor
@@ -28,6 +33,7 @@ class DevicePipeline:
         self.running = False
         self.data_collection = get_data_collection()
         self.latest_collection = get_latest_collection()
+        self.rollup_hour_collection = get_rollup_hour_collection()
         self.custom_processor = get_device_processor(device.uid)
         
     @property
@@ -101,6 +107,9 @@ class DevicePipeline:
         # Update latest snapshot in MongoDB.
         self._upsert_latest(device_id, doc["ts"], data)
 
+        # Update hourly rollup.
+        self._update_rollup_hour(device_id, doc["ts"], data)
+
         # Update last seen timestamp.
         self.last_seen = doc["ts"]
 
@@ -128,6 +137,55 @@ class DevicePipeline:
             upsert=True,
         )
 
+    def _update_rollup_hour(self, device_id: str, timestamp, data: Dict[str, Any]) -> None:
+        bucket_ts = timestamp.replace(minute=0, second=0, microsecond=0)
+        inc_ops: Dict[str, float] = {}
+        set_ops: Dict[str, Any] = {}
+        max_ops: Dict[str, Any] = {}
+
+        for key, value in data.items():
+            if value is None:
+                continue
+            if isinstance(value, (dict, list, tuple, set)):
+                for item_key, inc in self._iter_list_counts(value):
+                    target_key = self._sanitize_key(item_key)
+                    inc_key = f"data.{key}.{target_key}"
+                    inc_ops[inc_key] = inc_ops.get(inc_key, 0.0) + inc
+                continue
+
+            if isinstance(value, bool):
+                set_ops[f"data.{key}"] = value
+                max_ops[f"meta.text_last_ts.{key}"] = timestamp
+                continue
+
+            numeric_value = self._coerce_number(value)
+            if numeric_value is not None:
+                sum_key = f"meta.num_sum.{key}"
+                count_key = f"meta.num_count.{key}"
+                inc_ops[sum_key] = inc_ops.get(sum_key, 0.0) + numeric_value
+                inc_ops[count_key] = inc_ops.get(count_key, 0.0) + 1.0
+                continue
+
+            set_ops[f"data.{key}"] = value
+            max_ops[f"meta.text_last_ts.{key}"] = timestamp
+
+        if not (inc_ops or set_ops or max_ops):
+            return
+
+        update_doc: Dict[str, Any] = {"$setOnInsert": {"device_id": device_id, "ts": bucket_ts}}
+        if inc_ops:
+            update_doc["$inc"] = inc_ops
+        if set_ops:
+            update_doc["$set"] = set_ops
+        if max_ops:
+            update_doc["$max"] = max_ops
+
+        self.rollup_hour_collection.update_one(
+            {"device_id": device_id, "ts": bucket_ts},
+            update_doc,
+            upsert=True,
+        )
+
     @staticmethod
     def _parse_payload(payload: bytes) -> Dict[str, Any] | None:
         try:
@@ -146,6 +204,48 @@ class DevicePipeline:
         except Exception as exc:
             logger.error(f"Custom processor failed for {self.device.uid}: {exc}")
         return data
+
+    @staticmethod
+    def _sanitize_key(value: Any) -> str:
+        key = str(value)
+        if "." in key:
+            key = key.replace(".", "_")
+        if key.startswith("$"):
+            key = key.replace("$", "_", 1)
+        return key
+
+    @staticmethod
+    def _coerce_number(value: Any) -> Optional[float]:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            num = float(value)
+            return num if math.isfinite(num) else None
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return None
+            try:
+                num = float(stripped)
+            except ValueError:
+                return None
+            return num if math.isfinite(num) else None
+        return None
+
+    @staticmethod
+    def _iter_list_counts(value: Any) -> Iterable[Tuple[str, float]]:
+        if isinstance(value, dict):
+            for key, entry in value.items():
+                count = 1.0
+                if not isinstance(entry, bool) and isinstance(entry, (int, float)):
+                    count = float(entry)
+                yield str(key), count
+            return
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                yield str(item), 1.0
+            return
+        yield str(value), 1.0
 
     def _start_watchdog(self):
         from threading import Thread

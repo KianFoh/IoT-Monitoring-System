@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     MONGO_USER: str = Field(default=None)
     MONGO_PASSWORD: str = Field(default=None)
     MONGO_AUTH_SOURCE: str = Field(default=None)
+    MONGO_ROLLUP_HOUR_COLLECTION: str = Field(default="devices_data_rollup_hour")
     DEVICES_DATA_COLLECTION_NAME: str = Field(default="devices_data")
     DEVICES_LATEST_COLLECTION_NAME: str = Field(default="devices_latest")
 

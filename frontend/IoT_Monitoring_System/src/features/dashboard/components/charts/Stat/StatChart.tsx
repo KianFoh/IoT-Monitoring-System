@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { config } from "@/config";
 import styles from "./StatChart.module.css";
 
 type StatChartProps = {
@@ -88,6 +89,7 @@ export function StatChart({ value, color, fontSize: preferredFontSize }: StatCha
   const hasValue = value !== null && value !== undefined && String(value).trim() !== "";
   const parsed = useMemo(() => parseStatValue(value), [value]);
   const previousNumericRef = useRef<number | null>(parsed.isNumeric ? parsed.numeric : null);
+  const chartAnimationMs = config.chart.animationMs;
 
   useEffect(() => {
     const node = containerRef.current;
@@ -127,8 +129,17 @@ export function StatChart({ value, color, fontSize: preferredFontSize }: StatCha
     const suffix = parsed.suffix;
     const start = previousNumericRef.current;
     previousNumericRef.current = target;
-    const duration = 1000;
+    const duration = chartAnimationMs;
     if (start === null || !Number.isFinite(start) || start === target) {
+      setDisplayValue(`${formatNumericValue(target, parsed.decimals)}${suffix}`);
+      return () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+      };
+    }
+    if (!duration || duration <= 0) {
       setDisplayValue(`${formatNumericValue(target, parsed.decimals)}${suffix}`);
       return () => {
         if (animationFrameRef.current) {
