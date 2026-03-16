@@ -21,6 +21,9 @@ const AUTH_EXCLUDE_PATHS = [
   "/auth/reset-password",
 ];
 
+const isRefreshTokenRequest = (url?: string) =>
+  Boolean(url?.includes("/auth/refresh-token"));
+
 class ApiClient {
   private client: AxiosInstance;
   private authHandlers: AuthHandlers | null = null;
@@ -29,9 +32,12 @@ class ApiClient {
   private setUpInterceptors(instance: AxiosInstance) {
     instance.interceptors.request.use((config) => {
       const token = this.authHandlers?.getToken?.();
-      if (token) {
+      if (token && !isRefreshTokenRequest(config.url)) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
+      } else if (isRefreshTokenRequest(config.url) && config.headers) {
+        delete (config.headers as Record<string, string>)["Authorization"];
+        delete (config.headers as Record<string, string>)["authorization"];
       }
       if (typeof FormData !== "undefined" && config.data instanceof FormData) {
         config.headers = config.headers ?? {};
