@@ -945,6 +945,10 @@ export function LineChart({
       hideTip: () => {
         setHoveredAxisTime(null);
       },
+      globalout: () => {
+        lastPointerMoveRef.current = 0;
+        setHoveredAxisTime(null);
+      },
     }),
     [getNearestTime]
   );
@@ -953,8 +957,10 @@ export function LineChart({
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
     chart.dispatchAction({ type: "downplay" });
-    if (!hasData) return;
-    if (hoveredAxisTime === null) return;
+    if (!hasData || hoveredAxisTime === null) {
+      chart.dispatchAction({ type: "hideTip" });
+      return;
+    }
     if (
       visibleTimeRange &&
       (hoveredAxisTime < visibleTimeRange.min || hoveredAxisTime > visibleTimeRange.max)
@@ -1003,6 +1009,9 @@ export function LineChart({
             onMouseLeave={() => {
               lastPointerMoveRef.current = 0;
               setHoveredAxisTime(null);
+              const chart = chartRef.current?.getEchartsInstance();
+              chart?.dispatchAction({ type: "downplay" });
+              chart?.dispatchAction({ type: "hideTip" });
             }}
           >
             <ReactECharts
