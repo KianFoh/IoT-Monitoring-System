@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, status, Response, Header
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -156,12 +156,24 @@ def check_reset_password_token(
 def refresh_jwt_token(
     response: Response,
     refresh_token: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None, alias="Authorization"),
     db: Session = Depends(get_db)
 ):
-    if not refresh_token:
+    if not any([refresh_token, authorization]):
         raise HTTPException(status_code=401, detail="Missing refresh token")
 
-    payload = decode_token(refresh_token)
+    # don't allow providing both cookie and header at the same time
+    if refresh_token and authorization:
+        raise HTTPException(status_code=400, detail="Provide refresh token in only one place (cookie OR Authorization header)")
+
+    if authorization:
+        token = authorization.split(" ", 1)[1] if authorization.lower().startswith("bearer ") else authorization
+        token_source = "header"
+    else:
+        token = refresh_token
+        token_source = "cookie"
+
+    payload = decode_token(token)
 
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid token type")
@@ -176,18 +188,26 @@ def refresh_jwt_token(
     access_token = create_access_token(user)
     new_refresh_token = create_refresh_token(db, user)
 
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_token,
-        httponly=True,
-        path="/auth/refresh-token",
-        secure=False,
-        samesite="lax",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-    )
+    if token_source == "cookie":
+        response.set_cookie(
+            key="refresh_token",
+            value=new_refresh_token,
+            httponly=True,
+            path="/auth/refresh-token",
+            secure=False,
+            samesite="lax",
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        )
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": UserOut.model_validate(user, from_attributes=True),
+        }
 
+    # header mode: return refresh token in response body
     return {
         "access_token": access_token,
+        "refresh_token": new_refresh_token,
         "token_type": "bearer",
         "user": UserOut.model_validate(user, from_attributes=True),
     }
