@@ -9,12 +9,7 @@
   color: var(--color-success-600);
   margin-bottom: var(--spacing-md);
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 80px;
-  height: 80px;
   background: var(--color-success-bg-light);
-  border-radius: 50%;
 }
 
 
@@ -37,7 +32,7 @@
   background: var(--color-primary-500);
   color: white;
   border-radius: var(--radius-md);
-  margin-top: var(--spacing-lg);
+  margin-top: var(--spacing-sm);
   transition: background-color var(--transition-normal);
   font-weight: 600;
   text-decoration: none;

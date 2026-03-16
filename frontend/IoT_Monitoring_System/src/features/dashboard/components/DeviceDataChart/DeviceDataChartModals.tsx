@@ -23,7 +23,10 @@ import type {
   LineListMode,
 } from "./types/deviceDataChartTypes";
 import type { SectionModalState } from "./state/deviceDataChartState";
-import { getCustomRangeLimitEnd } from "./utils/deviceDataChartUtils";
+import {
+  getCustomRangeLimitEnd,
+  parseCustomRangeInputMs,
+} from "./utils/deviceDataChartUtils";
 import formStyles from "../DashboardForm/DashboardForm.module.css";
 
 type DeviceDataChartModalsProps = {
@@ -199,14 +202,14 @@ export function DeviceDataChartModals({
   };
   const startTimeValue = filterModal.timeStart?.trim();
   const endTimeValue = filterModal.timeEnd?.trim();
-  const startTime =
-    startTimeValue && Number.isFinite(new Date(startTimeValue).getTime())
-      ? new Date(startTimeValue).getTime()
-      : null;
-  const endTime =
-    endTimeValue && Number.isFinite(new Date(endTimeValue).getTime())
-      ? new Date(endTimeValue).getTime()
-      : null;
+  const startTime = startTimeValue
+    ? parseCustomRangeInputMs(startTimeValue, filterModal.timeGranularity)
+    : null;
+  const endTime = endTimeValue
+    ? parseCustomRangeInputMs(endTimeValue, filterModal.timeGranularity, { end: true })
+    : null;
+  const hasTimeFormatError =
+    (Boolean(startTimeValue) && startTime === null) || (Boolean(endTimeValue) && endTime === null);
   const maxEndDate = (() => {
     const now = new Date();
     if (filterModal.timeDateInputType === "date") {
@@ -883,12 +886,12 @@ export function DeviceDataChartModals({
                 min={startTimeValue || undefined}
                 max={maxEndDate}
               />
-              {hasTimeRangeError && (
+              {!hasTimeFormatError && hasTimeRangeError && (
                 <p className={formStyles["dashboard-modal-error"]}>
                   End time must be after start time.
                 </p>
               )}
-              {!hasTimeRangeError && hasTimeRangeLimitError && rangeLimitLabel && (
+              {!hasTimeFormatError && !hasTimeRangeError && hasTimeRangeLimitError && rangeLimitLabel && (
                 <p className={formStyles["dashboard-modal-error"]}>
                   Max range for {filterModal.timeGranularity} granularity is {rangeLimitLabel}.
                 </p>

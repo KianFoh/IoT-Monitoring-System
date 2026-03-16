@@ -19,29 +19,20 @@
 .gen-inputIconLeft {
   position: absolute;
   left: var(--spacing-md);
-  color: var(--text-tertiary);
   font-size: var(--font-size-lg);
-  pointer-events: none;
 }
 
 .gen-inputIconRight {
   color: var(--text-tertiary);
   font-size: var(--font-size-lg);
-  
-  pointer-events: none;
 }
 
 .gen-inputIconButton {
   position: absolute;
   right: var(--spacing-md);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   background: transparent;
   border: none;
-  padding: 0;
   cursor: pointer;
-  color: inherit;
 }
 
 .gen-inputIconButton:disabled {
@@ -52,17 +43,13 @@
 .gen-inputField {
   width: 100%;
   padding: var(--spacing-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   font-family: var(--font-family);
   color: var(--text-primary);
   background: var(--bg-secondary);
-  border: 2px solid var(--border-light);
+  border: 2px solid var(--border-medium);
   border-radius: var(--radius-md);
-  transition: background var(--transition-slow),
-    border-color var(--transition-slow),
-    box-shadow var(--transition-slow);
   outline: none;
-  box-sizing: border-box;
 }
 
 .gen-inputField.withIcon {
@@ -86,11 +73,6 @@
 
 .gen-inputField.inputError {
   border-color: var(--color-error-500);
-}
-
-.gen-inputField[type="password"]::-ms-reveal,
-.gen-inputField[type="password"]::-ms-clear {
-  display: none;
 }
 
 .gen-inputErrorMessage {

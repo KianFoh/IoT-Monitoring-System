@@ -3,6 +3,8 @@ import { useMemo } from "react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import type { ReactElement } from "react";
 import {
+  FaChevronLeft,
+  FaChevronRight,
   FaTachometerAlt,
   FaNetworkWired,
   FaUsers,
@@ -10,7 +12,8 @@ import {
   FaUserCog,
   FaUserAlt ,
   FaBuilding,
-  FaSitemap ,
+  FaSitemap,
+  FaSignOutAlt,
 } from "react-icons/fa";
 import styles from"./Navbar.module.css";
 import { config } from "@/config";
@@ -32,7 +35,12 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/dashboard/settings", label: "Settings", icon: <FaCog /> },
 ];
 
-const Navbar = () => {
+type NavbarProps = {
+  collapsed: boolean;
+  onToggle: () => void;
+};
+
+const Navbar = ({ collapsed, onToggle }: NavbarProps) => {
   const { logout, user } = useAuth();
   const displayName = user?.username?.trim() || user?.email || "User";
   const initials = useMemo(() => {
@@ -58,24 +66,36 @@ const Navbar = () => {
     : NAV_ITEMS;
 
   return (
-    <nav className={styles["gen-navbar"]}>
+    <nav
+      className={`${styles["gen-navbar"]} ${collapsed ? styles["gen-navbar--collapsed"] : ""}`}
+    >
       {/* Profile */}
       <div className={styles["gen-navbar-profile"]}>
-        <div className={styles["gen-navbar-profile-avatar"]}>
-          {profileSrc ? (
-            <img
-              src={profileSrc}
-              alt={displayName}
-              className={styles["gen-navbar-profile-avatar-img"]}
-            />
-          ) : (
-            <span className={styles["gen-navbar-profile-avatar-placeholder"]}>{initials}</span>
-          )}
+        <div className={styles["gen-navbar-profile-main"]}>
+          <div className={styles["gen-navbar-profile-avatar"]}>
+            {profileSrc ? (
+              <img
+                src={profileSrc}
+                alt={displayName}
+                className={styles["gen-navbar-profile-avatar-img"]}
+              />
+            ) : (
+              <span className={styles["gen-navbar-profile-avatar-placeholder"]}>{initials}</span>
+            )}
+          </div>
+          <div className={styles["gen-navbar-profile-details"]}>
+            <h3 className={styles["gen-navbar-profile-email"]}>{displayName}</h3>
+            <p className={styles["gen-navbar-profile-role"]}>{user?.role || "Role"}</p>
+          </div>
         </div>
-        <div>
-          <h3 className={styles["gen-navbar-profile-email"]}>{displayName}</h3>
-          <p className={styles["gen-navbar-profile-role"]}>{user?.role || 'Role'}</p>
-        </div>
+        <button
+          type="button"
+          className={styles["gen-navbar-toggle"]}
+          onClick={onToggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
+        </button>
       </div>
       {/* Menu */}
       <ul className={styles["gen-navbar-menu"]}>
@@ -84,6 +104,7 @@ const Navbar = () => {
             <NavLink
               to={item.to}
               end
+              title={item.label}
               className={({ isActive }) =>
                 `${styles["gen-navbar-item"]} ${isActive ? styles["active"] : ""}`
               }
@@ -97,8 +118,17 @@ const Navbar = () => {
 
       {/* Footer */}
       <div className={styles["gen-navbar-footer"]}>
-        <button onClick={logout} className={styles["gen-navbar-logout-btn"]}>
-          Logout
+        <button
+          type="button"
+          onClick={logout}
+          className={styles["gen-navbar-logout-btn"]}
+          aria-label="Logout"
+          title="Logout"
+        >
+          <span className={styles["gen-navbar-logout-icon"]} aria-hidden>
+            <FaSignOutAlt />
+          </span>
+          <span className={styles["gen-navbar-logout-label"]}>Logout</span>
         </button>
       </div>
     </nav>

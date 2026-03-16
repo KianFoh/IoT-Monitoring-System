@@ -285,6 +285,77 @@ export const getCustomRangeLimitEnd = (startTimeMs: number, granularity: LineGra
   return limit.getTime();
 };
 
+export const usesDateOnlyCustomRangeInput = (granularity: LineGranularity) =>
+  granularity === "hour" ||
+  granularity === "day" ||
+  granularity === "week" ||
+  granularity === "month" ||
+  granularity === "year";
+
+export const getCustomRangeInputStep = (granularity: LineGranularity) => {
+  switch (granularity) {
+    case "sec":
+      return 1;
+    case "minute":
+      return 60;
+    case "hour":
+      return 3600;
+    default:
+      return undefined;
+  }
+};
+
+export const parseCustomRangeInputMs = (
+  value: string,
+  granularity: LineGranularity,
+  { end = false }: { end?: boolean } = {}
+) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (usesDateOnlyCustomRangeInput(granularity)) {
+    const slashDateMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+    const isoDateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+    if (!slashDateMatch && !isoDateMatch) return null;
+    const year = Number(slashDateMatch ? slashDateMatch[3] : isoDateMatch?.[1]);
+    const month = Number(slashDateMatch ? slashDateMatch[2] : isoDateMatch?.[2]);
+    const day = Number(slashDateMatch ? slashDateMatch[1] : isoDateMatch?.[3]);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      return null;
+    }
+    const localTime = new Date(
+      year,
+      month - 1,
+      day,
+      end ? 23 : 0,
+      end ? 59 : 0,
+      end ? 59 : 0,
+      end ? 999 : 0
+    );
+    if (
+      localTime.getFullYear() !== year ||
+      localTime.getMonth() !== month - 1 ||
+      localTime.getDate() !== day
+    ) {
+      return null;
+    }
+    const time = localTime.getTime();
+    return Number.isFinite(time) ? time : null;
+  }
+  const parsed = new Date(trimmed);
+  const time = parsed.getTime();
+  return Number.isFinite(time) ? time : null;
+};
+
+export const toCustomRangeInputIso = (
+  value: string,
+  granularity: LineGranularity,
+  options?: { end?: boolean }
+) => {
+  const time = parseCustomRangeInputMs(value, granularity, options);
+  if (time === null) return null;
+  return new Date(time).toISOString();
+};
+
 export const parseOptionalNumber = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return undefined;

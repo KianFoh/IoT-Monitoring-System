@@ -39,10 +39,12 @@ import type {
 } from "./types/deviceDataChartTypes";
 import {
   ensureChartLayout,
+  getCustomRangeInputStep,
   getSectionIdFromKey,
   getSectionKey,
   isSectionKey,
   normalizeChart,
+  usesDateOnlyCustomRangeInput,
 } from "./utils/deviceDataChartUtils";
 import { getRangeGranularity, normalizeCaseList } from "./utils/deviceChartHelpers";
 
@@ -385,10 +387,13 @@ export function DeviceDataChart<T extends string>({
     setDraftAssignments,
   });
 
-  const timeDateInputType =
-    timeGranularity === "sec" || timeGranularity === "minute" ? "datetime-local" : "date";
+  const timeDateInputType = usesDateOnlyCustomRangeInput(timeGranularity)
+    ? "date"
+    : "datetime-local";
   const timeDateStep =
-    timeDateInputType === "datetime-local" ? (timeGranularity === "sec" ? 60 : 3600) : undefined;
+    timeDateInputType === "datetime-local"
+      ? getCustomRangeInputStep(timeGranularity)
+      : undefined;
   const timeDateLabel = timeDateInputType === "datetime-local" ? "date/time" : "date";
   const rangeRefreshSpec = useMemo(
     () => getRangeRefreshSpec(getRangeGranularity(rangePreset)),

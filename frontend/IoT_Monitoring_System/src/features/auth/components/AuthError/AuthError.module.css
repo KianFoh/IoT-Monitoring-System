@@ -25,7 +25,3 @@
 .auth-ErrorLink:hover {
   color: var(--color-primary-600);
 }
-
-.auth-ErrorLink:active {
-  color: var(--color-primary-700);
-}

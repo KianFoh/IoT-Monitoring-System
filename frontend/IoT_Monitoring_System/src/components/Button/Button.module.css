@@ -2,7 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-
+  gap: var(--spacing-sm);
+  height: 50px;
   width: 100%;
   padding: var(--spacing-md);
   font-size: var(--font-size-sm);
@@ -15,33 +16,19 @@
   background: var(--color-primary-500);
 }
 
-
-.gen-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
-}
-
 .gen-btn:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
+  cursor: nonne;
 }
 
 /* icon wrapper inside button */
 .gen-btn-icon {
   display: inline-flex;
-  align-items: center;
-  margin-right: var(--spacing-sm);
 }
-
 
 /* Danger (delete) */
 .gen-btn--danger {
   background: var(--color-error-500);
-  color: var(--text-white);
-}
-
-.gen-btn--danger:hover:not(:disabled) {
-  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.12);
 }
 
 /* Ghost (cancel/secondary) */
@@ -49,8 +36,4 @@
   background: var(--bg-white);
   color: var(--color-primary-500);
   border: 2px solid var(--color-primary-500);
-}
-
-.gen-btn--cancel:hover:not(:disabled) {
-  box-shadow: var(--shadow-sm);
 }
