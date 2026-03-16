@@ -1,4 +1,4 @@
-import { type Ref, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { type DragEvent as ReactDragEvent, type Ref, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { FaChevronDown, FaChevronRight, FaEllipsisV } from "react-icons/fa";
 import {
   GridLayout,
@@ -76,6 +76,11 @@ const buildRefreshRangeOptions = (
     options.push({ value: String(value), label });
   }
   return options;
+};
+
+const clearBrowserSelection = () => {
+  if (typeof window === "undefined") return;
+  window.getSelection?.()?.removeAllRanges?.();
 };
 
 export function DeviceDataChart<T extends string>({
@@ -213,6 +218,11 @@ export function DeviceDataChart<T extends string>({
     suspendRange: isEditing,
   });
   const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
+  const handlePreventNativeDrag = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isEditing) return;
+    event.preventDefault();
+    clearBrowserSelection();
+  };
   const { width, containerRef, measureWidth, mounted } = useContainerWidth({
     initialWidth: 1200,
     measureBeforeMount: true,
@@ -527,6 +537,11 @@ export function DeviceDataChart<T extends string>({
       setIsEditing(false);
     }
   }, [readOnly, isEditing]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    clearBrowserSelection();
+  }, [isEditing]);
 
   useEffect(() => {
     if (isEditing && !wasEditingRef.current) {
@@ -953,6 +968,7 @@ export function DeviceDataChart<T extends string>({
           className={`${styles["device-chart-grid"]} ${
             isEditing ? styles["device-chart-grid-editing"] : ""
           }`}
+          onDragStartCapture={handlePreventNativeDrag}
         >
           {mounted && (
             <GridLayout

@@ -73,6 +73,14 @@
   padding-bottom: 0;
 }
 
+.device-chart-grid-editing,
+.device-chart-grid-editing :global(.react-grid-item),
+.device-chart-grid-editing .device-chart-card,
+.device-chart-grid-editing .device-section-row {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .device-chart-grid :global(.react-grid-layout) {
   width: 100%;
   overflow: visible;

@@ -1,4 +1,4 @@
-import { type ReactNode, type Ref, useEffect, useMemo, useRef, useState } from "react";
+import { type DragEvent as ReactDragEvent, type ReactNode, type Ref, useEffect, useMemo, useRef, useState } from "react";
 import { FaChevronDown, FaChevronRight, FaCog, FaEllipsisV } from "react-icons/fa";
 import {
   GridLayout,
@@ -41,6 +41,11 @@ type DeviceDataCardContentProps = {
   label: string;
   labelColor?: string;
   value: ReactNode;
+};
+
+const clearBrowserSelection = () => {
+  if (typeof window === "undefined") return;
+  window.getSelection?.()?.removeAllRanges?.();
 };
 
 function DeviceDataCardContent({ label, labelColor, value }: DeviceDataCardContentProps) {
@@ -163,6 +168,11 @@ export function DeviceDataPanel<T extends string>({
   const resizeHandles = isLayoutEditing && !disabled && !readOnly ? RESIZE_HANDLES : [];
   const dragCancelSelector = `.${styles["device-data-settings"]}, .${styles["device-data-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
   const dragBounded = !(isLayoutEditing && panelSections.length > 0);
+  const handlePreventNativeDrag = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isLayoutEditing) return;
+    event.preventDefault();
+    clearBrowserSelection();
+  };
   const renderResizeHandle = (axis: ResizeHandleAxis, ref: Ref<HTMLSpanElement>) => (
     <span
       ref={ref}
@@ -210,6 +220,11 @@ export function DeviceDataPanel<T extends string>({
       setDraftLayout(normalizedLayout as Layout);
     }
   }, [normalizedLayout, isLayoutEditing]);
+
+  useEffect(() => {
+    if (!isLayoutEditing) return;
+    clearBrowserSelection();
+  }, [isLayoutEditing]);
 
   useEffect(() => {
     if (!isLayoutEditing) {
@@ -645,6 +660,7 @@ export function DeviceDataPanel<T extends string>({
           className={`${styles["device-chart-grid"]} ${
             isLayoutEditing ? styles["device-chart-grid-editing"] : ""
           }`}
+          onDragStartCapture={handlePreventNativeDrag}
         >
           <GridLayout
             width={gridWidth}
