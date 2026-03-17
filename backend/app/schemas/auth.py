@@ -10,6 +10,10 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     user: UserOut
 
+
+class AppLoginResponse(LoginResponse):
+    refresh_token: str
+
 class SetPasswordRequest(BaseModel):
     password: str = Field(..., min_length=5)
 

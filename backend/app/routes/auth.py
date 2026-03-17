@@ -18,7 +18,8 @@ from app.crud.postgres import user as user_crud
 from app.models.user import User as UserModel
 from app.schemas.auth import (
     LoginRequest, 
-    LoginResponse, 
+    LoginResponse,
+    AppLoginResponse,
     SetPasswordRequest,
     SendVerificationRequest,
     SendResetPasswordRequest,
@@ -33,6 +34,31 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 settings = get_settings()
 
 
+def _authenticate_login_user(credentials: LoginRequest, db: Session) -> UserModel:
+    user = authenticate_user(db, credentials.email, credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is deactivated"
+        )
+
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email is not verified"
+        )
+
+    user_crud.update_last_login(db, user.id)
+    return user
+
+
 # ==================== Login ====================
 @router.post("/login", response_model=LoginResponse)
 def login(
@@ -41,28 +67,7 @@ def login(
     response: Response = None,
 ):
     """Login with email and password and receive JWT token."""
-    user = authenticate_user(db, credentials.email, credentials.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated"
-        )
-    
-    if not user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email is not verified"
-        )
-    
-    user_crud.update_last_login(db, user.id)
-    
+    user = _authenticate_login_user(credentials, db)
     access_token = create_access_token(user)
     refresh_token = create_refresh_token(db, user)
 
@@ -81,6 +86,24 @@ def login(
         "access_token": access_token,
         'token_type': 'bearer',
         "user": user
+    }
+
+
+@router.post("/login/app", response_model=AppLoginResponse)
+def login_app(
+    credentials: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    """Login for app clients and return both access and refresh tokens in the response body."""
+    user = _authenticate_login_user(credentials, db)
+    access_token = create_access_token(user)
+    refresh_token = create_refresh_token(db, user)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
     }
 
 # ==================== Set Password/ Verify Email ====================
