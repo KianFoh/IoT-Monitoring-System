@@ -24,6 +24,7 @@ class DeviceRepository:
                     Device.uid,
                     Device.data_interval,
                     Device.is_active,
+                    Device.dashboard_config,
                     Department.name,
                     Customer.name,
                     Distributor.name,
@@ -37,7 +38,7 @@ class DeviceRepository:
             session.close()
 
         devices: List[DeviceInfo] = []
-        for uid, data_interval, is_active, department_name, customer_name, distributor_name in rows:
+        for uid, data_interval, is_active, dashboard_config, department_name, customer_name, distributor_name in rows:
             devices.append(
                 DeviceInfo(
                     uid=uid,
@@ -45,10 +46,57 @@ class DeviceRepository:
                     department_name=department_name,
                     distributor_name=distributor_name,
                     data_interval=data_interval,
+                    dashboard_config=dashboard_config,
                     is_active=is_active,
                 )
             )
         return devices
+
+    def fetch_device_by_uid(self, uid: str) -> Optional[DeviceInfo]:
+        """Fetch one device with all pipeline metadata."""
+        session = SessionLocal()
+        try:
+            row = (
+                session.query(
+                    Device.uid,
+                    Device.data_interval,
+                    Device.is_active,
+                    Device.dashboard_config,
+                    Department.name,
+                    Customer.name,
+                    Distributor.name,
+                )
+                .join(Department, Device.department_id == Department.id)
+                .join(Customer, Department.customer_id == Customer.id)
+                .outerjoin(Distributor, Customer.distributor_id == Distributor.id)
+                .filter(Device.uid == uid)
+                .first()
+            )
+        finally:
+            session.close()
+
+        if not row:
+            return None
+
+        (
+            device_uid,
+            data_interval,
+            is_active,
+            dashboard_config,
+            department_name,
+            customer_name,
+            distributor_name,
+        ) = row
+
+        return DeviceInfo(
+            uid=device_uid,
+            customer_name=customer_name,
+            department_name=department_name,
+            distributor_name=distributor_name,
+            data_interval=data_interval,
+            dashboard_config=dashboard_config,
+            is_active=is_active,
+        )
 
 
 class DevicePipelineManager:
@@ -202,16 +250,11 @@ class DevicePipelineManager:
 
         restart_requested = data.get("restart_pipeline")
 
-        device_info = DeviceInfo(
-            uid=device_uid,
-            customer_name=customer_name,
-            department_name=department_name,
-            distributor_name=distributor_name,
-            data_interval=data_interval,
-            is_active=is_active,
-        )
-
         if event_type == "add":
+            device_info = self._repository.fetch_device_by_uid(device_uid)
+            if not device_info:
+                logger.warning(f"Device event add: device {device_uid} not found in database")
+                return
             if device_info.is_active:
                 started = self.start_pipeline(device_info)
                 if started:
@@ -219,11 +262,15 @@ class DevicePipelineManager:
                 else:
                     logger.info(f"Device event add: pipeline already running for {device_uid}")
             else:
-                logger.info(f"Device event add: device inactive; pipeline not started for {device_uid}")
+                logger.info(f"Device event add: device inactive, pipeline not started for {device_uid}")
             return
 
         if event_type == "update":
             if not restart_requested:
+                return
+            device_info = self._repository.fetch_device_by_uid(device_uid)
+            if not device_info:
+                logger.warning(f"Device event update: device {device_uid} not found in database")
                 return
             if device_info.is_active:
                 restarted = self.restart_pipeline(device_info)

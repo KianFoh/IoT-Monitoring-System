@@ -168,6 +168,33 @@
   max-width: 220px;
 }
 
+.dashboard-picker-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-height-lg);
+  gap: var(--spacing-sm);
+  align-items: end;
+}
+
+.dashboard-picker-field-main {
+  min-width: 0;
+}
+
+.dashboard-picker-field-main-full {
+  grid-column: 1 / -1;
+}
+
+.dashboard-picker-field-input {
+  height: var(--control-height-lg);
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.dashboard-picker-field-trigger {
+  height: var(--control-height-lg);
+  box-sizing: border-box;
+  line-height: 1;
+}
+
 .dashboard-label-row {
   display: flex;
   align-items: center;

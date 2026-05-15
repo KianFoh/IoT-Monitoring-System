@@ -16,6 +16,13 @@ import { getRangeGranularity } from "../utils/deviceChartHelpers";
 type DeviceDataRecord = {
   ts?: string | number | Date;
   data?: Record<string, unknown>;
+  seed?: Record<string, unknown>;
+};
+
+type ParsedDeviceDataRow = {
+  ts: number;
+  data: Record<string, unknown>;
+  seed?: Record<string, unknown>;
 };
 
 type TimeWindow = { start: string; end: string; granularity: LineGranularity };
@@ -33,6 +40,7 @@ type UseDeviceChartDataParams = {
   timeEnd: string;
   rangeRefreshMs: number;
   getChartType?: (field: string) => DataFieldType;
+  getChartCases?: (field: string) => string[] | null | undefined;
   suspendLive?: boolean;
   suspendRange?: boolean;
 };
@@ -130,6 +138,106 @@ const parseApiTimestamp = (value: DeviceDataRecord["ts"]) => {
   return null;
 };
 
+const normalizeCaseLabels = (value: string[] | null | undefined) =>
+  Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
+
+const buildListCounts = (value: unknown): Record<string, number> => {
+  if (value === null || value === undefined) return {};
+  if (Array.isArray(value)) {
+    return value.reduce<Record<string, number>>((acc, item) => {
+      const key = String(item).trim();
+      if (!key) return acc;
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+  }
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).reduce<Record<string, number>>(
+      (acc, [rawKey, rawValue]) => {
+        const key = rawKey.trim();
+        if (!key) return acc;
+        const numeric = parseNumericValue(rawValue);
+        acc[key] = numeric ?? 0;
+        return acc;
+      },
+      {}
+    );
+  }
+  const key = String(value).trim();
+  return key ? { [key]: 1 } : {};
+};
+
+const buildZeroFilledList = (knownKeys: string[], value: unknown): Record<string, number> => {
+  const zeroFilled = knownKeys.reduce<Record<string, number>>((acc, key) => {
+    acc[key] = 0;
+    return acc;
+  }, {});
+  const counts = buildListCounts(value);
+  return { ...zeroFilled, ...counts };
+};
+
+const processHistoricalRows = (
+  rows: ParsedDeviceDataRow[],
+  availableFields: string[],
+  getFieldType?: (field: string) => DataFieldType,
+  getFieldCases?: (field: string) => string[] | null | undefined
+) => {
+  const stateSeed: Record<string, unknown> = {};
+  const listKeys = new Map<string, Set<string>>();
+
+  rows.forEach((row) => {
+    const seed = row.seed;
+    if (seed && typeof seed === "object") {
+      Object.entries(seed).forEach(([field, value]) => {
+        const fieldType = getFieldType?.(field);
+        if (fieldType === "text" || fieldType === "boolean") {
+          stateSeed[field] = value;
+        }
+      });
+    }
+    availableFields.forEach((field) => {
+      if (getFieldType?.(field) !== "list") return;
+      const keys = listKeys.get(field) ?? new Set<string>();
+      normalizeCaseLabels(getFieldCases?.(field)).forEach((key) => keys.add(key));
+      Object.keys(buildListCounts(row.data[field])).forEach((key) => keys.add(key));
+      listKeys.set(field, keys);
+    });
+  });
+
+  const lastState = new Map<string, unknown>(Object.entries(stateSeed));
+  return rows.map((row, index) => {
+    const nextData: Record<string, unknown> = { ...row.data };
+    availableFields.forEach((field) => {
+      const fieldType = getFieldType?.(field);
+      if (fieldType === "text" || fieldType === "boolean") {
+        const current = nextData[field];
+        if (current === undefined || current === null) {
+          if (lastState.has(field)) {
+            nextData[field] = lastState.get(field);
+          }
+          return;
+        }
+        lastState.set(field, current);
+        return;
+      }
+
+      if (fieldType === "list") {
+        const knownKeys = Array.from(listKeys.get(field) ?? []);
+        nextData[field] = buildZeroFilledList(knownKeys, nextData[field]);
+      }
+    });
+
+    const nextRow: ParsedDeviceDataRow = {
+      ts: row.ts,
+      data: nextData,
+    };
+    if (index === 0 && Object.keys(stateSeed).length) {
+      nextRow.seed = stateSeed;
+    }
+    return nextRow;
+  });
+};
+
 export const useDeviceChartData = ({
   deviceUid,
   filterMode,
@@ -143,6 +251,7 @@ export const useDeviceChartData = ({
   timeEnd,
   rangeRefreshMs,
   getChartType,
+  getChartCases,
   suspendLive = false,
   suspendRange = false,
 }: UseDeviceChartDataParams) => {
@@ -155,10 +264,15 @@ export const useDeviceChartData = ({
   const [filteredLatestValues, setFilteredLatestValues] = useState<Record<string, unknown>>({});
   const [rangeRefreshToken, setRangeRefreshToken] = useState(0);
   const getChartTypeRef = useRef(getChartType);
+  const getChartCasesRef = useRef(getChartCases);
 
   useEffect(() => {
     getChartTypeRef.current = getChartType;
   }, [getChartType]);
+
+  useEffect(() => {
+    getChartCasesRef.current = getChartCases;
+  }, [getChartCases]);
 
   useEffect(() => {
     if (suspendLive) return;
@@ -282,20 +396,25 @@ export const useDeviceChartData = ({
       .then((rows) => {
         if (cancelled) return;
         const records = Array.isArray(rows) ? (rows as DeviceDataRecord[]) : [];
-        const parsedRows = records
-          .map((row) => {
-            const ts = parseApiTimestamp(row.ts);
-            if (ts === null) return null;
-            const data = row.data && typeof row.data === "object" ? row.data : {};
-            return { ts, data };
-          })
-          .filter((row): row is { ts: number; data: Record<string, unknown> } => Boolean(row))
-          .filter((row) => row.ts <= nowTime);
+        const parsedRows: ParsedDeviceDataRow[] = [];
+        records.forEach((row) => {
+          const ts = parseApiTimestamp(row.ts);
+          if (ts === null || ts > nowTime) return;
+          const data = row.data && typeof row.data === "object" ? row.data : {};
+          const seed = row.seed && typeof row.seed === "object" ? row.seed : undefined;
+          parsedRows.push({ ts, data, seed });
+        });
 
         const orderedRows = [...parsedRows].sort((a, b) => a.ts - b.ts);
+        const processedRows = processHistoricalRows(
+          orderedRows,
+          availableFields,
+          getChartTypeRef.current,
+          getChartCasesRef.current
+        );
         const latestValues: Record<string, unknown> = {};
-        for (let i = orderedRows.length - 1; i >= 0; i -= 1) {
-          const row = orderedRows[i];
+        for (let i = processedRows.length - 1; i >= 0; i -= 1) {
+          const row = processedRows[i];
           Object.entries(row.data).forEach(([key, value]) => {
             if (key in latestValues) return;
             const numeric = parseNumericValue(value);
@@ -320,7 +439,7 @@ export const useDeviceChartData = ({
             }
           });
         }
-        setFilteredRawData(orderedRows);
+        setFilteredRawData(processedRows.map(({ ts, data }) => ({ ts, data })));
         setFilteredLatestValues(latestValues);
       })
       .catch(() => {
@@ -332,7 +451,7 @@ export const useDeviceChartData = ({
     return () => {
       cancelled = true;
     };
-  }, [deviceUid, filterMode, rangeWindow, customWindow]);
+  }, [deviceUid, filterMode, rangeWindow, customWindow, availableFields]);
 
   useEffect(() => {
     if (filterMode !== "range") return;

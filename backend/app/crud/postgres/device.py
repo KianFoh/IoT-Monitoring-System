@@ -21,7 +21,7 @@ def create_device(db: Session, device: DeviceCreate):
         mobile_number=device.mobile_number,
         sim_id=device.sim_id,
         dashboard_config=getattr(device, "dashboard_config", None),
-        is_active=getattr(device, "is_active", True),
+        is_active=getattr(device, "is_active", False),
     )
     db.add(db_device)
     db.commit()

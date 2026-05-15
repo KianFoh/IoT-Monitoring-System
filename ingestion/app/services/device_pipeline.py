@@ -6,6 +6,7 @@ import math
 from app.core.mongo import (
     get_data_collection,
     get_latest_collection,
+    get_rollup_min_collection,
     get_rollup_hour_collection,
 )
 from app.core.postgresql import SessionLocal
@@ -23,6 +24,7 @@ class DeviceInfo:
     distributor_name: Optional[str]
     data_interval: float
     is_active: bool
+    dashboard_config: Optional[Dict[str, Any]]
 
 class DevicePipeline:
     def __init__(self, device, mqtt_client):
@@ -33,8 +35,10 @@ class DevicePipeline:
         self.running = False
         self.data_collection = get_data_collection()
         self.latest_collection = get_latest_collection()
+        self.rollup_min_collection = get_rollup_min_collection()
         self.rollup_hour_collection = get_rollup_hour_collection()
         self.custom_processor = get_device_processor(device.uid)
+        self.field_types = self._extract_data_panel_schema()
         
     @property
     def device_topic(self):
@@ -96,19 +100,21 @@ class DevicePipeline:
         data = {k: v for k, v in raw.items() if k != "device_id"}
         data = self._apply_custom_processing(data)
 
+        if self.field_types:
+            data = {k: v for k, v in data.items() if k in self.field_types}
         doc = {"device_id": device_id, "ts": utc_now(), "data": data}
 
         # Publish processed data.
         self._publish_processed(device_id, doc["ts"], data)
 
-        # Store raw doc in MongoDB.
+        # Store the processed payload in MongoDB.
         self.data_collection.insert_one(doc)
 
         # Update latest snapshot in MongoDB.
         self._upsert_latest(device_id, doc["ts"], data)
 
-        # Update hourly rollup.
-        self._update_rollup_hour(device_id, doc["ts"], data)
+        # Update minute and hourly rollups.
+        self._update_rollups(device_id, doc["ts"], data, self.field_types)
 
         # Update last seen timestamp.
         self.last_seen = doc["ts"]
@@ -137,53 +143,153 @@ class DevicePipeline:
             upsert=True,
         )
 
-    def _update_rollup_hour(self, device_id: str, timestamp, data: Dict[str, Any]) -> None:
-        bucket_ts = timestamp.replace(minute=0, second=0, microsecond=0)
-        inc_ops: Dict[str, float] = {}
+    def _update_rollups(self, device_id: str, timestamp, data: Dict[str, Any], field_types: Dict[str, str]) -> None:
+        self._update_rollup(
+            self.rollup_min_collection,
+            device_id,
+            timestamp,
+            timestamp.replace(second=0, microsecond=0),
+            data,
+            field_types,
+        )
+        self._update_rollup(
+            self.rollup_hour_collection,
+            device_id,
+            timestamp,
+            timestamp.replace(minute=0, second=0, microsecond=0),
+            data,
+            field_types,
+        )
+
+    def _update_rollup(self, collection, device_id: str, timestamp, bucket_ts, data: Dict[str, Any], field_types: Dict[str, str]) -> None:
+        if collection is None:
+            return
+
+        inc_ops: Dict[str, int | float] = {}
         set_ops: Dict[str, Any] = {}
         max_ops: Dict[str, Any] = {}
+        min_ops: Dict[str, Any] = {}
 
         for key, value in data.items():
             if value is None:
                 continue
-            if isinstance(value, (dict, list, tuple, set)):
+
+            ftype = field_types.get(key, "text")
+
+            # ================= LIST =================
+            if ftype == "list":
                 for item_key, inc in self._iter_list_counts(value):
                     target_key = self._sanitize_key(item_key)
                     inc_key = f"data.{key}.{target_key}"
-                    inc_ops[inc_key] = inc_ops.get(inc_key, 0.0) + inc
+                    inc_ops[inc_key] = inc_ops.get(inc_key, 0) + inc
+
+                count_key = f"meta.value_count.{key}"
+                inc_ops[count_key] = inc_ops.get(count_key, 0) + 1
                 continue
 
-            if isinstance(value, bool):
+            # ================= BOOLEAN =================
+            if ftype in {"boolean", "bool"}:
                 set_ops[f"data.{key}"] = value
                 max_ops[f"meta.text_last_ts.{key}"] = timestamp
+
+                count_key = f"meta.value_count.{key}"
+                inc_ops[count_key] = inc_ops.get(count_key, 0) + 1
+
+                state_key = self._rollup_state_key(value)
+                state_count_key = f"meta.value_state_count.{key}.{state_key}"
+                inc_ops[state_count_key] = inc_ops.get(state_count_key, 0) + 1
                 continue
 
-            numeric_value = self._coerce_number(value)
-            if numeric_value is not None:
-                sum_key = f"meta.num_sum.{key}"
-                count_key = f"meta.num_count.{key}"
-                inc_ops[sum_key] = inc_ops.get(sum_key, 0.0) + numeric_value
-                inc_ops[count_key] = inc_ops.get(count_key, 0.0) + 1.0
+            # ================= NUMBER =================
+            if ftype in {"number", "numeric", "float", "int"}:
+                numeric_value = self._coerce_number(value)
+
+                if numeric_value is not None:
+                    sum_key = f"meta.num_sum.{key}"
+                    count_key = f"meta.num_count.{key}"
+
+                    inc_ops[sum_key] = inc_ops.get(sum_key, 0.0) + numeric_value
+                    inc_ops[count_key] = inc_ops.get(count_key, 0) + 1
+
+                    min_ops[f"meta.num_min.{key}"] = numeric_value
+                    max_ops[f"meta.num_max.{key}"] = numeric_value
+
+                # still count existence
+                count_key = f"meta.value_count.{key}"
+                inc_ops[count_key] = inc_ops.get(count_key, 0) + 1
                 continue
 
+            # ================= TEXT =================
+            if ftype == "text":
+                set_ops[f"data.{key}"] = value
+                max_ops[f"meta.text_last_ts.{key}"] = timestamp
+
+                count_key = f"meta.value_count.{key}"
+                inc_ops[count_key] = inc_ops.get(count_key, 0) + 1
+
+                state_key = self._rollup_state_key(value)
+                state_count_key = f"meta.value_state_count.{key}.{state_key}"
+                inc_ops[state_count_key] = inc_ops.get(state_count_key, 0) + 1
+                continue
+
+            # ================= OTHER TYPES =================
             set_ops[f"data.{key}"] = value
             max_ops[f"meta.text_last_ts.{key}"] = timestamp
 
-        if not (inc_ops or set_ops or max_ops):
+            count_key = f"meta.value_count.{key}"
+            inc_ops[count_key] = inc_ops.get(count_key, 0) + 1
+
+        # ================= APPLY UPDATE =================
+        if not (inc_ops or set_ops or max_ops or min_ops):
             return
 
-        update_doc: Dict[str, Any] = {"$setOnInsert": {"device_id": device_id, "ts": bucket_ts}}
+        update_doc: Dict[str, Any] = {
+            "$setOnInsert": {
+                "device_id": device_id,
+                "ts": bucket_ts
+            }
+        }
+
         if inc_ops:
             update_doc["$inc"] = inc_ops
         if set_ops:
             update_doc["$set"] = set_ops
         if max_ops:
             update_doc["$max"] = max_ops
+        if min_ops:
+            update_doc["$min"] = min_ops
 
-        self.rollup_hour_collection.update_one(
+        collection.update_one(
             {"device_id": device_id, "ts": bucket_ts},
             update_doc,
             upsert=True,
+        )
+        self._sync_rollup_numeric_snapshots(collection, device_id, bucket_ts, field_types)
+
+    def _sync_rollup_numeric_snapshots(self, collection, device_id: str, bucket_ts, field_types: Dict[str, str]) -> None:
+        numeric_fields = [
+            field
+            for field, ftype in field_types.items()
+            if ftype in {"number", "numeric", "float", "int"}
+        ]
+        if not numeric_fields:
+            return
+
+        set_stage: Dict[str, Any] = {}
+        for field in numeric_fields:
+            avg_expr = {
+                "$cond": [
+                    {"$gt": [f"$meta.num_count.{field}", 0]},
+                    {"$divide": [f"$meta.num_sum.{field}", f"$meta.num_count.{field}"]},
+                    "$$REMOVE",
+                ]
+            }
+            set_stage[f"data.{field}"] = avg_expr
+            set_stage[f"meta.num_avg.{field}"] = avg_expr
+
+        collection.update_one(
+            {"device_id": device_id, "ts": bucket_ts},
+            [{"$set": set_stage}],
         )
 
     @staticmethod
@@ -214,6 +320,12 @@ class DevicePipeline:
             key = key.replace("$", "_", 1)
         return key
 
+    @classmethod
+    def _rollup_state_key(cls, value: Any) -> str:
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        return cls._sanitize_key(value)
+
     @staticmethod
     def _coerce_number(value: Any) -> Optional[float]:
         if isinstance(value, bool):
@@ -233,19 +345,21 @@ class DevicePipeline:
         return None
 
     @staticmethod
-    def _iter_list_counts(value: Any) -> Iterable[Tuple[str, float]]:
+    def _iter_list_counts(value: Any) -> Iterable[Tuple[str, int | float]]:
         if isinstance(value, dict):
             for key, entry in value.items():
-                count = 1.0
-                if not isinstance(entry, bool) and isinstance(entry, (int, float)):
-                    count = float(entry)
+                count: int | float = 1
+                if not isinstance(entry, bool) and isinstance(entry, int):
+                    count = entry
+                elif isinstance(entry, float):
+                    count = int(entry) if entry.is_integer() else float(entry)
                 yield str(key), count
             return
         if isinstance(value, (list, tuple, set)):
             for item in value:
-                yield str(item), 1.0
+                yield str(item), 1
             return
-        yield str(value), 1.0
+        yield str(value), 1
 
     def _start_watchdog(self):
         from threading import Thread
@@ -307,3 +421,35 @@ class DevicePipeline:
             session.rollback()
         finally:
             session.close()
+
+    def _extract_data_panel_schema(self):
+        field_types = {}
+
+        dashboard_config = getattr(self.device, "dashboard_config", None)
+        if not isinstance(dashboard_config, dict):
+            logger.info(f"Device {getattr(self.device, 'uid', None)} has no dashboard_config or not a dict.")
+            return field_types
+
+        if "data_panel" in dashboard_config:
+            data_panel = dashboard_config.get("data_panel")
+            if not isinstance(data_panel, dict):
+                logger.info(f"Device {getattr(self.device, 'uid', None)} has no data_panel or not a dict.")
+                return field_types
+            fields = data_panel.get("fields", [])
+            config = data_panel.get("config", {})
+        else:
+            fields = dashboard_config.get("data_panel_fields", [])
+            config = dashboard_config.get("data_panel_config", {})
+
+        if not isinstance(fields, list) or not isinstance(config, dict):
+            logger.info(f"Device {getattr(self.device, 'uid', None)} has invalid fields/config in data_panel.")
+            return field_types
+
+        for key in fields:
+            if not isinstance(key, str) or not key.strip():
+                continue
+            cfg = config.get(key, {})
+            dtype = str(cfg.get("type", "text")).strip().lower() if isinstance(cfg, dict) else "text"
+            field_types[key] = dtype
+
+        return field_types

@@ -29,6 +29,7 @@ def get_db():
 mongo_client = MongoClient(settings.mongo_uri_computed)
 devices_data_collection = mongo_client[settings.MONGO_DB_NAME][settings.DEVICES_DATA_COLLECTION_NAME]
 devices_latest_collection = mongo_client[settings.MONGO_DB_NAME][settings.DEVICES_LATEST_COLLECTION_NAME]
+devices_rollup_min_collection = mongo_client[settings.MONGO_DB_NAME][settings.MONGO_ROLLUP_MIN_COLLECTION]
 devices_rollup_hour_collection = mongo_client[settings.MONGO_DB_NAME][settings.MONGO_ROLLUP_HOUR_COLLECTION]
 
 def get_mongo_client():

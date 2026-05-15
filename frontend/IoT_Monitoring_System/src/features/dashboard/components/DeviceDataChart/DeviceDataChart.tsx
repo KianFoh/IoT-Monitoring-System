@@ -214,6 +214,7 @@ export function DeviceDataChart<T extends string>({
     timeEnd,
     rangeRefreshMs,
     getChartType,
+    getChartCases,
     suspendLive: isEditing,
     suspendRange: isEditing,
   });

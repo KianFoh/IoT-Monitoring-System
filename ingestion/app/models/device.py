@@ -1,9 +1,8 @@
 import enum
 
-from sqlalchemy import Column, BigInteger, DateTime, String, ForeignKey, Boolean, Integer, Enum, Float
+from sqlalchemy import Column, BigInteger, DateTime, String, ForeignKey, Boolean, Integer, Enum, Float, JSON
 from sqlalchemy.sql import func
 from app.core.postgresql import Base
-
 
 class DeviceConnectivity(enum.Enum):
     wifi = "wifi"
@@ -26,6 +25,6 @@ class Device(Base):
     mobile_number = Column(String, nullable=True)
     sim_id = Column(String, nullable=True)
     data_interval = Column(Float, default=60.0, nullable=False)
-
+    dashboard_config = Column(JSON, nullable=True, default=dict) # JSON field for dashboard configuration
     is_active = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

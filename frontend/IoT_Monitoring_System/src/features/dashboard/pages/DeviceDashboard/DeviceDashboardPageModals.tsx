@@ -179,102 +179,96 @@ export function DeviceDashboardPageModals({
         title={activeFieldLabel}
       >
         <div className={formStyles["dashboard-modal-form"]}>
-          <Input
-            id="device-field-key"
-            label="Data key"
-            placeholder="Enter data key"
-            value={panel.edit.key}
-            onChange={(event) => panel.edit.setKey(event.target.value)}
-          />
-          <div className={formStyles["dashboard-modal-field"]}>
-            <label className={inputStyles["gen-inputLabel"]} htmlFor="device-field-label">
-              Data label
-            </label>
-            <div className={formStyles["dashboard-label-row"]}>
-              <Input
-                id="device-field-label"
-                placeholder="Enter display label"
-                value={panel.edit.label}
-                onChange={(event) => panel.edit.setLabel(event.target.value)}
-                groupClassName={formStyles["dashboard-label-field"]}
-                inputClassName={formStyles["dashboard-label-input"]}
-              />
-              <input
-                type="color"
-                className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
-                value={editColorPicker}
-                onChange={(event) => panel.edit.setColor(hexToRgb(event.target.value))}
-                aria-label="Field color picker"
-              />
-            </div>
+          <div className={formStyles["dashboard-picker-field-row"]}>
+            <Input
+              id="device-field-key"
+              label="Data key"
+              placeholder="Enter data key"
+              value={panel.edit.key}
+              onChange={(event) => panel.edit.setKey(event.target.value)}
+              groupClassName={`${formStyles["dashboard-picker-field-main"]} ${formStyles["dashboard-picker-field-main-full"]}`}
+              inputClassName={formStyles["dashboard-picker-field-input"]}
+            />
+          </div>
+          <div className={formStyles["dashboard-picker-field-row"]}>
+            <Input
+              id="device-field-label"
+              label="Data label"
+              placeholder="Enter display label"
+              value={panel.edit.label}
+              onChange={(event) => panel.edit.setLabel(event.target.value)}
+              groupClassName={formStyles["dashboard-picker-field-main"]}
+              inputClassName={formStyles["dashboard-picker-field-input"]}
+            />
+            <input
+              type="color"
+              className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+              value={editColorPicker}
+              onChange={(event) => panel.edit.setColor(hexToRgb(event.target.value))}
+              aria-label="Field color picker"
+            />
           </div>
           {panel.edit.type !== "boolean" && (
-            <Input
-              id="device-field-unit"
-              label="Unit"
-              placeholder="Enter Unit"
-              value={panel.edit.unit}
-              onChange={(event) => panel.edit.setUnit(event.target.value)}
-            />
+            <div className={formStyles["dashboard-picker-field-row"]}>
+              <Input
+                id="device-field-unit"
+                label="Unit"
+                placeholder="Enter Unit"
+                value={panel.edit.unit}
+                onChange={(event) => panel.edit.setUnit(event.target.value)}
+                groupClassName={`${formStyles["dashboard-picker-field-main"]} ${formStyles["dashboard-picker-field-main-full"]}`}
+                inputClassName={formStyles["dashboard-picker-field-input"]}
+              />
+            </div>
           )}
-          <DropdownSelect
-            id="device-field-type"
-            label="Field type"
-            value={panel.edit.type}
-            options={fieldTypeOptions}
-            onChange={(value) => panel.edit.setType(value)}
-          />
+          <div className={formStyles["dashboard-picker-field-row"]}>
+            <DropdownSelect
+              id="device-field-type"
+              label="Field type"
+              value={panel.edit.type}
+              options={fieldTypeOptions}
+              onChange={(value) => panel.edit.setType(value)}
+              groupClassName={`${formStyles["dashboard-picker-field-main"]} ${formStyles["dashboard-picker-field-main-full"]}`}
+              triggerClassName={formStyles["dashboard-picker-field-trigger"]}
+            />
+          </div>
           {panel.edit.type === "boolean" && (
             <>
-              <div className={formStyles["dashboard-modal-field"]}>
-                <label
-                  className={inputStyles["gen-inputLabel"]}
-                  htmlFor="device-field-true-label"
-                >
-                  True label
-                </label>
-                <div className={formStyles["dashboard-label-row"]}>
-                  <Input
-                    id="device-field-true-label"
-                    placeholder="e.g. On"
-                    value={panel.edit.trueLabel}
-                    onChange={(event) => panel.edit.setTrueLabel(event.target.value)}
-                    groupClassName={formStyles["dashboard-label-field"]}
-                    inputClassName={formStyles["dashboard-label-input"]}
-                  />
-                  <input
-                    type="color"
-                    className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
-                    value={editTrueColorPicker}
-                    onChange={(event) => panel.edit.setTrueColor(hexToRgb(event.target.value))}
-                    aria-label="True color picker"
-                  />
-                </div>
+              <div className={formStyles["dashboard-picker-field-row"]}>
+                <Input
+                  id="device-field-true-label"
+                  label="True label"
+                  placeholder="e.g. On"
+                  value={panel.edit.trueLabel}
+                  onChange={(event) => panel.edit.setTrueLabel(event.target.value)}
+                  groupClassName={formStyles["dashboard-picker-field-main"]}
+                  inputClassName={formStyles["dashboard-picker-field-input"]}
+                />
+                <input
+                  type="color"
+                  className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                  value={editTrueColorPicker}
+                  onChange={(event) => panel.edit.setTrueColor(hexToRgb(event.target.value))}
+                  aria-label="True color picker"
+                />
               </div>
-              <div className={formStyles["dashboard-modal-field"]}>
-                <label
-                  className={inputStyles["gen-inputLabel"]}
-                  htmlFor="device-field-false-label"
-                >
-                  False label
-                </label>
-                <div className={formStyles["dashboard-label-row"]}>
-                  <Input
-                    id="device-field-false-label"
-                    placeholder="e.g. Off"
-                    value={panel.edit.falseLabel}
-                    onChange={(event) => panel.edit.setFalseLabel(event.target.value)}
-                    groupClassName={formStyles["dashboard-label-field"]}
-                    inputClassName={formStyles["dashboard-label-input"]}
-                  />
-                  <input
-                    type="color"
-                    className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
-                    value={editFalseColorPicker}
-                    onChange={(event) => panel.edit.setFalseColor(hexToRgb(event.target.value))}
-                    aria-label="False color picker"
-                  />
-                </div>
+              <div className={formStyles["dashboard-picker-field-row"]}>
+                <Input
+                  id="device-field-false-label"
+                  label="False label"
+                  placeholder="e.g. Off"
+                  value={panel.edit.falseLabel}
+                  onChange={(event) => panel.edit.setFalseLabel(event.target.value)}
+                  groupClassName={formStyles["dashboard-picker-field-main"]}
+                  inputClassName={formStyles["dashboard-picker-field-input"]}
+                />
+                <input
+                  type="color"
+                  className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                  value={editFalseColorPicker}
+                  onChange={(event) => panel.edit.setFalseColor(hexToRgb(event.target.value))}
+                  aria-label="False color picker"
+                />
               </div>
             </>
           )}
@@ -313,102 +307,96 @@ export function DeviceDashboardPageModals({
         title="Add data field"
       >
         <div className={formStyles["dashboard-modal-form"]}>
-          <Input
-            id="device-data-field-key"
-            label="Data key"
-            placeholder="e.g. temperature"
-            value={panel.addField.key}
-            onChange={(event) => panel.addField.setKey(event.target.value)}
-          />
-          <div className={formStyles["dashboard-modal-field"]}>
-            <label className={inputStyles["gen-inputLabel"]} htmlFor="device-data-field-label">
-              Data label
-            </label>
-            <div className={formStyles["dashboard-label-row"]}>
-              <Input
-                id="device-data-field-label"
-                placeholder="e.g. Temperature"
-                value={panel.addField.label}
-                onChange={(event) => panel.addField.setLabel(event.target.value)}
-                groupClassName={formStyles["dashboard-label-field"]}
-                inputClassName={formStyles["dashboard-label-input"]}
-              />
-              <input
-                type="color"
-                className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
-                value={newFieldColorPicker}
-                onChange={(event) => panel.addField.setColor(hexToRgb(event.target.value))}
-                aria-label="Field color picker"
-              />
-            </div>
+          <div className={formStyles["dashboard-picker-field-row"]}>
+            <Input
+              id="device-data-field-key"
+              label="Data key"
+              placeholder="e.g. temperature"
+              value={panel.addField.key}
+              onChange={(event) => panel.addField.setKey(event.target.value)}
+              groupClassName={`${formStyles["dashboard-picker-field-main"]} ${formStyles["dashboard-picker-field-main-full"]}`}
+              inputClassName={formStyles["dashboard-picker-field-input"]}
+            />
+          </div>
+          <div className={formStyles["dashboard-picker-field-row"]}>
+            <Input
+              id="device-data-field-label"
+              label="Data label"
+              placeholder="e.g. Temperature"
+              value={panel.addField.label}
+              onChange={(event) => panel.addField.setLabel(event.target.value)}
+              groupClassName={formStyles["dashboard-picker-field-main"]}
+              inputClassName={formStyles["dashboard-picker-field-input"]}
+            />
+            <input
+              type="color"
+              className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+              value={newFieldColorPicker}
+              onChange={(event) => panel.addField.setColor(hexToRgb(event.target.value))}
+              aria-label="Field color picker"
+            />
           </div>
           {panel.addField.type !== "boolean" && (
-            <Input
-              id="device-data-field-unit"
-              label="Unit (optional)"
-              placeholder="e.g. C"
-              value={panel.addField.unit}
-              onChange={(event) => panel.addField.setUnit(event.target.value)}
-            />
+            <div className={formStyles["dashboard-picker-field-row"]}>
+              <Input
+                id="device-data-field-unit"
+                label="Unit (optional)"
+                placeholder="e.g. C"
+                value={panel.addField.unit}
+                onChange={(event) => panel.addField.setUnit(event.target.value)}
+                groupClassName={`${formStyles["dashboard-picker-field-main"]} ${formStyles["dashboard-picker-field-main-full"]}`}
+                inputClassName={formStyles["dashboard-picker-field-input"]}
+              />
+            </div>
           )}
-          <DropdownSelect
-            id="device-data-field-type"
-            label="Field type"
-            value={panel.addField.type}
-            options={fieldTypeOptions}
-            onChange={(value) => panel.addField.setType(value)}
-          />
+          <div className={formStyles["dashboard-picker-field-row"]}>
+            <DropdownSelect
+              id="device-data-field-type"
+              label="Field type"
+              value={panel.addField.type}
+              options={fieldTypeOptions}
+              onChange={(value) => panel.addField.setType(value)}
+              groupClassName={`${formStyles["dashboard-picker-field-main"]} ${formStyles["dashboard-picker-field-main-full"]}`}
+              triggerClassName={formStyles["dashboard-picker-field-trigger"]}
+            />
+          </div>
           {panel.addField.type === "boolean" && (
             <>
-              <div className={formStyles["dashboard-modal-field"]}>
-                <label
-                  className={inputStyles["gen-inputLabel"]}
-                  htmlFor="device-data-field-true-label"
-                >
-                  True label
-                </label>
-                <div className={formStyles["dashboard-label-row"]}>
-                  <Input
-                    id="device-data-field-true-label"
-                    placeholder="e.g. On"
-                    value={panel.addField.trueLabel}
-                    onChange={(event) => panel.addField.setTrueLabel(event.target.value)}
-                    groupClassName={formStyles["dashboard-label-field"]}
-                    inputClassName={formStyles["dashboard-label-input"]}
-                  />
-                  <input
-                    type="color"
-                    className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
-                    value={newTrueColorPicker}
-                    onChange={(event) => panel.addField.setTrueColor(hexToRgb(event.target.value))}
-                    aria-label="True color picker"
-                  />
-                </div>
+              <div className={formStyles["dashboard-picker-field-row"]}>
+                <Input
+                  id="device-data-field-true-label"
+                  label="True label"
+                  placeholder="e.g. On"
+                  value={panel.addField.trueLabel}
+                  onChange={(event) => panel.addField.setTrueLabel(event.target.value)}
+                  groupClassName={formStyles["dashboard-picker-field-main"]}
+                  inputClassName={formStyles["dashboard-picker-field-input"]}
+                />
+                <input
+                  type="color"
+                  className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                  value={newTrueColorPicker}
+                  onChange={(event) => panel.addField.setTrueColor(hexToRgb(event.target.value))}
+                  aria-label="True color picker"
+                />
               </div>
-              <div className={formStyles["dashboard-modal-field"]}>
-                <label
-                  className={inputStyles["gen-inputLabel"]}
-                  htmlFor="device-data-field-false-label"
-                >
-                  False label
-                </label>
-                <div className={formStyles["dashboard-label-row"]}>
-                  <Input
-                    id="device-data-field-false-label"
-                    placeholder="e.g. Off"
-                    value={panel.addField.falseLabel}
-                    onChange={(event) => panel.addField.setFalseLabel(event.target.value)}
-                    groupClassName={formStyles["dashboard-label-field"]}
-                    inputClassName={formStyles["dashboard-label-input"]}
-                  />
-                  <input
-                    type="color"
-                    className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
-                    value={newFalseColorPicker}
-                    onChange={(event) => panel.addField.setFalseColor(hexToRgb(event.target.value))}
-                    aria-label="False color picker"
-                  />
-                </div>
+              <div className={formStyles["dashboard-picker-field-row"]}>
+                <Input
+                  id="device-data-field-false-label"
+                  label="False label"
+                  placeholder="e.g. Off"
+                  value={panel.addField.falseLabel}
+                  onChange={(event) => panel.addField.setFalseLabel(event.target.value)}
+                  groupClassName={formStyles["dashboard-picker-field-main"]}
+                  inputClassName={formStyles["dashboard-picker-field-input"]}
+                />
+                <input
+                  type="color"
+                  className={`${formStyles["dashboard-color-input"]} ${formStyles["dashboard-label-color"]}`}
+                  value={newFalseColorPicker}
+                  onChange={(event) => panel.addField.setFalseColor(hexToRgb(event.target.value))}
+                  aria-label="False color picker"
+                />
               </div>
             </>
           )}

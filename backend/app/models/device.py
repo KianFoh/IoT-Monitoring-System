@@ -24,7 +24,7 @@ class Device(Base):
     data_interval = Column(Float, default=60.0, nullable=False) # in seconds
     dashboard_config = Column(JSON, nullable=True, default=dict) # JSON field for dashboard configuration
 
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_active = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     # Relationships

@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Sequence, Dict, Any, List
 
 from app.core.database import (
     devices_data_collection,
     devices_latest_collection,
+    devices_rollup_min_collection,
     devices_rollup_hour_collection,
 )
 
@@ -60,6 +61,10 @@ def ensure_indexes() -> None:
     if not _has_index(devices_latest_collection, latest_keys, unique=True):
         devices_latest_collection.create_index(latest_keys, unique=True)
 
+    if devices_rollup_min_collection is not None:
+        if not _has_index(devices_rollup_min_collection, data_keys):
+            devices_rollup_min_collection.create_index(data_keys)
+
     if devices_rollup_hour_collection is not None:
         if not _has_index(devices_rollup_hour_collection, data_keys):
             devices_rollup_hour_collection.create_index(data_keys)
@@ -95,6 +100,16 @@ def _build_bucket_id_expression(granularity: str, timezone: str) -> dict:
 
 def _floor_to_hour(value: datetime) -> datetime:
     return value.replace(minute=0, second=0, microsecond=0)
+
+
+def _floor_to_minute(value: datetime) -> datetime:
+    return value.replace(second=0, microsecond=0)
+
+
+def _shift_datetime(value: datetime, tz_offset_minutes: int) -> datetime:
+    if not tz_offset_minutes:
+        return value
+    return value + timedelta(minutes=-tz_offset_minutes)
 
 
 def get_by_uid(
@@ -763,25 +778,178 @@ def get_rollup_aggregated_by_uid(
     return list(devices_rollup_hour_collection.aggregate(pipeline))
 
 
+def get_rollup_hour_by_uid(
+    uid: str,
+    start: Optional[datetime],
+    end: Optional[datetime],
+    field_types: Dict[str, str],
+    tz_offset_minutes: int = 0,
+) -> List[Dict[str, Any]]:
+    if not field_types:
+        return []
+
+    query: Dict[str, Any] = {"device_id": uid}
+    if start or end:
+        time_filter: Dict[str, datetime] = {}
+        if start:
+            time_filter["$gte"] = _floor_to_hour(start)
+        if end:
+            time_filter["$lte"] = _floor_to_hour(end)
+        query["ts"] = time_filter
+
+    numeric_fields = [field for field, ftype in field_types.items() if ftype == "number"]
+    passthrough_fields = [
+        field for field, ftype in field_types.items() if ftype in {"text", "boolean", "list"}
+    ]
+
+    projection: Dict[str, Any] = {
+        "device_id": 1,
+        "ts": 1,
+    }
+    for field in passthrough_fields:
+        projection[f"data.{field}"] = 1
+    for field in numeric_fields:
+        projection[f"meta.num_sum.{field}"] = 1
+        projection[f"meta.num_count.{field}"] = 1
+
+    results: List[Dict[str, Any]] = []
+    cursor = devices_rollup_hour_collection.find(query, projection).sort("ts", -1)
+    for doc in cursor:
+        ts = doc.get("ts")
+        if not isinstance(ts, datetime):
+            continue
+
+        source_data = doc.get("data") or {}
+        source_meta = doc.get("meta") or {}
+        num_sum = source_meta.get("num_sum") or {}
+        num_count = source_meta.get("num_count") or {}
+
+        data: Dict[str, Any] = {}
+        for field in passthrough_fields:
+            if field not in source_data:
+                continue
+            value = source_data.get(field)
+            if value is None:
+                continue
+            data[field] = value
+
+        for field in numeric_fields:
+            total = num_sum.get(field)
+            count = num_count.get(field)
+            if not isinstance(total, (int, float)) or not isinstance(count, (int, float)):
+                continue
+            if count <= 0:
+                continue
+            data[field] = total / count
+
+        if not data:
+            continue
+
+        bucket_ts = _shift_datetime(ts, tz_offset_minutes)
+        results.append(
+            {
+                "_id": {"bucket": bucket_ts.strftime(_FORMAT_BY_GRANULARITY["hour"])},
+                "device_id": doc.get("device_id"),
+                "ts": ts,
+                "data": data,
+            }
+        )
+
+    return results
+
+
+def get_rollup_min_by_uid(
+    uid: str,
+    start: Optional[datetime],
+    end: Optional[datetime],
+    field_types: Dict[str, str],
+    tz_offset_minutes: int = 0,
+) -> List[Dict[str, Any]]:
+    if not field_types:
+        return []
+
+    query: Dict[str, Any] = {"device_id": uid}
+    if start or end:
+        time_filter: Dict[str, datetime] = {}
+        if start:
+            time_filter["$gte"] = _floor_to_minute(start)
+        if end:
+            time_filter["$lte"] = _floor_to_minute(end)
+        query["ts"] = time_filter
+
+    requested_fields = list(field_types.keys())
+    projection: Dict[str, Any] = {
+        "device_id": 1,
+        "ts": 1,
+    }
+    for field in requested_fields:
+        projection[f"data.{field}"] = 1
+
+    results: List[Dict[str, Any]] = []
+    cursor = devices_rollup_min_collection.find(query, projection).sort("ts", -1)
+    for doc in cursor:
+        ts = doc.get("ts")
+        if not isinstance(ts, datetime):
+            continue
+
+        source_data = doc.get("data") or {}
+        data: Dict[str, Any] = {}
+        for field in requested_fields:
+            if field not in source_data:
+                continue
+            value = source_data.get(field)
+            if value is None:
+                continue
+            data[field] = value
+
+        if not data:
+            continue
+
+        bucket_ts = _shift_datetime(ts, tz_offset_minutes)
+        results.append(
+            {
+                "_id": {"bucket": bucket_ts.strftime(_FORMAT_BY_GRANULARITY["minute"])},
+                "device_id": doc.get("device_id"),
+                "ts": ts,
+                "data": data,
+            }
+        )
+
+    return results
+
+
 def get_seed_values_before(
     uid: str,
     before: datetime,
     fields: Sequence[str],
     limit: int = 100000,
+    source: str = "raw",
 ) -> Dict[str, Any]:
     if not before or not fields:
         return {}
 
-    pipeline: list[dict] = [
-        {"$match": {"device_id": uid, "ts": {"$lte": before}}},
-        {"$sort": {"ts": -1}},
-    ]
-    if limit:
-        pipeline.append({"$limit": limit})
-    pipeline.append({"$project": {"data": 1}})
+    projection: Dict[str, Any] = {"_id": 0}
+    for field in fields:
+        projection[f"data.{field}"] = 1
+
+    collection = devices_data_collection
+    query_before = before
+    if source == "minute":
+        collection = devices_rollup_min_collection
+        query_before = _floor_to_minute(before)
+    elif source == "hour":
+        collection = devices_rollup_hour_collection
+        query_before = _floor_to_hour(before)
 
     seed: Dict[str, Any] = {}
-    for doc in devices_data_collection.aggregate(pipeline):
+    cursor = collection.find(
+        {"device_id": uid, "ts": {"$lt": query_before}},
+        projection=projection,
+        sort=[("ts", -1)],
+        limit=limit,
+    )
+
+    for doc in cursor:
         data = doc.get("data")
         if not isinstance(data, dict):
             continue
@@ -798,6 +966,17 @@ def get_seed_values_before(
 
 
 def get_rollup_min_ts(uid: str) -> Optional[datetime]:
+    doc = devices_rollup_min_collection.find_one(
+        {"device_id": uid},
+        sort=[("ts", 1)],
+        projection={"ts": 1},
+    )
+    if not doc:
+        return None
+    return doc.get("ts")
+
+
+def get_rollup_hour_ts(uid: str) -> Optional[datetime]:
     doc = devices_rollup_hour_collection.find_one(
         {"device_id": uid},
         sort=[("ts", 1)],

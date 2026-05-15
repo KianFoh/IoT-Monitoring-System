@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     MONGO_COLLECTION: str
     MONGO_LATEST_COLLECTION: str
     MONGO_ROLLUP_HOUR_COLLECTION: str
+    MONGO_ROLLUP_MIN_COLLECTION: str
     MONGO_AUTH_SOURCE: str
 
     # MQTT

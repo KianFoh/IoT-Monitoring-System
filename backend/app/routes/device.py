@@ -1,7 +1,11 @@
+import json
+import logging
+import time
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from threading import Lock
+from typing import Dict, List, Optional, Tuple
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.crud.postgres import device as device_crud
@@ -11,10 +15,7 @@ from app.models.user import User as UserModel
 from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRecentOut, DeviceListResponse
 from app.models.enum.user_role import UserRole
 from app.utils.device_data import (
-    densify_device_data,
     extract_panel_fields_and_config,
-    fill_missing_state,
-    filter_raw_data,
     normalize_field_type,
 )
 from app.utils.device_events import publish_device_event
@@ -22,6 +23,9 @@ from app.utils.mongodb import serialize_document
 from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+logger = logging.getLogger(__name__)
+_field_config_cache: Dict[Tuple[str, str], Tuple[List[str], Dict[str, str]]] = {}
+_field_config_cache_lock = Lock()
 
 
 def _normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
@@ -30,6 +34,39 @@ def _normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
     if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _get_cached_panel_fields_and_types(
+    device_uid: str,
+    dashboard_config: Optional[dict],
+) -> Tuple[List[str], Dict[str, str]]:
+    if not isinstance(dashboard_config, dict):
+        return [], {}
+
+    cache_key = (
+        device_uid,
+        json.dumps(dashboard_config, sort_keys=True, separators=(",", ":"), default=str),
+    )
+    with _field_config_cache_lock:
+        cached = _field_config_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    panel_fields, panel_config = extract_panel_fields_and_config(dashboard_config)
+    field_types = {
+        field: normalize_field_type(
+            panel_config.get(field, {}).get("type")
+            if isinstance(panel_config.get(field, {}), dict)
+            else None
+        )
+        for field in panel_fields
+    }
+    value = (panel_fields, field_types)
+    with _field_config_cache_lock:
+        _field_config_cache[cache_key] = value
+        if len(_field_config_cache) > 512:
+            _field_config_cache.pop(next(iter(_field_config_cache)))
+    return value
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)
@@ -234,7 +271,14 @@ async def update_device(
         restart_pipeline = True
     if device_update.is_active is not None and device_update.is_active != existing_device.is_active:
         restart_pipeline = True
-    
+
+    # Check if dashboard_config.data_panel is being updated and changed
+    if device_update.dashboard_config is not None:
+        old_panel = (existing_device.dashboard_config or {}).get("data_panel") if isinstance(existing_device.dashboard_config, dict) else None
+        new_panel = (device_update.dashboard_config or {}).get("data_panel") if isinstance(device_update.dashboard_config, dict) else None
+        if old_panel != new_panel:
+            restart_pipeline = True
+
     # If department_id is being updated, check if the new department exists
     if device_update.department_id:
         department = department_crud.get_department(db, device_update.department_id)
@@ -340,11 +384,9 @@ def fetch_device_latest_data(
 @router.get("/data/{device_uid}")
 def fetch_device_data(
     device_uid: str,
-    granularity: Optional[str] = Query(None, description="sec, minute, hour, day, week, month, year"),
-    granuality: Optional[str] = Query(None, include_in_schema=False),
+    granularity: str = Query(..., description="sec, minute, hour, day, week, month, year"),
     start: Optional[datetime] = Query(None, description="ISO 8601 start datetime"),
     end: Optional[datetime] = Query(None, description="ISO 8601 end datetime"),
-    fill_state: bool = Query(True, description="Carry forward text/boolean state across buckets"),
     tz_offset: Optional[int] = Query(
         None,
         description="Timezone offset in minutes (JS Date.getTimezoneOffset)",
@@ -353,9 +395,19 @@ def fetch_device_data(
     db: Session = Depends(get_db)
 ):
     """Fetch data for a specific device by UID."""
+    started_at = time.perf_counter()
+    timings: Dict[str, float] = {}
+
+    def mark(stage: str, stage_started_at: float) -> float:
+        now = time.perf_counter()
+        timings[stage] = round((now - stage_started_at) * 1000, 2)
+        return now
+
+    stage_started_at = started_at
     require_role(current_user, [UserRole.superuser, UserRole.user])
-    
+
     device = device_crud.get_device_by_uid(db, device_uid)
+    stage_started_at = mark("device_lookup_ms", stage_started_at)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -367,8 +419,9 @@ def fetch_device_data(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to this device's data"
             )
-    selected_granularity = (granularity or granuality or "").strip().lower() or None
-    if selected_granularity and selected_granularity not in {
+
+    selected_granularity = granularity.strip().lower()
+    if selected_granularity not in {
         "sec",
         "second",
         "minute",
@@ -382,71 +435,39 @@ def fetch_device_data(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid granularity. Use sec, minute, hour, day, week, month, or year.",
         )
-    start = _normalize_datetime(start)
-    end = _normalize_datetime(end)
     if start and end and start > end:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="start must be before end",
         )
 
-    panel_fields, panel_config = extract_panel_fields_and_config(device.dashboard_config)
+    panel_fields, field_types = _get_cached_panel_fields_and_types(device_uid, device.dashboard_config)
+    stage_started_at = mark("field_config_ms", stage_started_at)
     if not panel_fields:
         return []
-    field_types = {
-        field: normalize_field_type(
-            panel_config.get(field, {}).get("type")
-            if isinstance(panel_config.get(field, {}), dict)
-            else None
-        )
-        for field in panel_fields
-    }
-    field_set = set(panel_fields)
-
-    fill_fields = [field for field, field_type in field_types.items() if field_type in {"text", "boolean"}]
-    seed_values = {}
-    if start and fill_fields:
-        seed_values = device_data_crud.get_seed_values_before(device_uid, start, fill_fields)
-    if fill_fields and not start:
-        latest_doc = device_data_crud.get_latest_by_uid(device_uid)
-        if latest_doc:
-            latest_data = latest_doc.get("data")
-            if isinstance(latest_data, dict):
-                for field in fill_fields:
-                    if field in seed_values:
-                        continue
-                    value = latest_data.get(field)
-                    if value is None:
-                        continue
-                    seed_values[field] = value
-
-    if not selected_granularity:
-        raw_data = device_data_crud.get_by_uid(
-            device_uid,
-            start=start,
-            end=end,
-            granularity=None,
-            fields=panel_fields,
-        )
-        if not raw_data:
-            return []
-        filtered = filter_raw_data(raw_data, field_set)
-        if not fill_state:
-            return [serialize_document(doc) for doc in filtered]
-        filled = fill_missing_state(filtered, field_types, seed_values)
-        return [serialize_document(doc) for doc in filled]
 
     tz_offset_minutes = int(tz_offset or 0)
     use_rollup = selected_granularity in {"hour", "day", "week", "month", "year"}
-    rollup_min_ts = (
+    use_minute_rollup = selected_granularity == "minute"
+    use_hour_rollup_fast_path = (
+        selected_granularity == "hour"
+        and tz_offset_minutes % 60 == 0
+    )
+    minute_rollup_ts = (
         _normalize_datetime(device_data_crud.get_rollup_min_ts(device_uid))
+        if use_minute_rollup
+        else None
+    )
+    hour_rollup_ts = (
+        _normalize_datetime(device_data_crud.get_rollup_hour_ts(device_uid))
         if use_rollup
         else None
     )
+    stage_started_at = mark("rollup_boundary_ms", stage_started_at)
 
     aggregated: List[dict]
-    if use_rollup and rollup_min_ts and start and end and start < rollup_min_ts < end:
-        raw_end = rollup_min_ts - timedelta(microseconds=1)
+    if use_minute_rollup and minute_rollup_ts and start and end and start < minute_rollup_ts < end:
+        raw_end = minute_rollup_ts - timedelta(microseconds=1)
         raw_part = device_data_crud.get_aggregated_by_uid(
             device_uid,
             start=start,
@@ -455,25 +476,79 @@ def fetch_device_data(
             field_types=field_types,
             tz_offset_minutes=tz_offset_minutes,
         )
-        rollup_part = device_data_crud.get_rollup_aggregated_by_uid(
+        rollup_part = device_data_crud.get_rollup_min_by_uid(
             device_uid,
-            start=rollup_min_ts,
+            start=minute_rollup_ts,
             end=end,
-            granularity=selected_granularity,
             field_types=field_types,
             tz_offset_minutes=tz_offset_minutes,
         )
         aggregated = [*raw_part, *rollup_part]
         aggregated.sort(key=lambda item: item.get("ts"), reverse=True)
-    elif use_rollup and rollup_min_ts and (not start or start >= rollup_min_ts):
-        aggregated = device_data_crud.get_rollup_aggregated_by_uid(
+    elif use_minute_rollup and minute_rollup_ts and (not start or start >= minute_rollup_ts):
+        aggregated = device_data_crud.get_rollup_min_by_uid(
             device_uid,
             start=start,
             end=end,
+            field_types=field_types,
+            tz_offset_minutes=tz_offset_minutes,
+        )
+        if not aggregated:
+            aggregated = device_data_crud.get_aggregated_by_uid(
+                device_uid,
+                start=start,
+                end=end,
+                granularity=selected_granularity,
+                field_types=field_types,
+                tz_offset_minutes=tz_offset_minutes,
+            )
+    elif use_rollup and hour_rollup_ts and start and end and start < hour_rollup_ts < end:
+        raw_end = hour_rollup_ts - timedelta(microseconds=1)
+        raw_part = device_data_crud.get_aggregated_by_uid(
+            device_uid,
+            start=start,
+            end=raw_end,
             granularity=selected_granularity,
             field_types=field_types,
             tz_offset_minutes=tz_offset_minutes,
         )
+        if use_hour_rollup_fast_path:
+            rollup_part = device_data_crud.get_rollup_hour_by_uid(
+                device_uid,
+                start=hour_rollup_ts,
+                end=end,
+                field_types=field_types,
+                tz_offset_minutes=tz_offset_minutes,
+            )
+        else:
+            rollup_part = device_data_crud.get_rollup_aggregated_by_uid(
+                device_uid,
+                start=hour_rollup_ts,
+                end=end,
+                granularity=selected_granularity,
+                field_types=field_types,
+                tz_offset_minutes=tz_offset_minutes,
+            )
+        aggregated = [*raw_part, *rollup_part]
+        aggregated.sort(key=lambda item: item.get("ts"), reverse=True)
+    elif use_rollup and hour_rollup_ts and (not start or start >= hour_rollup_ts):
+        if use_hour_rollup_fast_path:
+            aggregated = device_data_crud.get_rollup_hour_by_uid(
+                device_uid,
+                start=start,
+                end=end,
+                field_types=field_types,
+                tz_offset_minutes=tz_offset_minutes,
+            )
+        else:
+            aggregated = device_data_crud.get_rollup_aggregated_by_uid(
+                device_uid,
+                start=start,
+                end=end,
+                granularity=selected_granularity,
+                field_types=field_types,
+                tz_offset_minutes=tz_offset_minutes,
+            )
         if not aggregated:
             aggregated = device_data_crud.get_aggregated_by_uid(
                 device_uid,
@@ -492,21 +567,57 @@ def fetch_device_data(
             field_types=field_types,
             tz_offset_minutes=tz_offset_minutes,
         )
+    stage_started_at = mark("data_query_ms", stage_started_at)
     if not aggregated:
-        return []
-    if not fill_state:
-        return [serialize_document(doc) for doc in aggregated]
-    if start and end:
-        filled = densify_device_data(
-            aggregated,
-            field_types,
+        timings["total_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
+        logger.info(
+            "device_data_timing uid=%s granularity=%s buckets=0 timings=%s",
+            device_uid,
             selected_granularity,
-            start,
-            end,
-            device_id=device_uid,
-            seed_values=seed_values,
-            tz_offset_minutes=tz_offset_minutes,
+            timings,
         )
-    else:
-        filled = fill_missing_state(aggregated, field_types, seed_values)
-    return [serialize_document(doc) for doc in filled]
+        return []
+
+    state_fields = [
+        field
+        for field, field_type in field_types.items()
+        if field_type in {"text", "boolean"}
+    ]
+    if start and state_fields:
+        seed_source = "raw"
+        if selected_granularity == "minute" and minute_rollup_ts and start >= minute_rollup_ts:
+            seed_source = "minute"
+        elif selected_granularity in {"hour", "day", "week", "month", "year"} and hour_rollup_ts and start >= hour_rollup_ts:
+            seed_source = "hour"
+        seed_values = device_data_crud.get_seed_values_before(
+            device_uid,
+            before=start,
+            fields=state_fields,
+            source=seed_source,
+        )
+        if seed_values:
+            earliest_doc = min(
+                aggregated,
+                key=lambda item: _normalize_datetime(item.get("ts")) or datetime.max.replace(tzinfo=timezone.utc),
+            )
+            earliest_data = earliest_doc.get("data") if isinstance(earliest_doc.get("data"), dict) else {}
+            first_bucket_seed = {
+                field: value
+                for field, value in seed_values.items()
+                if field not in earliest_data or earliest_data.get(field) is None
+            }
+            if first_bucket_seed:
+                earliest_doc["seed"] = first_bucket_seed
+    stage_started_at = mark("seed_query_ms", stage_started_at)
+
+    response = [serialize_document(doc) for doc in aggregated]
+    timings["serialize_ms"] = round((time.perf_counter() - stage_started_at) * 1000, 2)
+    timings["total_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
+    logger.info(
+        "device_data_timing uid=%s granularity=%s buckets=%s timings=%s",
+        device_uid,
+        selected_granularity,
+        len(response),
+        timings,
+    )
+    return response
