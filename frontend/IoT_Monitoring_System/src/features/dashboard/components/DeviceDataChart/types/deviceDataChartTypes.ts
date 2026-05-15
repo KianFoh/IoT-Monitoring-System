@@ -93,6 +93,7 @@ export type DeviceDataChartProps<T extends string> = {
   dataIntervalSeconds?: number | null;
   disabled?: boolean;
   readOnly?: boolean;
+  allowOutputControl?: boolean;
   availableFields: string[];
   getChartValue?: (field: string) => unknown;
   getChartUnit?: (field: string) => string;

@@ -24,6 +24,7 @@ export function DeviceDashboardPage() {
   const { user } = useAuth();
   const isReadOnly = user?.role === "user";
   const canEdit = !isReadOnly;
+  const canControlOutput = Boolean(user);
   const noop = () => {};
   const dashboard = useDeviceDashboard(deviceUid);
   const { device: deviceState, display, panel, chart } = dashboard;
@@ -38,7 +39,7 @@ export function DeviceDashboardPage() {
   const { mode: displayMode, setMode: setDisplayMode, options: displayOptions } = display;
   const handleOutputSend = useCallback(
     (field: string, value: string | number | boolean) => {
-      if (isReadOnly || !device) return;
+      if (!canControlOutput || !device) return;
       const customer = device.customer_name?.trim().toLowerCase() || "";
       const department = device.department_name?.trim().toLowerCase() || "";
       const uid = device.uid?.trim() || "";
@@ -48,7 +49,7 @@ export function DeviceDashboardPage() {
       const payloadValue = typeof value === "boolean" ? (value ? "true" : "false") : value;
       wsManager.sendStream(receiveKey, { [key]: payloadValue });
     },
-    [device?.customer_name, device?.department_name, device?.uid, isReadOnly]
+    [canControlOutput, device?.customer_name, device?.department_name, device?.uid]
   );
 
   const statusClass =
@@ -122,6 +123,7 @@ export function DeviceDashboardPage() {
     deviceUid: device?.uid ?? "",
     dataIntervalSeconds: device?.data_interval,
     readOnly: isReadOnly,
+    allowOutputControl: canControlOutput,
     availableFields: panel.data.fields,
     getChartValue: panel.getters.getFieldRawValue,
     getChartUnit: panel.getters.getFieldUnit,

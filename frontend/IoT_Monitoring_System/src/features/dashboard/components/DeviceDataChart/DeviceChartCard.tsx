@@ -53,6 +53,7 @@ type DeviceChartCardProps = HTMLAttributes<HTMLDivElement> & {
   isEditing: boolean;
   disabled?: boolean;
   readOnly?: boolean;
+  allowOutputControl?: boolean;
   activeMenuId: string | null;
   setActiveMenuId: Dispatch<SetStateAction<string | null>>;
   onEdit: (chart: ChartItem) => void;
@@ -87,6 +88,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     isEditing,
     disabled,
     readOnly,
+    allowOutputControl = false,
     activeMenuId,
     setActiveMenuId,
     onEdit,
@@ -286,7 +288,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     isLiveMode &&
     !isEditing &&
     !disabled &&
-    !readOnly &&
+    allowOutputControl &&
     typeof onOutputSend === "function";
   const buttonState = (() => {
     if (!isButtonChart) return false;

@@ -91,6 +91,7 @@ export function DeviceDataChart<T extends string>({
   dataIntervalSeconds,
   disabled,
   readOnly = false,
+  allowOutputControl = false,
   availableFields,
   getChartValue,
   getChartUnit,
@@ -704,6 +705,7 @@ export function DeviceDataChart<T extends string>({
         onOutputSend={onOutputSend}
         disabled={disabled}
         readOnly={readOnly}
+        allowOutputControl={allowOutputControl}
       />
     </div>
   );
