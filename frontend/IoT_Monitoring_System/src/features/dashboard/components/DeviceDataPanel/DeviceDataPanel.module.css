@@ -82,10 +82,12 @@
 
 .device-chart-grid :global(.react-grid-layout) {
   width: 100%;
+  overflow: visible;
 }
 
 .device-chart-grid :global(.react-grid-item) {
   box-sizing: border-box;
+  overflow: visible;
 }
 
 .device-chart-grid :global(.react-resizable-handle) {
@@ -186,6 +188,12 @@
   border-radius: var(--radius-md);
   box-sizing: border-box;
   cursor: default !important;
+  position: relative;
+  z-index: 1;
+}
+
+.device-section-row-active {
+  z-index: 80;
 }
 
 .device-section-row-editing {
@@ -258,7 +266,7 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xl);
   padding: 6px;
-  z-index: 4;
+  z-index: 90;
   display: flex;
   flex-direction: column;
   gap: 4px;

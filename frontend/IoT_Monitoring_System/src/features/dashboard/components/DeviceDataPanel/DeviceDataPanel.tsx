@@ -560,7 +560,7 @@ export function DeviceDataPanel<T extends string>({
         key={getSectionKey(section.id)}
         className={`${styles["device-section-row"]} ${
           isLayoutEditing ? styles["device-section-row-editing"] : ""
-        }`}
+        } ${activeSectionMenu === section.id ? styles["device-section-row-active"] : ""}`}
         data-section-menu={section.id}
       >
         <div className={styles["device-section-row-left"]}>
