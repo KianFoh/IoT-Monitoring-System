@@ -15,9 +15,12 @@ export const devicesApi = {
     department_id: number;
     machine?: string | null;
     data_interval: number;
+    is_active?: boolean;
     connectivity?: "wifi" | "cellular";
     mobile_number?: string | null;
     sim_id?: string | null;
+    sub?: string | null;
+    pub?: string | null;
   }) {
     return api.post<Device>(`${BASE_PATH}/`, payload);
   },
@@ -35,6 +38,8 @@ export const devicesApi = {
       connectivity: "wifi" | "cellular";
       mobile_number: string | null;
       sim_id: string | null;
+      sub: string | null;
+      pub: string | null;
     }>
   ) {
     return api.patch<Device>(`${BASE_PATH}/${deviceId}`, payload);

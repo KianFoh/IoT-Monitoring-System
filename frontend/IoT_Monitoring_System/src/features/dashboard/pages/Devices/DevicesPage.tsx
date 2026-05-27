@@ -167,6 +167,8 @@ function SuperuserDevicesPage() {
     showAddModal,
     showEditModal,
     showDeleteModal,
+    showAddTopicsModal,
+    showEditTopicsModal,
     selectedDevice,
     actionError,
     actionLoading,
@@ -316,13 +318,15 @@ function SuperuserDevicesPage() {
         </div>
       </div>
       <SuperuserDevicesPageModals
-        modalState={{
-          showAddModal,
-          showEditModal,
-          showDeleteModal,
-          selectedDevice,
-          actionError,
-          actionLoading,
+      modalState={{
+        showAddModal,
+        showEditModal,
+        showDeleteModal,
+        showAddTopicsModal,
+        showEditTopicsModal,
+        selectedDevice,
+        actionError,
+        actionLoading,
         }}
         addFlow={{
           step: addStep,
@@ -344,6 +348,10 @@ function SuperuserDevicesPage() {
           onCloseAdd: deviceActions.closeAddModal,
           onCloseEdit: deviceActions.closeEditModal,
           onCloseDelete: deviceActions.closeDeleteModal,
+          onOpenAddTopics: deviceActions.openAddTopicsModal,
+          onCloseAddTopics: deviceActions.closeAddTopicsModal,
+          onOpenEditTopics: deviceActions.openEditTopicsModal,
+          onCloseEditTopics: deviceActions.closeEditTopicsModal,
           onEditSubmit: deviceActions.handleEditSubmit,
           onDelete: deviceActions.handleDelete,
         }}

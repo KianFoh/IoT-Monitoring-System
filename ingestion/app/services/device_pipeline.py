@@ -22,6 +22,8 @@ class DeviceInfo:
     customer_name: str
     department_name: str
     distributor_name: Optional[str]
+    sub: Optional[str]
+    pub: Optional[str]
     data_interval: float
     is_active: bool
     dashboard_config: Optional[Dict[str, Any]]
@@ -42,6 +44,8 @@ class DevicePipeline:
         
     @property
     def device_topic(self):
+        if self.device.sub:
+            return self.device.sub
         customer = self._normalize_topic_value(self.device.customer_name)
         distributor = self._normalize_topic_value(self.device.distributor_name) if self.device.distributor_name else ""
         if distributor:
@@ -91,13 +95,17 @@ class DevicePipeline:
         if raw is None:
             logger.warning("Invalid JSON in device payload")
             return
-        device_id = raw.get("device_id")
+        payload = self._extract_device_payload(raw)
+        if payload is None:
+            logger.warning("Device payload missing device_id")
+            return
+        device_id = payload.get("device_id")
 
         if not device_id:
             return
 
         # Extract dynamic fields (everything except device_id)
-        data = {k: v for k, v in raw.items() if k != "device_id"}
+        data = {k: v for k, v in payload.items() if k != "device_id"}
         data = self._apply_custom_processing(data)
 
         if self.field_types:
@@ -310,6 +318,17 @@ class DevicePipeline:
         except Exception as exc:
             logger.error(f"Custom processor failed for {self.device.uid}: {exc}")
         return data
+
+    @staticmethod
+    def _extract_device_payload(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if not isinstance(raw, dict):
+            return None
+        if raw.get("device_id"):
+            return raw
+        for value in raw.values():
+            if isinstance(value, dict) and value.get("device_id"):
+                return value
+        return None
 
     @staticmethod
     def _sanitize_key(value: Any) -> str:

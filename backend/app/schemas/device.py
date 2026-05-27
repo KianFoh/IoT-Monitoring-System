@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional, List
 from app.models.enum.device_connectivity import DeviceConnectivity
@@ -12,6 +12,17 @@ class DeviceCreate(BaseModel):
     connectivity: DeviceConnectivity = DeviceConnectivity.wifi
     mobile_number: Optional[str] = None
     sim_id: Optional[str] = None
+    is_active: bool = False
+    sub: Optional[str] = None
+    pub: Optional[str] = None
+
+    @field_validator("sub", "pub", mode="before")
+    @classmethod
+    def normalize_optional_topic(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
 class DeviceUpdate(BaseModel):
     name: Optional[str] = None
@@ -24,6 +35,16 @@ class DeviceUpdate(BaseModel):
     connectivity: Optional[DeviceConnectivity] = None
     mobile_number: Optional[str] = None
     sim_id: Optional[str] = None
+    sub: Optional[str] = None
+    pub: Optional[str] = None
+
+    @field_validator("sub", "pub", mode="before")
+    @classmethod
+    def normalize_optional_topic(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
 
 class DeviceOut(BaseModel):
@@ -34,6 +55,8 @@ class DeviceOut(BaseModel):
     connectivity: DeviceConnectivity
     mobile_number: Optional[str] = None
     sim_id: Optional[str] = None
+    sub: Optional[str] = None
+    pub: Optional[str] = None
     data_interval: float
     dashboard_config: Optional[dict] = None
     department_name: str

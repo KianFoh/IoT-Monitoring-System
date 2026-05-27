@@ -153,6 +153,14 @@ def _build_device_receive_topic(
     return f"{normalized_customer}/json/receive/{device_uid}/"
 
 
+def _resolve_device_publish_topic(
+    fallback_topic: str,
+    custom_topic: str | None,
+) -> str:
+    custom = (custom_topic or "").strip()
+    return custom or fallback_topic
+
+
 @router.websocket("/ws/{channel}")
 async def websocket_endpoint(websocket: WebSocket, channel: str):
     if channel not in ALLOWED_CHANNELS:
@@ -356,10 +364,13 @@ async def device_command_websocket(
             await websocket.close(code=4403)
             return
 
-    topic = _build_device_command_topic(
-        device.customer_name or "",
-        device_record.uid,
-        device.distributor_name,
+    topic = _resolve_device_publish_topic(
+        _build_device_command_topic(
+            device.customer_name or "",
+            device_record.uid,
+            device.distributor_name,
+        ),
+        device_record.pub,
     )
 
     await websocket.accept()
@@ -419,10 +430,13 @@ async def device_receive_websocket(
             await websocket.close(code=4403)
             return
 
-    topic = _build_device_receive_topic(
-        device.customer_name or "",
-        device_record.uid,
-        device.distributor_name,
+    topic = _resolve_device_publish_topic(
+        _build_device_receive_topic(
+            device.customer_name or "",
+            device_record.uid,
+            device.distributor_name,
+        ),
+        device_record.pub,
     )
 
     await websocket.accept()

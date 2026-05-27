@@ -12,6 +12,8 @@ export function useDeviceActions() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAddTopicsModal, setShowAddTopicsModal] = useState(false);
+  const [showEditTopicsModal, setShowEditTopicsModal] = useState(false);
 
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -31,6 +33,9 @@ export function useDeviceActions() {
     name: "",
     machine: "",
     data_interval: String(DEFAULT_DATA_INTERVAL),
+    is_active: false,
+    sub: "",
+    pub: "",
   });
   const [editForm, setEditForm] = useState({
     name: "",
@@ -40,6 +45,8 @@ export function useDeviceActions() {
     sim_id: "",
     data_interval: String(DEFAULT_DATA_INTERVAL),
     is_active: false,
+    sub: "",
+    pub: "",
   });
 
   const openAddModal = () => {
@@ -52,13 +59,18 @@ export function useDeviceActions() {
       name: "",
       machine: "",
       data_interval: String(DEFAULT_DATA_INTERVAL),
+      is_active: false,
+      sub: "",
+      pub: "",
     });
     setActionError(null);
+    setShowAddTopicsModal(false);
     setShowAddModal(true);
   };
 
   const closeAddModal = () => {
     setShowAddModal(false);
+    setShowAddTopicsModal(false);
     setActionError(null);
   };
 
@@ -72,9 +84,12 @@ export function useDeviceActions() {
       sim_id: device.sim_id || "",
       data_interval: String(device.data_interval ?? DEFAULT_DATA_INTERVAL),
       is_active: !!device.is_active,
+      sub: device.sub || "",
+      pub: device.pub || "",
     });
     setActionError(null);
     previousConnectivityRef.current = device.connectivity || "wifi";
+    setShowEditTopicsModal(false);
     setShowEditModal(true);
   };
 
@@ -83,6 +98,7 @@ export function useDeviceActions() {
     setSelectedDevice(null);
     setActionError(null);
     previousConnectivityRef.current = null;
+    setShowEditTopicsModal(false);
   };
 
   const openDeleteModal = (device: Device) => {
@@ -104,12 +120,18 @@ export function useDeviceActions() {
       department_id,
       machine,
       data_interval,
+      is_active,
+      sub,
+      pub,
     }: {
       name: string;
       uid: string;
       department_id: number;
       machine?: string | null;
       data_interval: number;
+      is_active?: boolean;
+      sub?: string | null;
+      pub?: string | null;
     }) =>
       devicesApi.create({
         name,
@@ -117,6 +139,9 @@ export function useDeviceActions() {
         department_id,
         machine,
         data_interval,
+        is_active,
+        sub,
+        pub,
       }),
     onSuccess: () => {
       closeAddModal();
@@ -137,6 +162,8 @@ export function useDeviceActions() {
         connectivity?: DeviceConnectivity;
         mobile_number?: string | null;
         sim_id?: string | null;
+        sub?: string | null;
+        pub?: string | null;
       };
     }) =>
       devicesApi.update(id, payload),
@@ -179,12 +206,17 @@ export function useDeviceActions() {
     try {
       setActionError(null);
       const machine = addForm.machine.trim();
+      const sub = addForm.sub.trim();
+      const pub = addForm.pub.trim();
       await addMutation.mutateAsync({
         name: addForm.name.trim(),
         uid: addForm.uid.trim(),
         department_id: addForm.department_id,
         machine: machine ? machine : null,
         data_interval: intervalValue,
+        is_active: addForm.is_active,
+        sub: sub ? sub : null,
+        pub: pub ? pub : null,
       });
       return true;
     } catch (err: unknown) {
@@ -205,6 +237,8 @@ export function useDeviceActions() {
       connectivity?: DeviceConnectivity;
       mobile_number?: string | null;
       sim_id?: string | null;
+      sub?: string | null;
+      pub?: string | null;
     } = {
       is_active: editForm.is_active,
     };
@@ -226,6 +260,8 @@ export function useDeviceActions() {
     }
     payload.mobile_number = mobileNumber ? mobileNumber : null;
     payload.sim_id = simId ? simId : null;
+    payload.sub = editForm.sub.trim() ? editForm.sub.trim() : null;
+    payload.pub = editForm.pub.trim() ? editForm.pub.trim() : null;
     const intervalValue = Number(editForm.data_interval);
     if (!Number.isFinite(intervalValue) || intervalValue <= 0) {
       setActionError("Data interval must be a positive number");
@@ -352,6 +388,8 @@ export function useDeviceActions() {
     showAddModal,
     showEditModal,
     showDeleteModal,
+    showAddTopicsModal,
+    showEditTopicsModal,
     selectedDevice,
     actionError,
     actionLoading,
@@ -365,6 +403,10 @@ export function useDeviceActions() {
     closeEditModal,
     openDeleteModal,
     closeDeleteModal,
+    openAddTopicsModal: () => setShowAddTopicsModal(true),
+    closeAddTopicsModal: () => setShowAddTopicsModal(false),
+    openEditTopicsModal: () => setShowEditTopicsModal(true),
+    closeEditTopicsModal: () => setShowEditTopicsModal(false),
     handleAddSubmit,
     handleEditSubmit,
     handleDelete,

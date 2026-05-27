@@ -28,6 +28,8 @@ class DeviceRepository:
                     Department.name,
                     Customer.name,
                     Distributor.name,
+                    Device.sub,
+                    Device.pub,
                 )
                 .join(Department, Device.department_id == Department.id)
                 .join(Customer, Department.customer_id == Customer.id)
@@ -38,13 +40,15 @@ class DeviceRepository:
             session.close()
 
         devices: List[DeviceInfo] = []
-        for uid, data_interval, is_active, dashboard_config, department_name, customer_name, distributor_name in rows:
+        for uid, data_interval, is_active, dashboard_config, department_name, customer_name, distributor_name, sub, pub in rows:
             devices.append(
                 DeviceInfo(
                     uid=uid,
                     customer_name=customer_name,
                     department_name=department_name,
                     distributor_name=distributor_name,
+                    sub=sub,
+                    pub=pub,
                     data_interval=data_interval,
                     dashboard_config=dashboard_config,
                     is_active=is_active,
@@ -65,6 +69,8 @@ class DeviceRepository:
                     Department.name,
                     Customer.name,
                     Distributor.name,
+                    Device.sub,
+                    Device.pub,
                 )
                 .join(Department, Device.department_id == Department.id)
                 .join(Customer, Department.customer_id == Customer.id)
@@ -86,6 +92,8 @@ class DeviceRepository:
             department_name,
             customer_name,
             distributor_name,
+            sub,
+            pub,
         ) = row
 
         return DeviceInfo(
@@ -93,6 +101,8 @@ class DeviceRepository:
             customer_name=customer_name,
             department_name=department_name,
             distributor_name=distributor_name,
+            sub=sub,
+            pub=pub,
             data_interval=data_interval,
             dashboard_config=dashboard_config,
             is_active=is_active,

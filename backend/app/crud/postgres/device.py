@@ -20,6 +20,8 @@ def create_device(db: Session, device: DeviceCreate):
         connectivity=device.connectivity,
         mobile_number=device.mobile_number,
         sim_id=device.sim_id,
+        sub=device.sub,
+        pub=device.pub,
         dashboard_config=getattr(device, "dashboard_config", None),
         is_active=getattr(device, "is_active", False),
     )
@@ -64,6 +66,8 @@ def _serialize_device_row(row) -> DeviceOut:
             "connectivity": device.connectivity,
             "mobile_number": device.mobile_number,
             "sim_id": device.sim_id,
+            "sub": device.sub,
+            "pub": device.pub,
             "data_interval": device.data_interval,
             "dashboard_config": device.dashboard_config,
             "is_online": device.is_online,

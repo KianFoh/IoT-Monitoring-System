@@ -313,7 +313,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   const outputSendValue = (() => {
     if (!isButtonChart) return null;
     if (fieldType === "boolean") {
-      return buttonState ? "false" : "true";
+      return !buttonState;
     }
     if ((fieldType === "text" || fieldType === "list") && outputCaseLabel) {
       return outputCaseLabel;

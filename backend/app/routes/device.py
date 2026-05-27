@@ -271,6 +271,10 @@ async def update_device(
         restart_pipeline = True
     if device_update.is_active is not None and device_update.is_active != existing_device.is_active:
         restart_pipeline = True
+    if device_update.sub is not None and device_update.sub != existing_device.sub:
+        restart_pipeline = True
+    if device_update.pub is not None and device_update.pub != existing_device.pub:
+        restart_pipeline = True
 
     # Check if dashboard_config.data_panel is being updated and changed
     if device_update.dashboard_config is not None:
@@ -303,6 +307,8 @@ async def update_device(
             "department_name": device_out.department_name,
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
+            "sub": device_out.sub,
+            "pub": device_out.pub,
             "restart_pipeline": restart_pipeline,
         },
         device_out.distributor_name,

@@ -46,8 +46,7 @@ export function DeviceDashboardPage() {
       const key = field.trim();
       if (!customer || !department || !uid || !key) return;
       const receiveKey = `device-receive:${customer}/${department}/${uid}`;
-      const payloadValue = typeof value === "boolean" ? (value ? "true" : "false") : value;
-      wsManager.sendStream(receiveKey, { [key]: payloadValue });
+      wsManager.sendStream(receiveKey, { [key]: value });
     },
     [canControlOutput, device?.customer_name, device?.department_name, device?.uid]
   );

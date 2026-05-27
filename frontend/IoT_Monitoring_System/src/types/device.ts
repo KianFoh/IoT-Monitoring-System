@@ -90,6 +90,8 @@ export interface Device {
   connectivity: DeviceConnectivity;
   mobile_number?: string | null;
   sim_id?: string | null;
+  sub?: string | null;
+  pub?: string | null;
   data_interval: number;
   dashboard_config?: DeviceDashboardConfig | null;
   is_online: boolean;

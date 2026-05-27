@@ -24,6 +24,8 @@ class Device(Base):
     )
     mobile_number = Column(String, nullable=True)
     sim_id = Column(String, nullable=True)
+    sub = Column(String, nullable=True)
+    pub = Column(String, nullable=True)
     data_interval = Column(Float, default=60.0, nullable=False)
     dashboard_config = Column(JSON, nullable=True, default=dict) # JSON field for dashboard configuration
     is_active = Column(Boolean, default=False, nullable=False)

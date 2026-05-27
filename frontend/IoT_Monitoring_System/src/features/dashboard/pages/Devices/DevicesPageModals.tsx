@@ -144,6 +144,9 @@ type DeviceAddForm = {
   name: string;
   machine: string;
   data_interval: string;
+  is_active: boolean;
+  sub: string;
+  pub: string;
 };
 
 type DeviceEditForm = {
@@ -154,6 +157,8 @@ type DeviceEditForm = {
   sim_id: string;
   data_interval: string;
   is_active: boolean;
+  sub: string;
+  pub: string;
 };
 
 type ConnectivityOption = { value: DeviceConnectivity; label: string };
@@ -163,6 +168,8 @@ type SuperuserDevicesPageModalsProps = {
     showAddModal: boolean;
     showEditModal: boolean;
     showDeleteModal: boolean;
+    showAddTopicsModal: boolean;
+    showEditTopicsModal: boolean;
     selectedDevice: Device | null;
     actionError: string | null;
     actionLoading: boolean;
@@ -187,6 +194,10 @@ type SuperuserDevicesPageModalsProps = {
     onCloseAdd: () => void;
     onCloseEdit: () => void;
     onCloseDelete: () => void;
+    onOpenAddTopics: () => void;
+    onCloseAddTopics: () => void;
+    onOpenEditTopics: () => void;
+    onCloseEditTopics: () => void;
     onEditSubmit: (e: FormEvent) => void;
     onDelete: () => void;
   };
@@ -204,6 +215,8 @@ export function SuperuserDevicesPageModals({
     showAddModal,
     showEditModal,
     showDeleteModal,
+    showAddTopicsModal,
+    showEditTopicsModal,
     selectedDevice,
     actionError,
     actionLoading,
@@ -221,7 +234,17 @@ export function SuperuserDevicesPageModals({
     onAddBack,
   } = addFlow;
   const { customer: customerAutocomplete, department: departmentAutocomplete } = autocomplete;
-  const { onCloseAdd, onCloseEdit, onCloseDelete, onEditSubmit, onDelete } = actions;
+  const {
+    onCloseAdd,
+    onCloseEdit,
+    onCloseDelete,
+    onOpenAddTopics,
+    onCloseAddTopics,
+    onOpenEditTopics,
+    onCloseEditTopics,
+    onEditSubmit,
+    onDelete,
+  } = actions;
 
   return (
     <>
@@ -299,6 +322,16 @@ export function SuperuserDevicesPageModals({
                 value={addForm.machine}
                 onChange={(e) => setAddForm((prev) => ({ ...prev, machine: e.target.value }))}
               />
+              <div className={formStyles["dashboard-checkbox-row"]}>
+                <Switch
+                  checked={addForm.is_active}
+                  onChange={(v) => setAddForm((prev) => ({ ...prev, is_active: v }))}
+                  label="Active"
+                />
+                <Button type="button" onClick={onOpenAddTopics}>
+                  Custom Topics
+                </Button>
+              </div>
               {actionError && <p className={formStyles["dashboard-modal-error"]}>{actionError}</p>}
               <div className={formStyles["dashboard-modal-actions"]}>
                 <Button type="button" variant="cancel" onClick={onAddBack} disabled={actionLoading}>
@@ -381,6 +414,9 @@ export function SuperuserDevicesPageModals({
               onChange={(v) => setEditForm((prev) => ({ ...prev, is_active: v }))}
               label="Active"
             />
+            <Button type="button" onClick={onOpenEditTopics}>
+              Custom Topics
+            </Button>
           </div>
           {actionError && <p className={formStyles["dashboard-modal-error"]}>{actionError}</p>}
           <div className={formStyles["dashboard-modal-actions"]}>
@@ -413,6 +449,54 @@ export function SuperuserDevicesPageModals({
               disabled={!selectedDevice}
             >
               Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showAddTopicsModal} onClose={onCloseAddTopics} title="Custom Topics">
+        <div className={formStyles["dashboard-modal-form"]}>
+          <Input
+            id="add-device-sub"
+            label="Sub"
+            placeholder="Enter custom subscribe topic"
+            value={addForm.sub}
+            onChange={(e) => setAddForm((prev) => ({ ...prev, sub: e.target.value }))}
+          />
+          <Input
+            id="add-device-pub"
+            label="Pub"
+            placeholder="Enter custom publish topic"
+            value={addForm.pub}
+            onChange={(e) => setAddForm((prev) => ({ ...prev, pub: e.target.value }))}
+          />
+          <div className={formStyles["dashboard-modal-actions"]}>
+            <Button type="button" variant="cancel" onClick={onCloseAddTopics}>
+              Back
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showEditTopicsModal} onClose={onCloseEditTopics} title="Custom Topics">
+        <div className={formStyles["dashboard-modal-form"]}>
+          <Input
+            id="edit-device-sub"
+            label="Sub"
+            placeholder="Enter custom subscribe topic"
+            value={editForm.sub}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, sub: e.target.value }))}
+          />
+          <Input
+            id="edit-device-pub"
+            label="Pub"
+            placeholder="Enter custom publish topic"
+            value={editForm.pub}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, pub: e.target.value }))}
+          />
+          <div className={formStyles["dashboard-modal-actions"]}>
+            <Button type="button" variant="cancel" onClick={onCloseEditTopics}>
+              Back
             </Button>
           </div>
         </div>
