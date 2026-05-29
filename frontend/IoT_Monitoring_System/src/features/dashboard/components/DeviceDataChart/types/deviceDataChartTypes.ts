@@ -5,7 +5,15 @@ export type DisplayOption<T extends string> = {
 
 export type DataFieldType = "number" | "text" | "list" | "boolean";
 
-export type ChartType = "meter" | "line" | "area" | "pie" | "stat" | "bar" | "button";
+export type ChartType =
+  | "meter"
+  | "water_tank"
+  | "line"
+  | "area"
+  | "pie"
+  | "stat"
+  | "bar"
+  | "button";
 
 export type BarOrientation = "horizontal" | "vertical";
 

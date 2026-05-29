@@ -15,7 +15,7 @@ from app.services.device_response_bridge import DeviceResponseBridge
 from app.services.device_status_bridge import DeviceStatusBridge
 from app.services.device_stream_manager import DeviceStreamManager
 from app.crud.mongodb import devices_data as device_data_crud
-from app.routes import health, user, auth, customer, distributor, department, device, mqtt_user, ws
+from app.routes import alert_rule, health, user, auth, customer, distributor, department, device, mqtt_user, ws
 
 # Get settings
 settings = get_settings()
@@ -122,6 +122,7 @@ app.include_router(distributor.router)
 app.include_router(health.router)
 app.include_router(department.router)
 app.include_router(device.router)
+app.include_router(alert_rule.router)
 app.include_router(mqtt_user.router)
 app.include_router(ws.router)
 

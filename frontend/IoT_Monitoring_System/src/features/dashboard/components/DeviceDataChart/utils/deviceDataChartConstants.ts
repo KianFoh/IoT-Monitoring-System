@@ -3,6 +3,7 @@ import type { ChartFilterMode, ChartRangePreset, ChartType, LineGranularity, Lin
 
 export const CHART_OPTIONS: Array<{ value: ChartType; label: string }> = [
   { value: "meter", label: "Meter" },
+  { value: "water_tank", label: "Water tank" },
   { value: "line", label: "Line" },
   { value: "area", label: "Area" },
   { value: "pie", label: "Pie" },

@@ -1,4 +1,5 @@
 import { FaChartLine, FaEdit, FaTrashAlt } from "react-icons/fa";
+import type { KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import styles from "./TableActions.module.css";
 
 type TableActionsProps<TData> = {
@@ -31,13 +32,41 @@ export function TableActions<TData>({
   disableDelete = false,
 }: TableActionsProps<TData>) {
   const resolvedDeleteTitle = disableDelete && deleteDisabledReason ? deleteDisabledReason : deleteTitle;
+  const stopActionEvent = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  const handleActionPointerDown = (
+    event: PointerEvent<HTMLButtonElement>,
+    action: (item: TData) => void,
+    blocked = false
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.button !== 0 || blocked) return;
+    action(item);
+  };
+  const handleActionKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    action: (item: TData) => void,
+    blocked = false
+  ) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (blocked) return;
+    action(item);
+  };
+
   return (
     <div className={styles["dashboard-action-buttons"]}>
       {showView && onView && (
         <button
           type="button"
           className={styles["dashboard-btn-view"]}
-          onClick={() => onView(item)}
+          onPointerDown={(event) => handleActionPointerDown(event, onView)}
+          onClick={stopActionEvent}
+          onKeyDown={(event) => handleActionKeyDown(event, onView)}
           title={viewTitle}
         >
           <FaChartLine />
@@ -47,7 +76,9 @@ export function TableActions<TData>({
         <button
           type="button"
           className={styles["dashboard-btn-edit"]}
-          onClick={() => onEdit(item)}
+          onPointerDown={(event) => handleActionPointerDown(event, onEdit)}
+          onClick={stopActionEvent}
+          onKeyDown={(event) => handleActionKeyDown(event, onEdit)}
           title={editTitle}
         >
           <FaEdit />
@@ -57,7 +88,9 @@ export function TableActions<TData>({
         <button
           type="button"
           className={styles["dashboard-btn-delete"]}
-          onClick={() => onDelete(item)}
+          onPointerDown={(event) => handleActionPointerDown(event, onDelete, disableDelete)}
+          onClick={stopActionEvent}
+          onKeyDown={(event) => handleActionKeyDown(event, onDelete, disableDelete)}
           title={resolvedDeleteTitle}
           disabled={disableDelete}
         >

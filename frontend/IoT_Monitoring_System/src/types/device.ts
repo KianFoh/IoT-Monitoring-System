@@ -39,7 +39,15 @@ export type DashboardPanelConfig = {
 
 export type DashboardChartItem = {
   id: string;
-  type: "meter" | "line" | "area" | "pie" | "stat" | "bar" | "button";
+  type:
+    | "meter"
+    | "water_tank"
+    | "line"
+    | "area"
+    | "pie"
+    | "stat"
+    | "bar"
+    | "button";
   field: string;
   name?: string | null;
   min?: number | null;

@@ -6,6 +6,7 @@ import { DeviceDashboardHeader } from "../../components/DeviceDashboardHeader/De
 import { DeviceDashboardMeta } from "../../components/DeviceDashboardMeta/DeviceDashboardMeta";
 import { DeviceDataPanel } from "../../components/DeviceDataPanel/DeviceDataPanel";
 import { DeviceDataChart } from "../../components/DeviceDataChart/DeviceDataChart";
+import { DeviceAlertRulesPanel } from "../../components/DeviceAlertRulesPanel/DeviceAlertRulesPanel";
 import { useDeviceDashboard } from "./hooks/useDeviceDashboard";
 import { DeviceDashboardPageModals } from "./DeviceDashboardPageModals";
 import styles from "./DeviceDashboardPage.module.css";
@@ -22,12 +23,14 @@ const DATA_FIELD_TYPE_OPTIONS: Array<{ value: "number" | "text" | "list" | "bool
 export function DeviceDashboardPage() {
   const { deviceUid } = useParams<{ deviceUid: string }>();
   const { user } = useAuth();
-  const isReadOnly = user?.role === "user";
+  const normalizedRole = String(user?.role ?? "").trim().toLowerCase();
+  const isReadOnly = normalizedRole === "user";
   const canEdit = !isReadOnly;
+  const canManageAlertRules = normalizedRole === "superuser";
   const canControlOutput = Boolean(user);
   const noop = () => {};
   const dashboard = useDeviceDashboard(deviceUid);
-  const { device: deviceState, display, panel, chart } = dashboard;
+  const { device: deviceState, display, panel, chart, alertRules } = dashboard;
   const {
     data: device,
     loading: deviceLoading,
@@ -145,6 +148,27 @@ export function DeviceDashboardPage() {
     saveError: chart.error,
   };
 
+  const alertRulesProps = {
+    displayMode,
+    options: displayOptions,
+    onDisplayChange: setDisplayMode,
+    deviceId: device?.id,
+    availableFields: panel.data.fields,
+    getFieldLabel: panel.getters.getFieldLabel,
+    getFieldType: panel.getters.getFieldType,
+    getFieldCases: panel.getters.getFieldCases,
+    getFieldBooleanLabels: panel.getters.getFieldBooleanLabels,
+    readOnly: !canManageAlertRules,
+    rules: alertRules.items,
+    adding: alertRules.adding,
+    updating: alertRules.updating,
+    deleting: alertRules.deleting,
+    addError: alertRules.error,
+    onAddRule: canManageAlertRules ? alertRules.add : undefined,
+    onUpdateRule: canManageAlertRules ? alertRules.update : undefined,
+    onDeleteRule: canManageAlertRules ? alertRules.remove : undefined,
+  };
+
   return (
     <div className={styles["devices-container"]}>
       <DeviceDashboardHeader
@@ -164,6 +188,10 @@ export function DeviceDashboardPage() {
 
       {device && displayMode === "data_chart" && (
         <DeviceDataChart {...chartProps} />
+      )}
+
+      {device && displayMode === "alert_rules" && (
+        <DeviceAlertRulesPanel {...alertRulesProps} />
       )}
 
       {canEdit && (

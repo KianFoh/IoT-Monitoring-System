@@ -29,3 +29,4 @@ class Device(Base):
     
     # Relationships
     department = relationship("Department", back_populates="devices")
+    alert_rules = relationship("AlertRule", back_populates="device", cascade="all, delete-orphan")

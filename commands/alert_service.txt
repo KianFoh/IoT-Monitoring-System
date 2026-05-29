@@ -1,0 +1,13 @@
+# Create Alert Service Python Virtual Environment
+cd alert_service
+python -m venv venv
+
+# Activate Alert Service Environment
+venv\Scripts\activate
+
+# Install Alert Service Dependencies
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+# Start Alert Service
+python main.py

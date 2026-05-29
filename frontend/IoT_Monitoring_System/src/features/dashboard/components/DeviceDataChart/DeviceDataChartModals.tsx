@@ -46,6 +46,7 @@ type DeviceDataChartModalsProps = {
     isOpen: boolean;
     selectedChartType: ChartType;
     selectedField: string;
+    selectedFieldType: DataFieldType | null;
     selectedMin: string;
     selectedMax: string;
     selectedLineFields: string[];
@@ -117,6 +118,7 @@ type DeviceDataChartModalsProps = {
     isOpen: boolean;
     editName: string;
     editField: string;
+    editFieldType: DataFieldType | null;
     editMin: string;
     editMax: string;
     editLineTicks: string;
@@ -243,6 +245,11 @@ export function DeviceDataChartModals({
       : addModal.selectedChartType === "pie" || addModal.selectedChartType === "bar"
         ? options.list
         : options.data;
+  const showAddWaterTankNumericInputs =
+    addModal.selectedChartType === "water_tank" &&
+    addModal.selectedFieldType !== "text" &&
+    addModal.selectedFieldType !== "list" &&
+    addModal.selectedFieldType !== "boolean";
   const isEditButton = editModal.editingChartType === "button";
   const editFieldOptions =
     editModal.editingChartType === "meter"
@@ -250,6 +257,11 @@ export function DeviceDataChartModals({
       : editModal.editingChartType === "pie" || editModal.editingChartType === "bar"
         ? options.list
         : options.data;
+  const showEditWaterTankNumericInputs =
+    editModal.editingChartType === "water_tank" &&
+    editModal.editFieldType !== "text" &&
+    editModal.editFieldType !== "list" &&
+    editModal.editFieldType !== "boolean";
   const addFieldMessage =
     addModal.selectedChartType === "pie"
       ? "Pie chart requires list-type data fields."
@@ -465,7 +477,8 @@ export function DeviceDataChartModals({
               )}
             </>
           )}
-          {addModal.selectedChartType === "meter" && (
+          {(addModal.selectedChartType === "meter" ||
+            showAddWaterTankNumericInputs) && (
             <>
               <div className={formStyles["dashboard-inline-row"]}>
                 <Input
@@ -733,9 +746,14 @@ export function DeviceDataChartModals({
             </div>
           )}
           {(editModal.editingChartType === "meter" ||
+            showEditWaterTankNumericInputs ||
             editModal.editingChartType === "line" ||
             editModal.editingChartType === "area") &&
-            !(editModal.editingChartType !== "meter" && editModal.hideLineNumericInputs) && (
+            !(
+              editModal.editingChartType !== "meter" &&
+              editModal.editingChartType !== "water_tank" &&
+              editModal.hideLineNumericInputs
+            ) && (
               <>
                 <div className={formStyles["dashboard-inline-row"]}>
                 <Input
@@ -762,7 +780,8 @@ export function DeviceDataChartModals({
                 <div className={formStyles["dashboard-inline-row"]}>
                   {(editModal.editingChartType === "line" ||
                     editModal.editingChartType === "area" ||
-                    editModal.editingChartType === "meter") && (
+                    editModal.editingChartType === "meter" ||
+                    showEditWaterTankNumericInputs) && (
                     <Input
                       id="device-edit-chart-ticks"
                       label="Ticks (optional)"
@@ -778,7 +797,8 @@ export function DeviceDataChartModals({
                   )}
                   {(editModal.editingChartType === "line" ||
                     editModal.editingChartType === "area" ||
-                    editModal.editingChartType === "meter") && (
+                    editModal.editingChartType === "meter" ||
+                    showEditWaterTankNumericInputs) && (
                     <Input
                       id="device-edit-chart-decimals"
                       label="Decimals (optional)"

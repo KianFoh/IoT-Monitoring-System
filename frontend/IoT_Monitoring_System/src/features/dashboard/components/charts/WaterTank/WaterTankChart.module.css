@@ -1,0 +1,205 @@
+.water-tank-chart {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: end;
+  justify-items: center;
+  gap: 8px;
+  overflow: hidden;
+  color: #102033;
+}
+
+.water-tank-layout {
+  position: relative;
+  width: min(74%, 210px);
+  height: 100%;
+  min-height: 130px;
+  max-height: 320px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.water-tank-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 112px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  filter: drop-shadow(0 14px 18px rgba(15, 23, 42, 0.16));
+}
+
+.water-tank-body {
+  position: relative;
+  width: 100%;
+  height: calc(100% - 10px);
+  min-height: 100px;
+  border: 6px solid #12243a;
+  border-top-width: 5px;
+  border-radius: 48% 48% 8px 8px / 18% 18% 8px 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 252, 0.88) 54%, rgba(255, 255, 255, 0.98)),
+    #ffffff;
+  box-shadow:
+    inset 16px 0 22px rgba(15, 23, 42, 0.08),
+    inset -18px 0 24px rgba(255, 255, 255, 0.9);
+  z-index: 2;
+}
+
+.water-tank-body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 68% 12%, rgba(255, 255, 255, 0.8), transparent 18%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.water-tank-water {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 0;
+  background:
+    linear-gradient(90deg, rgba(34, 116, 163, 0.9), rgba(91, 179, 220, 0.72) 55%, rgba(176, 228, 250, 0.88)),
+    #4eb7e8;
+  transition: height 900ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 1;
+}
+
+.water-tank-wave {
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  top: -9px;
+  height: 20px;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 25% 70%, rgba(255, 255, 255, 0.72) 0 28%, transparent 29%),
+    radial-gradient(ellipse at 70% 35%, rgba(255, 255, 255, 0.44) 0 24%, transparent 25%),
+    rgba(111, 202, 238, 0.86);
+  animation: water-tank-wave 2.5s linear infinite;
+}
+
+.water-tank-highlight {
+  position: absolute;
+  right: 12%;
+  top: 16%;
+  width: 18%;
+  height: 66%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  filter: blur(1px);
+  z-index: 5;
+}
+
+.water-tank-highlight::after {
+  content: "";
+  position: absolute;
+  right: -55%;
+  top: 8%;
+  width: 46%;
+  height: 84%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.water-tank-band {
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  height: 6px;
+  background: #10243b;
+  box-shadow: 0 2px 3px rgba(15, 23, 42, 0.28);
+  transform: translateY(-50%);
+  z-index: 6;
+}
+
+.water-tank-case-list {
+  position: absolute;
+  inset: 12px 10px;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.water-tank-case-list span {
+  position: relative;
+  max-width: 78%;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.34);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.14);
+}
+
+.water-tank-case-list .water-tank-case-active {
+  outline: 2px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.16),
+    0 2px 7px rgba(15, 23, 42, 0.18);
+}
+
+.water-tank-feet {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -12px;
+  display: flex;
+  justify-content: space-between;
+  z-index: 1;
+}
+
+.water-tank-feet span {
+  width: 10px;
+  height: 34px;
+  border-radius: 4px;
+  background: #10243b;
+  transform-origin: top;
+}
+
+.water-tank-feet span:first-child {
+  transform: rotate(8deg);
+}
+
+.water-tank-feet span:last-child {
+  transform: rotate(-8deg);
+}
+
+.water-tank-value {
+  width: 100%;
+  min-height: 1.4em;
+  color: #ffffff;
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.36);
+}
+
+@keyframes water-tank-wave {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(18%);
+  }
+}

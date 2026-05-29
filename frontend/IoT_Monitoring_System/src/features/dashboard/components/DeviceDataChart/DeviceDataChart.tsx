@@ -245,6 +245,9 @@ export function DeviceDataChart<T extends string>({
     () => availableFields.map((field) => ({ value: field, label: field })),
     [availableFields]
   );
+  const selectedFieldType =
+    selectedField && getChartType ? getChartType(selectedField) : null;
+  const editFieldType = editField && getChartType ? getChartType(editField) : null;
   const meterAllowedFields = useMemo(() => {
     if (!getChartType) return availableFields;
     return availableFields.filter((field) => getChartType(field) === "number");
@@ -814,6 +817,7 @@ export function DeviceDataChart<T extends string>({
     isOpen: isAddOpen,
     selectedChartType,
     selectedField,
+    selectedFieldType,
     selectedMin,
     selectedMax,
     selectedLineFields,
@@ -885,6 +889,7 @@ export function DeviceDataChart<T extends string>({
     isOpen: isEditOpen,
     editName,
     editField,
+    editFieldType,
     editMin,
     editMax,
     editLineTicks,

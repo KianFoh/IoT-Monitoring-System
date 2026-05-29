@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { wsManager } from "@/services/ws";
+import { alertRulesApi } from "../../../api/alertRulesApi";
 import { devicesApi } from "../../../api/devicesApi";
 import type { DashboardChartConfig, Device } from "@/types/device";
+import type { AlertRuleCreatePayload, AlertRuleUpdatePayload } from "@/types/alertRule";
 import { type DevicePayload, extractPayloadInfo } from "./deviceDashboardUtils";
 import { useDeviceDataPanel } from "./useDeviceDataPanel";
 import { buildDashboardConfig, normalizeDashboardConfig } from "./dashboardConfig";
@@ -17,11 +19,12 @@ import {
   orderSectionsByLayout,
 } from "@/features/dashboard/components/DeviceDataChart/utils/deviceDataChartUtils";
 
-export type DisplayMode = "data_panel" | "data_chart";
+export type DisplayMode = "data_panel" | "data_chart" | "alert_rules";
 
 const DISPLAY_OPTIONS: Array<{ value: DisplayMode; label: string }> = [
   { value: "data_panel", label: "Data panel" },
   { value: "data_chart", label: "Data chart" },
+  { value: "alert_rules", label: "Alert rules" },
 ];
 
 type ChartItemConfig = NonNullable<DashboardChartConfig["items"]>;
@@ -114,7 +117,7 @@ const mergeLiveData = (prev: DevicePayload | null, next: DevicePayload) => {
 };
 
 export function useDeviceDashboard(deviceUid?: string) {
-  const { access_token } = useAuth();
+  const { access_token, user } = useAuth();
   const queryClient = useQueryClient();
   const [device, setDevice] = useState<Device | null>(null);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("data_panel");
@@ -128,6 +131,7 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [chartSections, setChartSections] = useState<ChartSection[]>([]);
   const [chartError, setChartError] = useState<string | null>(null);
   const [latestFetched, setLatestFetched] = useState(false);
+  const canManageAlertRules = String(user?.role ?? "").trim().toLowerCase() === "superuser";
 
   useEffect(() => {
     setDevice(null);
@@ -368,6 +372,39 @@ export function useDeviceDashboard(deviceUid?: string) {
     onDeviceUpdate: handleDeviceUpdate,
   });
 
+  const alertRulesQuery = useQuery({
+    queryKey: ["alert-rules", device?.id],
+    enabled: Boolean(device?.id && canManageAlertRules),
+    queryFn: async () => {
+      if (!device?.id) {
+        return { items: [], total: 0, page: 1, page_size: 100 };
+      }
+      return alertRulesApi.list({ device_id: device.id, page: 1, page_size: 100 });
+    },
+  });
+
+  const alertRuleCreateMutation = useMutation({
+    mutationFn: (payload: AlertRuleCreatePayload) => alertRulesApi.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alert-rules", device?.id] });
+    },
+  });
+
+  const alertRuleDeleteMutation = useMutation({
+    mutationFn: (alertRuleId: number) => alertRulesApi.remove(alertRuleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alert-rules", device?.id] });
+    },
+  });
+
+  const alertRuleUpdateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: AlertRuleUpdatePayload }) =>
+      alertRulesApi.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alert-rules", device?.id] });
+    },
+  });
+
   const chartMutation = useMutation({
     mutationFn: (payload: {
       data_chart_items: NonNullable<ChartItemConfig>;
@@ -464,6 +501,23 @@ export function useDeviceDashboard(deviceUid?: string) {
       saving: chartMutation.isPending,
       error: chartError,
       save: saveChartConfig,
+    },
+    alertRules: {
+      items: alertRulesQuery.data?.items ?? [],
+      loading: alertRulesQuery.isPending && canManageAlertRules,
+      error:
+        alertRulesQuery.error?.message ??
+        alertRuleCreateMutation.error?.message ??
+        alertRuleUpdateMutation.error?.message ??
+        alertRuleDeleteMutation.error?.message ??
+        null,
+      adding: alertRuleCreateMutation.isPending,
+      updating: alertRuleUpdateMutation.isPending,
+      deleting: alertRuleDeleteMutation.isPending,
+      add: (payload: AlertRuleCreatePayload) => alertRuleCreateMutation.mutateAsync(payload),
+      update: (id: number, payload: AlertRuleUpdatePayload) =>
+        alertRuleUpdateMutation.mutateAsync({ id, payload }),
+      remove: (alertRuleId: number) => alertRuleDeleteMutation.mutateAsync(alertRuleId),
     },
   } as const;
 }

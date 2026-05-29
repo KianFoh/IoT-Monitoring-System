@@ -6,6 +6,7 @@ import { LineChart } from "../charts/Line/LineChart";
 import { PieChart } from "../charts/Pie/PieChart";
 import { BarChart } from "../charts/Bar/BarChart";
 import { StatChart } from "../charts/Stat/StatChart";
+import { WaterTankChart } from "../charts/WaterTank/WaterTankChart";
 import { ButtonChart } from "../outputs/Button/ButtonChart";
 import styles from "./DeviceDataChart.module.css";
 import type {
@@ -117,6 +118,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   },
   ref
 ) {
+  void readOnly;
   const cardClassName = `${styles["device-chart-card"]} ${
     isEditing ? styles["device-chart-card-editing"] : ""
   }${className ? ` ${className}` : ""}`;
@@ -146,6 +148,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   const isBarChart = chart.type === "bar";
   const isBarList = isBarChart && fieldType === "list";
   const isStatChart = chart.type === "stat";
+  const isWaterTankChart = chart.type === "water_tank";
   const isButtonChart = chart.type === "button";
   const panelCases = normalizeCaseList(getChartCases?.(chart.field));
   const chartCases = normalizeCaseList(chart.value_cases);
@@ -178,6 +181,19 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     return Object.keys(map).length ? map : null;
   })();
   const lineCaseColors = isLineBoolean ? booleanCaseColors : caseColors;
+  const waterTankCaseColorSource = (() => {
+    if (fieldType === "boolean") {
+      const colors = getChartBooleanColors?.(chart.field) ?? null;
+      const trueColor = colors?.trueColor?.trim() || "";
+      const falseColor = colors?.falseColor?.trim() || "";
+      const [falseLabel, trueLabel] = booleanCaseLabels;
+      const map: Record<string, string> = {};
+      if (falseLabel && falseColor) map[falseLabel] = falseColor;
+      if (trueLabel && trueColor) map[trueLabel] = trueColor;
+      return Object.keys(map).length ? map : null;
+    }
+    return caseColors;
+  })();
   const caseColorMap = caseColors
     ? (() => {
         const map = new Map<string, string>();
@@ -194,6 +210,22 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     if (!caseColorMap) return undefined;
     const color = caseColorMap.get(label.trim().toLowerCase());
     return color || undefined;
+  };
+  const waterTankCaseColorMap = waterTankCaseColorSource
+    ? (() => {
+        const map = new Map<string, string>();
+        Object.entries(waterTankCaseColorSource).forEach(([label, color]) => {
+          const key = label.trim().toLowerCase();
+          const value = typeof color === "string" ? color.trim() : "";
+          if (!key || !value) return;
+          map.set(key, value);
+        });
+        return map;
+      })()
+    : null;
+  const resolveWaterTankCaseColor = (label: string) => {
+    if (!waterTankCaseColorMap) return undefined;
+    return waterTankCaseColorMap.get(label.trim().toLowerCase()) || undefined;
   };
   const outputCase = chart.value_cases?.[0] ?? "";
   const outputCaseLabel = outputCase.trim();
@@ -282,6 +314,101 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     const fallback = String(rawValue);
     return formatStatUnitValue(fallback, unit);
   })();
+  const waterTankCases = (() => {
+    if (!isWaterTankChart) return [];
+    if (fieldType === "boolean") {
+      const labels = getChartBooleanLabels?.(chart.field) ?? null;
+      const falseLabel = labels?.falseLabel?.trim() || "False";
+      const trueLabel = labels?.trueLabel?.trim() || "True";
+      return [falseLabel, trueLabel];
+    }
+    return panelCases.length ? panelCases : chartCases;
+  })();
+  const waterTankState = (() => {
+    if (!isWaterTankChart) {
+      return {
+        fillPercent: null,
+        valueLabel: "--",
+        activeCase: null as string | null,
+        valueColor: undefined as string | undefined,
+      };
+    }
+    if (fieldType === "number" || fieldType === null) {
+      const minValue = typeof meterMin === "number" ? meterMin : 0;
+      const maxValue = Math.max(typeof meterMax === "number" ? meterMax : 100, minValue + 1);
+      const fillPercent =
+        numericValue === null ? null : ((numericValue - minValue) / (maxValue - minValue)) * 100;
+      const valueLabel =
+        numericValue === null
+          ? "--"
+          : formatStatUnitValue(formatStatNumber(numericValue, valueDecimals), unit);
+      return { fillPercent, valueLabel, activeCase: null, valueColor: lineColor || undefined };
+    }
+    if (fieldType === "boolean") {
+      const normalized = normalizeBooleanValue(rawValue);
+      const activeCase =
+        normalized === true
+          ? waterTankCases[1] ?? "True"
+          : normalized === false
+            ? waterTankCases[0] ?? "False"
+            : null;
+      return {
+        fillPercent: normalized === true ? 100 : normalized === false ? 0 : null,
+        valueLabel: activeCase ?? "--",
+        activeCase,
+        valueColor: activeCase ? resolveWaterTankCaseColor(activeCase) : undefined,
+      };
+    }
+    if (fieldType === "text") {
+      const rawLabel = rawValue === null || rawValue === undefined ? "" : String(rawValue).trim();
+      const matchedIndex = rawLabel
+        ? waterTankCases.findIndex((item) => item.toLowerCase() === rawLabel.toLowerCase())
+        : -1;
+      const fillPercent =
+        matchedIndex >= 0 && waterTankCases.length
+          ? ((matchedIndex + 1) / waterTankCases.length) * 100
+          : rawLabel
+            ? 100
+            : null;
+      const activeCase = matchedIndex >= 0 ? waterTankCases[matchedIndex] : rawLabel || null;
+      return {
+        fillPercent,
+        valueLabel: rawLabel || "--",
+        activeCase,
+        valueColor: activeCase ? resolveWaterTankCaseColor(activeCase) : undefined,
+      };
+    }
+    if (fieldType === "list") {
+      const activeCase =
+        waterTankCases.find((label) => {
+          const count = resolveListCount([label], rawValue);
+          return typeof count === "number" && count > 0;
+        }) ?? null;
+      const matchedIndex = activeCase
+        ? waterTankCases.findIndex((item) => item.toLowerCase() === activeCase.toLowerCase())
+        : -1;
+      const fillPercent =
+        matchedIndex >= 0 && waterTankCases.length
+          ? ((matchedIndex + 1) / waterTankCases.length) * 100
+          : null;
+      const totalCount = resolveListCount([], rawValue);
+      const fallbackLabel =
+        typeof totalCount === "number" && Number.isFinite(totalCount)
+          ? formatStatUnitValue(totalCount, unit)
+          : "--";
+      return {
+        fillPercent,
+        valueLabel: activeCase ?? fallbackLabel,
+        activeCase,
+        valueColor: activeCase ? resolveWaterTankCaseColor(activeCase) : undefined,
+      };
+    }
+    return { fillPercent: null, valueLabel: "--", activeCase: null, valueColor: undefined };
+  })();
+  const waterTankCaseLabels = waterTankCases.map((label) => ({
+    label,
+    color: resolveWaterTankCaseColor(label),
+  }));
   const isLiveMode = filterMode === "raw";
   const isOutputEnabled =
     isButtonChart &&
@@ -438,6 +565,15 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
         tickCount={tickCount}
         valueDecimals={valueDecimals}
         color={lineColor}
+      />
+    ) : chart.type === "water_tank" ? (
+      <WaterTankChart
+        key={chartConfigKey}
+        fillPercent={waterTankState.fillPercent}
+        valueLabel={waterTankState.valueLabel}
+        caseLabels={waterTankCaseLabels}
+        activeCase={waterTankState.activeCase}
+        valueColor={waterTankState.valueColor}
       />
     ) : chart.type === "line" || chart.type === "area" ? (
       <LineChart

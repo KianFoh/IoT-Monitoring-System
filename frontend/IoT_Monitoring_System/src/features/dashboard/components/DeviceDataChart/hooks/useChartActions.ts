@@ -153,6 +153,7 @@ export const useChartActions = ({
   const handleAddChart = () => {
     const isLineChart = selectedChartType === "line" || selectedChartType === "area";
     const isMeterChart = selectedChartType === "meter";
+    const isWaterTankChart = selectedChartType === "water_tank";
     const isPieChart = selectedChartType === "pie";
     const isBarChart = selectedChartType === "bar";
     const isStatChart = selectedChartType === "stat";
@@ -163,6 +164,9 @@ export const useChartActions = ({
     if (isLineChart && selectedLineFields.length === 0) return;
     if (isPieChart && !listAllowedFields.includes(fieldValue)) return;
     if (isBarChart && !listAllowedFields.includes(fieldValue)) return;
+    const fieldType = getChartType?.(fieldValue) ?? null;
+    const isWaterTankNumeric =
+      isWaterTankChart && fieldType !== "text" && fieldType !== "list" && fieldType !== "boolean";
     const id = `chart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const nextLayout = {
       i: id,
@@ -171,19 +175,25 @@ export const useChartActions = ({
       w: DEFAULT_PANEL_SIZE.w,
       h: DEFAULT_PANEL_SIZE.h,
     };
-    const meterMin = isMeterChart ? parseOptionalNumber(selectedMin) : undefined;
-    const meterMax = isMeterChart ? parseOptionalNumber(selectedMax) : undefined;
+    const meterMin =
+      isMeterChart || isWaterTankNumeric
+        ? parseOptionalNumber(selectedMin)
+        : undefined;
+    const meterMax =
+      isMeterChart || isWaterTankNumeric
+        ? parseOptionalNumber(selectedMax)
+        : undefined;
     const isLineText = isLineChart && selectedLineFieldType === "text";
     const lineMin = isLineChart && !isLineText ? parseOptionalNumber(selectedLineMin) : undefined;
     const lineMax = isLineChart && !isLineText ? parseOptionalNumber(selectedLineMax) : undefined;
     const tickCount =
-      isLineChart || isMeterChart
+      isLineChart || isMeterChart || isWaterTankNumeric
         ? isLineText
           ? undefined
           : parseOptionalInteger(selectedLineTicks, 2)
         : undefined;
     const valueDecimals =
-      isLineChart || isMeterChart
+      isLineChart || isMeterChart || isWaterTankNumeric
         ? isLineText
           ? undefined
           : parseOptionalInteger(selectedLineDecimals, 0)
@@ -204,7 +214,7 @@ export const useChartActions = ({
           ? { bar_orientation: barOrientation, bar_race_mode: selectedBarRaceMode }
           : {}),
         ...(isPieChart ? { pie_show_labels: selectedPieShowLabels } : {}),
-        ...(isMeterChart
+        ...(isMeterChart || isWaterTankNumeric
           ? {
               min: meterMin,
               max: meterMax,
@@ -347,6 +357,7 @@ export const useChartActions = ({
     const field = editField || "";
     const isLineChart = editingChartType === "line" || editingChartType === "area";
     const isMeterChart = editingChartType === "meter";
+    const isWaterTankChart = editingChartType === "water_tank";
     const isPieChart = editingChartType === "pie";
     const isBarChart = editingChartType === "bar";
     const isStatChart = editingChartType === "stat";
@@ -354,26 +365,28 @@ export const useChartActions = ({
     const fieldType =
       editingChartType === "button" ? null : getChartType?.(field) ?? null;
     const isLineText = isLineChart && fieldType === "text";
+    const isWaterTankNumeric =
+      isWaterTankChart && fieldType !== "text" && fieldType !== "list" && fieldType !== "boolean";
     const min =
-      isLineChart || isMeterChart
+      isLineChart || isMeterChart || isWaterTankNumeric
         ? isLineText
           ? undefined
           : parseOptionalNumber(editMin)
         : undefined;
     const max =
-      isLineChart || isMeterChart
+      isLineChart || isMeterChart || isWaterTankNumeric
         ? isLineText
           ? undefined
           : parseOptionalNumber(editMax)
         : undefined;
     const tickCount =
-      isLineChart || isMeterChart
+      isLineChart || isMeterChart || isWaterTankNumeric
         ? isLineText
           ? undefined
           : parseOptionalInteger(editLineTicks, 2)
         : undefined;
     const valueDecimals =
-      isLineChart || isMeterChart
+      isLineChart || isMeterChart || isWaterTankNumeric
         ? isLineText
           ? undefined
           : parseOptionalInteger(editLineDecimals, 0)
@@ -394,7 +407,7 @@ export const useChartActions = ({
                 ? { bar_orientation: barOrientation, bar_race_mode: editBarRaceMode }
                 : {}),
               ...(isPieChart ? { pie_show_labels: editPieShowLabels } : {}),
-              ...(isLineChart || isMeterChart
+              ...(isLineChart || isMeterChart || isWaterTankChart
                 ? {
                     min,
                     max,
