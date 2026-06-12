@@ -131,11 +131,13 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [chartSections, setChartSections] = useState<ChartSection[]>([]);
   const [chartError, setChartError] = useState<string | null>(null);
   const [latestFetched, setLatestFetched] = useState(false);
+  const [chartLiveData, setChartLiveData] = useState<DevicePayload | null>(null);
   const canManageAlertRules = String(user?.role ?? "").trim().toLowerCase() === "superuser";
 
   useEffect(() => {
     setDevice(null);
     setLiveData(null);
+    setChartLiveData(null);
     setLastUpdate(null);
     setWsStatus("idle");
     setDeviceStatus(null);
@@ -234,6 +236,7 @@ export function useDeviceDashboard(deviceUid?: string) {
       }
       if (data) {
         setLiveData((prev) => mergeLiveData(prev, data));
+        setChartLiveData(data);
       }
     });
 
@@ -348,6 +351,9 @@ export function useDeviceDashboard(deviceUid?: string) {
         if (data && !liveData) {
           setLiveData(data);
         }
+        if (data && !chartLiveData) {
+          setChartLiveData(data);
+        }
         if (timestamp) {
           updateLastUpdate(timestamp);
         }
@@ -359,7 +365,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     return () => {
       cancelled = true;
     };
-  }, [wsStatus, device?.uid, latestFetched, liveData, updateLastUpdate]);
+  }, [wsStatus, device?.uid, latestFetched, liveData, chartLiveData, updateLastUpdate]);
 
   const handleDeviceUpdate = useCallback((updated: Device) => {
     setDevice(updated);
@@ -500,6 +506,7 @@ export function useDeviceDashboard(deviceUid?: string) {
       setFilterMode: setChartFilterMode,
       saving: chartMutation.isPending,
       error: chartError,
+      liveData: chartLiveData ?? liveData,
       save: saveChartConfig,
     },
     alertRules: {

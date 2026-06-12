@@ -54,6 +54,19 @@ export function DeviceDashboardPage() {
     },
     [canControlOutput, device?.customer_name, device?.department_name, device?.uid]
   );
+  const getChartRawValue = useCallback(
+    (field: string) => {
+      const chartLiveData = chart.liveData;
+      if (chartLiveData && Object.prototype.hasOwnProperty.call(chartLiveData, field)) {
+        return chartLiveData[field];
+      }
+      if (chartLiveData && panel.getters.getFieldType(field) === "list") {
+        return undefined;
+      }
+      return panel.getters.getFieldRawValue(field);
+    },
+    [chart.liveData, panel.getters.getFieldRawValue, panel.getters.getFieldType]
+  );
 
   const statusClass =
     deviceStatus === "online"
@@ -128,7 +141,7 @@ export function DeviceDashboardPage() {
     readOnly: isReadOnly,
     allowOutputControl: canControlOutput,
     availableFields: panel.data.fields,
-    getChartValue: panel.getters.getFieldRawValue,
+    getChartValue: getChartRawValue,
     getChartUnit: panel.getters.getFieldUnit,
     getChartLabel: panel.getters.getFieldLabel,
     getChartType: panel.getters.getFieldType,

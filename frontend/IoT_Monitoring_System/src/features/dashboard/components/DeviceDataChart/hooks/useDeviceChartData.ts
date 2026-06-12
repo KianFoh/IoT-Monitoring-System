@@ -284,7 +284,13 @@ export const useDeviceChartData = ({
     let hasValue = false;
     availableFields.forEach((field) => {
       const value = getChartValue(field);
-      if (value === undefined || value === null) return;
+      if (value === undefined || value === null) {
+        if (getChartTypeRef.current?.(field) === "list") {
+          rowData[field] = {};
+          hasValue = true;
+        }
+        return;
+      }
       rowData[field] = value;
       hasValue = true;
     });

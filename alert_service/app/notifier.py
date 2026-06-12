@@ -2,6 +2,7 @@ import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from html import escape
 
 from sqlalchemy import text
@@ -11,6 +12,10 @@ from app.database import SessionLocal
 from app.models import AlertContext
 
 logger = logging.getLogger(__name__)
+
+
+def _smtp_from_header() -> str:
+    return formataddr((settings.PROJECT_NAME, settings.SMTP_USER))
 
 
 class NotificationService:
@@ -71,7 +76,14 @@ class NotificationService:
 
     def _build_text_body(self, context: AlertContext) -> str:
         message = context.rule.message or f"Alert rule triggered: {context.rule.name}"
-        lines = ["Dear User,", "", message]
+        lines = [
+            "Dear User,",
+            "",
+            f"Device Name: {context.rule.device_name}",
+            f"Device UID: {context.rule.device_uid}",
+            "",
+            message,
+        ]
         if context.rule.include_data_in_message:
             field_name = context.rule.field_label or context.rule.field
             lines.extend(["", "", f"{field_name}: {self._format_value(context.actual_value)}"])
@@ -100,7 +112,7 @@ class NotificationService:
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
-            msg["From"] = settings.SMTP_USER
+            msg["From"] = _smtp_from_header()
             msg["To"] = to_email
             msg.attach(MIMEText(text_body, "plain"))
             msg.attach(MIMEText(html_body, "html"))

@@ -8,6 +8,7 @@ class AlertRule:
     device_id: int
     department_id: int | None
     device_uid: str
+    device_name: str
     name: str
     field: str
     field_label: str | None

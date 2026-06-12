@@ -1,5 +1,6 @@
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formataddr
 import logging
 import smtplib
 import re
@@ -14,12 +15,16 @@ from app.models.distributor import Distributor
 settings = get_settings()
 SMTP_TIMEOUT_SECONDS = int(getattr(settings, "SMTP_TIMEOUT", 10))
 
+
+def _smtp_from_header() -> str:
+    return formataddr((settings.PROJECT_NAME, settings.SMTP_USER))
+
 # ==================== SMTP Email Sending ====================
 def _send_email_smtp(to_email: str, subject: str, text_body: str, html_body: str) -> bool:
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = settings.SMTP_USER
+        msg["From"] = _smtp_from_header()
         msg["To"] = to_email
         msg.attach(MIMEText(text_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
