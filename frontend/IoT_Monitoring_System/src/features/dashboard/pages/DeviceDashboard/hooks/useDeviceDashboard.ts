@@ -106,14 +106,40 @@ const formatLastUpdate = (value: Date) => {
   return `${day}/${month}/${year} ${pad(hours12)}:${minutes}:${seconds} ${meridiem}`;
 };
 
-// Ignore null/undefined values so partial updates don't wipe previous data.
-const mergeLiveData = (prev: DevicePayload | null, next: DevicePayload) => {
+const getLiveListFields = (device: Device | null) => {
+  if (!device) return new Set<string>();
+  const normalized = normalizeDashboardConfig(device.dashboard_config);
+  return new Set(
+    normalized.data_panel.fields.filter(
+      (field) => normalized.data_panel.config[field]?.type === "list"
+    )
+  );
+};
+
+// Ignore null/undefined values so partial updates don't wipe previous scalar state.
+// List fields are event-like counts, so they should reflect only the latest payload.
+const mergeLiveData = (
+  prev: DevicePayload | null,
+  next: DevicePayload,
+  listFields: Set<string>
+) => {
   const filteredEntries = Object.entries(next).filter(([, value]) => value !== null && value !== undefined);
+  const filteredKeys = new Set(filteredEntries.map(([key]) => key));
   if (filteredEntries.length === 0) {
-    return prev ?? next;
+    if (!prev || listFields.size === 0) return prev ?? next;
+    return Object.fromEntries(
+      Object.entries(prev).filter(([key]) => !listFields.has(key))
+    ) as DevicePayload;
   }
   const filtered = Object.fromEntries(filteredEntries);
-  return prev ? { ...prev, ...filtered } : filtered;
+  const carried = prev
+    ? Object.fromEntries(
+        Object.entries(prev).filter(
+          ([key]) => !listFields.has(key) || filteredKeys.has(key)
+        )
+      )
+    : {};
+  return { ...carried, ...filtered };
 };
 
 export function useDeviceDashboard(deviceUid?: string) {
@@ -133,6 +159,7 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [latestFetched, setLatestFetched] = useState(false);
   const [chartLiveData, setChartLiveData] = useState<DevicePayload | null>(null);
   const canManageAlertRules = String(user?.role ?? "").trim().toLowerCase() === "superuser";
+  const liveListFields = useMemo(() => getLiveListFields(device), [device]);
 
   useEffect(() => {
     setDevice(null);
@@ -235,7 +262,7 @@ export function useDeviceDashboard(deviceUid?: string) {
         updateLastUpdate(timestamp);
       }
       if (data) {
-        setLiveData((prev) => mergeLiveData(prev, data));
+        setLiveData((prev) => mergeLiveData(prev, data, liveListFields));
         setChartLiveData(data);
       }
     });
@@ -262,6 +289,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     device?.customer_name,
     device?.department_name,
     device?.uid,
+    liveListFields,
     updateLastUpdate,
   ]);
 
