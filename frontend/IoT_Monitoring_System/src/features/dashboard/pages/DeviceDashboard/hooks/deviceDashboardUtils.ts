@@ -49,6 +49,16 @@ export const extractPayloadInfo = (
 
 export const formatValue = (value: unknown) => {
   if (value === null || value === undefined) return "--";
-  if (typeof value === "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return JSON.stringify(value);
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, item]) => item !== null && item !== undefined);
+    if (
+      entries.length > 0 &&
+      entries.every(([, item]) => ["string", "number", "boolean"].includes(typeof item))
+    ) {
+      return entries.map(([key, item]) => `${key}: ${String(item)}`).join(", ");
+    }
+    return JSON.stringify(value);
+  }
   return String(value);
 };

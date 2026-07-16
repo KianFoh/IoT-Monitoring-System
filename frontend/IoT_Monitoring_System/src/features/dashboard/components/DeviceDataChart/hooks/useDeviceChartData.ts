@@ -3,6 +3,7 @@ import { devicesApi } from "../../../api/devicesApi";
 import type {
   ChartFilterMode,
   ChartRangePreset,
+  DataFieldMetric,
   DataFieldType,
   LineGranularity,
 } from "../types/deviceDataChartTypes";
@@ -40,6 +41,7 @@ type UseDeviceChartDataParams = {
   timeEnd: string;
   rangeRefreshMs: number;
   getChartType?: (field: string) => DataFieldType;
+  getChartMetric?: (field: string) => DataFieldMetric | string;
   getChartCases?: (field: string) => string[] | null | undefined;
   suspendLive?: boolean;
   suspendRange?: boolean;
@@ -180,6 +182,7 @@ const processHistoricalRows = (
   rows: ParsedDeviceDataRow[],
   availableFields: string[],
   getFieldType?: (field: string) => DataFieldType,
+  getFieldMetric?: (field: string) => DataFieldMetric | string,
   getFieldCases?: (field: string) => string[] | null | undefined
 ) => {
   const stateSeed: Record<string, unknown> = {};
@@ -190,7 +193,12 @@ const processHistoricalRows = (
     if (seed && typeof seed === "object") {
       Object.entries(seed).forEach(([field, value]) => {
         const fieldType = getFieldType?.(field);
-        if (fieldType === "text" || fieldType === "boolean") {
+        const fieldMetric = getFieldMetric?.(field);
+        if (
+          (fieldType === "text" && fieldMetric !== "count") ||
+          (fieldType === "boolean" && fieldMetric !== "count") ||
+          (fieldType === "list" && fieldMetric === "latest_list")
+        ) {
           stateSeed[field] = value;
         }
       });
@@ -209,7 +217,8 @@ const processHistoricalRows = (
     const nextData: Record<string, unknown> = { ...row.data };
     availableFields.forEach((field) => {
       const fieldType = getFieldType?.(field);
-      if (fieldType === "text" || fieldType === "boolean") {
+      const fieldMetric = getFieldMetric?.(field);
+      if ((fieldType === "text" || fieldType === "boolean") && fieldMetric !== "count") {
         const current = nextData[field];
         if (current === undefined || current === null) {
           if (lastState.has(field)) {
@@ -223,6 +232,16 @@ const processHistoricalRows = (
 
       if (fieldType === "list") {
         const knownKeys = Array.from(listKeys.get(field) ?? []);
+        if (getFieldMetric?.(field) === "latest_list") {
+          const current = nextData[field];
+          if (current === undefined || current === null) {
+            if (lastState.has(field)) {
+              nextData[field] = lastState.get(field);
+            }
+          } else {
+            lastState.set(field, current);
+          }
+        }
         nextData[field] = buildZeroFilledList(knownKeys, nextData[field]);
       }
     });
@@ -251,6 +270,7 @@ export const useDeviceChartData = ({
   timeEnd,
   rangeRefreshMs,
   getChartType,
+  getChartMetric,
   getChartCases,
   suspendLive = false,
   suspendRange = false,
@@ -264,6 +284,7 @@ export const useDeviceChartData = ({
   const [filteredLatestValues, setFilteredLatestValues] = useState<Record<string, unknown>>({});
   const [rangeRefreshToken, setRangeRefreshToken] = useState(0);
   const getChartTypeRef = useRef(getChartType);
+  const getChartMetricRef = useRef(getChartMetric);
   const getChartCasesRef = useRef(getChartCases);
 
   useEffect(() => {
@@ -271,8 +292,25 @@ export const useDeviceChartData = ({
   }, [getChartType]);
 
   useEffect(() => {
+    getChartMetricRef.current = getChartMetric;
+  }, [getChartMetric]);
+
+  useEffect(() => {
     getChartCasesRef.current = getChartCases;
   }, [getChartCases]);
+
+  const fieldConfigKey = useMemo(
+    () =>
+      JSON.stringify(
+        availableFields.map((field) => ({
+          field,
+          type: getChartType?.(field) ?? null,
+          metric: getChartMetric?.(field) ?? null,
+          cases: normalizeCaseLabels(getChartCases?.(field)),
+        }))
+      ),
+    [availableFields, getChartCases, getChartMetric, getChartType]
+  );
 
   useEffect(() => {
     if (suspendLive) return;
@@ -416,6 +454,7 @@ export const useDeviceChartData = ({
           orderedRows,
           availableFields,
           getChartTypeRef.current,
+          getChartMetricRef.current,
           getChartCasesRef.current
         );
         const latestValues: Record<string, unknown> = {};
@@ -437,8 +476,9 @@ export const useDeviceChartData = ({
               return;
             }
             const fieldType = getChartTypeRef.current?.(key);
+            const fieldMetric = getChartMetricRef.current?.(key);
             if (
-              fieldType === "list" &&
+              (fieldType === "list" || fieldMetric === "count") &&
               (Array.isArray(value) || (value && typeof value === "object"))
             ) {
               latestValues[key] = value;
@@ -457,7 +497,7 @@ export const useDeviceChartData = ({
     return () => {
       cancelled = true;
     };
-  }, [deviceUid, filterMode, rangeWindow, customWindow, availableFields]);
+  }, [deviceUid, filterMode, rangeWindow, customWindow, availableFields, fieldConfigKey]);
 
   useEffect(() => {
     if (filterMode !== "range") return;

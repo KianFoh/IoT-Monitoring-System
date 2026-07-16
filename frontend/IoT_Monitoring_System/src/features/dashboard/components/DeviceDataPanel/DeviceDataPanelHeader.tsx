@@ -1,4 +1,4 @@
-import { FaPlus } from "react-icons/fa";
+import { FaFilter, FaPlus } from "react-icons/fa";
 import { Button } from "@/components/Button/Button";
 import DropdownSelect from "../DropdownSelect/DropdownSelect";
 import styles from "./DeviceDataPanel.module.css";
@@ -13,6 +13,7 @@ type DeviceDataPanelHeaderProps<T extends string> = {
   displayMode: T;
   options: DisplayOption<T>[];
   onDisplayChange: (value: T) => void;
+  onOpenFilter: () => void;
   onOpenSection: () => void;
   onAddField: () => void;
   onEnterEdit: () => void;
@@ -29,6 +30,7 @@ export function DeviceDataPanelHeader<T extends string>({
   displayMode,
   options,
   onDisplayChange,
+  onOpenFilter,
   onOpenSection,
   onAddField,
   onEnterEdit,
@@ -45,6 +47,15 @@ export function DeviceDataPanelHeader<T extends string>({
         {isEditing ? (
           !readOnly && (
             <>
+              <button
+                type="button"
+                className={styles["device-data-panel-filter-button"]}
+                onClick={onOpenFilter}
+                disabled={disabled || layoutSaving}
+                aria-label="Open filters"
+              >
+                <FaFilter />
+              </button>
               <Button
                 onClick={onOpenSection}
                 disabled={disabled || layoutSaving}
@@ -82,6 +93,15 @@ export function DeviceDataPanelHeader<T extends string>({
           )
         ) : (
           <>
+            <button
+              type="button"
+              className={styles["device-data-panel-filter-button"]}
+              onClick={onOpenFilter}
+              disabled={disabled}
+              aria-label="Open filters"
+            >
+              <FaFilter />
+            </button>
             <DropdownSelect
               id="device-dashboard-display"
               value={displayMode}

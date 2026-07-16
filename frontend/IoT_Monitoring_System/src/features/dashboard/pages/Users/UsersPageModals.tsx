@@ -1,4 +1,5 @@
 import type { FormEvent } from "react";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { Modal } from "@/components/Modal/Modal";
@@ -31,6 +32,7 @@ type UserAddForm = {
 
 type UserEditForm = {
   email: string;
+  password: string;
   role: UserRole;
   is_verified: boolean;
   is_active: boolean;
@@ -54,6 +56,7 @@ type UsersPageModalsProps = {
   editFlow: {
     editForm: UserEditForm;
     setEditForm: (updater: (prev: UserEditForm) => UserEditForm) => void;
+    showPassword: boolean;
   };
   roleOptions: Array<{ value: UserRole; label: string }>;
   customerAutocomplete: AutocompleteState<CustomerSearch>;
@@ -68,6 +71,7 @@ type UsersPageModalsProps = {
     onAddBack: () => void;
     onEditSubmit: (event: FormEvent) => void;
     onDelete: () => void;
+    onToggleEditPassword: () => void;
   };
 };
 
@@ -83,7 +87,7 @@ export function UsersPageModals({
   const { showAddModal, showEditModal, showDeleteModal, selectedUser, actionError, actionLoading } =
     modalState;
   const { step, stepError, addForm, setAddForm } = addFlow;
-  const { editForm, setEditForm } = editFlow;
+  const { editForm, setEditForm, showPassword: showEditPassword } = editFlow;
   const {
     onCloseAdd,
     onCloseEdit,
@@ -94,6 +98,7 @@ export function UsersPageModals({
     onAddBack,
     onEditSubmit,
     onDelete,
+    onToggleEditPassword,
   } = actions;
 
   return (
@@ -248,6 +253,18 @@ export function UsersPageModals({
             placeholder="Update user email"
             value={editForm.email}
             onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+          />
+          <Input
+            id="edit-user-password"
+            label="Password"
+            placeholder="Enter new password"
+            type={showEditPassword ? "text" : "password"}
+            rightIcon={showEditPassword ? FaEyeSlash : FaEye}
+            rightIconLabel={showEditPassword ? "Hide password" : "Show password"}
+            onRightIconClick={onToggleEditPassword}
+            value={editForm.password}
+            autoComplete="new-password"
+            onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))}
           />
           <DropdownSelect
             id="edit-user-role"

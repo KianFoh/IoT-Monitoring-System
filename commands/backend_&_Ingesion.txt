@@ -7,7 +7,13 @@ venv\Scripts\activate
 # Install Dependency
 pip install --no-deps -r requirements.txt
 
-# Start API & Ingesion Services
+# Start API from backend/
+python main.py
+
+# Start Rollup Service from rollup_service/
+python main.py
+
+# Start Ingestion Service from ingestion/
 python main.py
 
 # Backend Create first superuser scripts

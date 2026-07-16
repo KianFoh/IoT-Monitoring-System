@@ -7,9 +7,36 @@ import formStyles from "../../components/DashboardForm/DashboardForm.module.css"
 import inputStyles from "@/components/Input/Input.module.css";
 
 type FieldTypeOption = { value: "number" | "text" | "list" | "boolean"; label: string };
+type FieldMetricOption = { value: string; label: string };
 type CaseItem = { id: string; label: string; color: string };
 
 const DEFAULT_FIELD_COLOR = "#c7ddff";
+
+const FIELD_METRIC_OPTIONS: Record<"number" | "text" | "list" | "boolean", FieldMetricOption[]> = {
+  text: [
+    { value: "last_state", label: "Last state" },
+    { value: "count", label: "Count" },
+  ],
+  number: [
+    { value: "last_value", label: "Last value" },
+    { value: "count", label: "Count" },
+    { value: "sum", label: "Sum" },
+    { value: "min", label: "Min" },
+    { value: "max", label: "Max" },
+    { value: "avg", label: "Average" },
+  ],
+  boolean: [
+    { value: "latest_value", label: "Latest Value" },
+    { value: "count", label: "Counts" },
+  ],
+  list: [
+    { value: "latest_list", label: "Latest list" },
+    { value: "count", label: "Count" },
+  ],
+};
+
+const getDefaultMetric = (type: "number" | "text" | "list" | "boolean") =>
+  FIELD_METRIC_OPTIONS[type][0].value;
 
 const normalizeHex = (value: string) => {
   const trimmed = value.trim();
@@ -62,6 +89,8 @@ type DeviceDashboardPanelState = {
     setUnit: (value: string) => void;
     type: "number" | "text" | "list" | "boolean";
     setType: (value: "number" | "text" | "list" | "boolean") => void;
+    metric: string;
+    setMetric: (value: string) => void;
     color: string;
     setColor: (value: string) => void;
     trueLabel: string;
@@ -87,6 +116,8 @@ type DeviceDashboardPanelState = {
     setUnit: (value: string) => void;
     type: "number" | "text" | "list" | "boolean";
     setType: (value: "number" | "text" | "list" | "boolean") => void;
+    metric: string;
+    setMetric: (value: string) => void;
     color: string;
     setColor: (value: string) => void;
     trueLabel: string;
@@ -135,6 +166,14 @@ export function DeviceDashboardPageModals({
   const newFalseColorPicker = toPickerColor(panel.addField.falseColor);
   const editCaseCount = panel.edit.caseItems.filter((item) => item.label.trim()).length;
   const newCaseCount = panel.addField.caseItems.filter((item) => item.label.trim()).length;
+  const editMetricOptions = FIELD_METRIC_OPTIONS[panel.edit.type];
+  const newMetricOptions = FIELD_METRIC_OPTIONS[panel.addField.type];
+  const editMetricValue = editMetricOptions.some((option) => option.value === panel.edit.metric)
+    ? panel.edit.metric
+    : getDefaultMetric(panel.edit.type);
+  const newMetricValue = newMetricOptions.some((option) => option.value === panel.addField.metric)
+    ? panel.addField.metric
+    : getDefaultMetric(panel.addField.type);
   const isCaseConfigOpen = panel.caseConfig.mode !== null;
   const isEditCaseConfig = panel.caseConfig.mode === "edit";
   const activeCaseItems = isEditCaseConfig ? panel.edit.caseItems : panel.addField.caseItems;
@@ -179,7 +218,7 @@ export function DeviceDashboardPageModals({
         title={activeFieldLabel}
       >
         <div className={formStyles["dashboard-modal-form"]}>
-          <div className={formStyles["dashboard-picker-field-row"]}>
+          <div className={formStyles["dashboard-picker-field-row-full"]}>
             <Input
               id="device-field-key"
               label="Data key"
@@ -190,7 +229,7 @@ export function DeviceDashboardPageModals({
               inputClassName={formStyles["dashboard-picker-field-input"]}
             />
           </div>
-          <div className={formStyles["dashboard-picker-field-row"]}>
+          <div className={formStyles["dashboard-picker-field-row-color"]}>
             <Input
               id="device-field-label"
               label="Data label"
@@ -209,7 +248,7 @@ export function DeviceDashboardPageModals({
             />
           </div>
           {panel.edit.type !== "boolean" && (
-            <div className={formStyles["dashboard-picker-field-row"]}>
+            <div className={formStyles["dashboard-picker-field-row-full"]}>
               <Input
                 id="device-field-unit"
                 label="Unit"
@@ -221,20 +260,32 @@ export function DeviceDashboardPageModals({
               />
             </div>
           )}
-          <div className={formStyles["dashboard-picker-field-row"]}>
+          <div className={formStyles["dashboard-picker-field-row-metric"]}>
             <DropdownSelect
               id="device-field-type"
               label="Field type"
               value={panel.edit.type}
               options={fieldTypeOptions}
-              onChange={(value) => panel.edit.setType(value)}
-              groupClassName={`${formStyles["dashboard-picker-field-main"]} ${formStyles["dashboard-picker-field-main-full"]}`}
+              onChange={(value) => {
+                panel.edit.setType(value);
+                panel.edit.setMetric(getDefaultMetric(value));
+              }}
+              groupClassName={formStyles["dashboard-picker-field-main"]}
+              triggerClassName={formStyles["dashboard-picker-field-trigger"]}
+            />
+            <DropdownSelect
+              id="device-field-metric"
+              label="Metric"
+              value={editMetricValue}
+              options={editMetricOptions}
+              onChange={(value) => panel.edit.setMetric(value)}
+              groupClassName={formStyles["dashboard-picker-field-main"]}
               triggerClassName={formStyles["dashboard-picker-field-trigger"]}
             />
           </div>
           {panel.edit.type === "boolean" && (
             <>
-              <div className={formStyles["dashboard-picker-field-row"]}>
+              <div className={formStyles["dashboard-picker-field-row-color"]}>
                 <Input
                   id="device-field-true-label"
                   label="True label"
@@ -252,7 +303,7 @@ export function DeviceDashboardPageModals({
                   aria-label="True color picker"
                 />
               </div>
-              <div className={formStyles["dashboard-picker-field-row"]}>
+              <div className={formStyles["dashboard-picker-field-row-color"]}>
                 <Input
                   id="device-field-false-label"
                   label="False label"
@@ -307,7 +358,7 @@ export function DeviceDashboardPageModals({
         title="Add data field"
       >
         <div className={formStyles["dashboard-modal-form"]}>
-          <div className={formStyles["dashboard-picker-field-row"]}>
+          <div className={formStyles["dashboard-picker-field-row-full"]}>
             <Input
               id="device-data-field-key"
               label="Data key"
@@ -318,7 +369,7 @@ export function DeviceDashboardPageModals({
               inputClassName={formStyles["dashboard-picker-field-input"]}
             />
           </div>
-          <div className={formStyles["dashboard-picker-field-row"]}>
+          <div className={formStyles["dashboard-picker-field-row-color"]}>
             <Input
               id="device-data-field-label"
               label="Data label"
@@ -337,7 +388,7 @@ export function DeviceDashboardPageModals({
             />
           </div>
           {panel.addField.type !== "boolean" && (
-            <div className={formStyles["dashboard-picker-field-row"]}>
+            <div className={formStyles["dashboard-picker-field-row-full"]}>
               <Input
                 id="device-data-field-unit"
                 label="Unit (optional)"
@@ -349,20 +400,32 @@ export function DeviceDashboardPageModals({
               />
             </div>
           )}
-          <div className={formStyles["dashboard-picker-field-row"]}>
+          <div className={formStyles["dashboard-picker-field-row-metric"]}>
             <DropdownSelect
               id="device-data-field-type"
               label="Field type"
               value={panel.addField.type}
               options={fieldTypeOptions}
-              onChange={(value) => panel.addField.setType(value)}
-              groupClassName={`${formStyles["dashboard-picker-field-main"]} ${formStyles["dashboard-picker-field-main-full"]}`}
+              onChange={(value) => {
+                panel.addField.setType(value);
+                panel.addField.setMetric(getDefaultMetric(value));
+              }}
+              groupClassName={formStyles["dashboard-picker-field-main"]}
+              triggerClassName={formStyles["dashboard-picker-field-trigger"]}
+            />
+            <DropdownSelect
+              id="device-data-field-metric"
+              label="Metric"
+              value={newMetricValue}
+              options={newMetricOptions}
+              onChange={(value) => panel.addField.setMetric(value)}
+              groupClassName={formStyles["dashboard-picker-field-main"]}
               triggerClassName={formStyles["dashboard-picker-field-trigger"]}
             />
           </div>
           {panel.addField.type === "boolean" && (
             <>
-              <div className={formStyles["dashboard-picker-field-row"]}>
+              <div className={formStyles["dashboard-picker-field-row-color"]}>
                 <Input
                   id="device-data-field-true-label"
                   label="True label"
@@ -380,7 +443,7 @@ export function DeviceDashboardPageModals({
                   aria-label="True color picker"
                 />
               </div>
-              <div className={formStyles["dashboard-picker-field-row"]}>
+              <div className={formStyles["dashboard-picker-field-row-color"]}>
                 <Input
                   id="device-data-field-false-label"
                   label="False label"

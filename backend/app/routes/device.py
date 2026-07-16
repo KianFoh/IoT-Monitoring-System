@@ -16,6 +16,7 @@ from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRece
 from app.models.enum.user_role import UserRole
 from app.utils.device_data import (
     extract_panel_fields_and_config,
+    normalize_field_metric,
     normalize_field_type,
 )
 from app.utils.device_events import publish_device_event
@@ -24,7 +25,7 @@ from app.utils.ws_events import broadcast_device_event
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 logger = logging.getLogger(__name__)
-_field_config_cache: Dict[Tuple[str, str], Tuple[List[str], Dict[str, str]]] = {}
+_field_config_cache: Dict[Tuple[str, str], Tuple[List[str], Dict[str, str], Dict[str, str]]] = {}
 _field_config_cache_lock = Lock()
 
 
@@ -39,9 +40,9 @@ def _normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
 def _get_cached_panel_fields_and_types(
     device_uid: str,
     dashboard_config: Optional[dict],
-) -> Tuple[List[str], Dict[str, str]]:
+) -> Tuple[List[str], Dict[str, str], Dict[str, str]]:
     if not isinstance(dashboard_config, dict):
-        return [], {}
+        return [], {}, {}
 
     cache_key = (
         device_uid,
@@ -53,20 +54,37 @@ def _get_cached_panel_fields_and_types(
         return cached
 
     panel_fields, panel_config = extract_panel_fields_and_config(dashboard_config)
-    field_types = {
-        field: normalize_field_type(
-            panel_config.get(field, {}).get("type")
-            if isinstance(panel_config.get(field, {}), dict)
-            else None
-        )
-        for field in panel_fields
-    }
-    value = (panel_fields, field_types)
+    field_types: Dict[str, str] = {}
+    field_metrics: Dict[str, str] = {}
+    for field in panel_fields:
+        field_config = panel_config.get(field, {})
+        if not isinstance(field_config, dict):
+            field_config = {}
+        field_type = normalize_field_type(field_config.get("type"))
+        field_types[field] = field_type
+        field_metrics[field] = normalize_field_metric(field_type, field_config.get("metric"))
+    value = (panel_fields, field_types, field_metrics)
     with _field_config_cache_lock:
         _field_config_cache[cache_key] = value
         if len(_field_config_cache) > 512:
             _field_config_cache.pop(next(iter(_field_config_cache)))
     return value
+
+
+def _extract_panel_field_set(dashboard_config: Optional[dict]) -> set[str]:
+    fields, _config = extract_panel_fields_and_config(dashboard_config)
+    return set(fields)
+
+
+def _extract_panel_field_types(dashboard_config: Optional[dict]) -> Dict[str, str]:
+    fields, config = extract_panel_fields_and_config(dashboard_config)
+    field_types: Dict[str, str] = {}
+    for field in fields:
+        field_config = config.get(field, {})
+        if not isinstance(field_config, dict):
+            field_config = {}
+        field_types[field] = normalize_field_type(field_config.get("type"))
+    return field_types
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)
@@ -272,11 +290,13 @@ async def update_device(
     if device_update.is_active is not None and device_update.is_active != existing_device.is_active:
         restart_pipeline = True
 
-    # Check if dashboard_config.data_panel is being updated and changed
+    # Restart ingestion/rollup only when data field keys or type handling change.
     if device_update.dashboard_config is not None:
-        old_panel = (existing_device.dashboard_config or {}).get("data_panel") if isinstance(existing_device.dashboard_config, dict) else None
-        new_panel = (device_update.dashboard_config or {}).get("data_panel") if isinstance(device_update.dashboard_config, dict) else None
-        if old_panel != new_panel:
+        old_fields = _extract_panel_field_set(existing_device.dashboard_config)
+        new_fields = _extract_panel_field_set(device_update.dashboard_config)
+        old_field_types = _extract_panel_field_types(existing_device.dashboard_config)
+        new_field_types = _extract_panel_field_types(device_update.dashboard_config)
+        if old_fields != new_fields or old_field_types != new_field_types:
             restart_pipeline = True
 
     # If department_id is being updated, check if the new department exists
@@ -441,7 +461,7 @@ def fetch_device_data(
             detail="start must be before end",
         )
 
-    panel_fields, field_types = _get_cached_panel_fields_and_types(device_uid, device.dashboard_config)
+    panel_fields, field_types, field_metrics = _get_cached_panel_fields_and_types(device_uid, device.dashboard_config)
     stage_started_at = mark("field_config_ms", stage_started_at)
     if not panel_fields:
         return []
@@ -474,6 +494,7 @@ def fetch_device_data(
             end=raw_end,
             granularity=selected_granularity,
             field_types=field_types,
+            field_metrics=field_metrics,
             tz_offset_minutes=tz_offset_minutes,
         )
         rollup_part = device_data_crud.get_rollup_min_by_uid(
@@ -481,6 +502,7 @@ def fetch_device_data(
             start=minute_rollup_ts,
             end=end,
             field_types=field_types,
+            field_metrics=field_metrics,
             tz_offset_minutes=tz_offset_minutes,
         )
         aggregated = [*raw_part, *rollup_part]
@@ -491,6 +513,7 @@ def fetch_device_data(
             start=start,
             end=end,
             field_types=field_types,
+            field_metrics=field_metrics,
             tz_offset_minutes=tz_offset_minutes,
         )
         if not aggregated:
@@ -500,6 +523,7 @@ def fetch_device_data(
                 end=end,
                 granularity=selected_granularity,
                 field_types=field_types,
+                field_metrics=field_metrics,
                 tz_offset_minutes=tz_offset_minutes,
             )
     elif use_rollup and hour_rollup_ts and start and end and start < hour_rollup_ts < end:
@@ -510,6 +534,7 @@ def fetch_device_data(
             end=raw_end,
             granularity=selected_granularity,
             field_types=field_types,
+            field_metrics=field_metrics,
             tz_offset_minutes=tz_offset_minutes,
         )
         if use_hour_rollup_fast_path:
@@ -518,6 +543,7 @@ def fetch_device_data(
                 start=hour_rollup_ts,
                 end=end,
                 field_types=field_types,
+                field_metrics=field_metrics,
                 tz_offset_minutes=tz_offset_minutes,
             )
         else:
@@ -527,6 +553,7 @@ def fetch_device_data(
                 end=end,
                 granularity=selected_granularity,
                 field_types=field_types,
+                field_metrics=field_metrics,
                 tz_offset_minutes=tz_offset_minutes,
             )
         aggregated = [*raw_part, *rollup_part]
@@ -538,6 +565,7 @@ def fetch_device_data(
                 start=start,
                 end=end,
                 field_types=field_types,
+                field_metrics=field_metrics,
                 tz_offset_minutes=tz_offset_minutes,
             )
         else:
@@ -547,6 +575,7 @@ def fetch_device_data(
                 end=end,
                 granularity=selected_granularity,
                 field_types=field_types,
+                field_metrics=field_metrics,
                 tz_offset_minutes=tz_offset_minutes,
             )
         if not aggregated:
@@ -556,6 +585,7 @@ def fetch_device_data(
                 end=end,
                 granularity=selected_granularity,
                 field_types=field_types,
+                field_metrics=field_metrics,
                 tz_offset_minutes=tz_offset_minutes,
             )
     else:
@@ -565,6 +595,7 @@ def fetch_device_data(
             end=end,
             granularity=selected_granularity,
             field_types=field_types,
+            field_metrics=field_metrics,
             tz_offset_minutes=tz_offset_minutes,
         )
     stage_started_at = mark("data_query_ms", stage_started_at)
@@ -581,7 +612,18 @@ def fetch_device_data(
     state_fields = [
         field
         for field, field_type in field_types.items()
-        if field_type in {"text", "boolean"}
+        if (
+            field_type == "text"
+            and field_metrics.get(field, "last_state") == "last_state"
+        )
+        or (
+            field_type == "boolean"
+            and field_metrics.get(field, "latest_value") == "latest_value"
+        )
+        or (
+            field_type == "list"
+            and field_metrics.get(field, "latest_list") == "latest_list"
+        )
     ]
     if start and state_fields:
         seed_source = "raw"

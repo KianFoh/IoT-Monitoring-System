@@ -60,12 +60,16 @@ export function DeviceDashboardPage() {
       if (chartLiveData && Object.prototype.hasOwnProperty.call(chartLiveData, field)) {
         return chartLiveData[field];
       }
-      if (chartLiveData && panel.getters.getFieldType(field) === "list") {
+      if (
+        chartLiveData &&
+        panel.getters.getFieldType(field) === "list" &&
+        panel.getters.getFieldMetric(field) === "count"
+      ) {
         return undefined;
       }
       return panel.getters.getFieldRawValue(field);
     },
-    [chart.liveData, panel.getters.getFieldRawValue, panel.getters.getFieldType]
+    [chart.liveData, panel.getters.getFieldMetric, panel.getters.getFieldRawValue, panel.getters.getFieldType]
   );
 
   const statusClass =
@@ -103,6 +107,11 @@ export function DeviceDashboardPage() {
     displayMode,
     options: displayOptions,
     onDisplayChange: setDisplayMode,
+    deviceUid: device?.uid ?? "",
+    dataIntervalSeconds: device?.data_interval,
+    rawTimestamp: lastUpdate,
+    filterMode: chart.filterMode,
+    onFilterModeChange: chart.setFilterMode,
     readOnly: isReadOnly,
     subtitle: panel.data.subtitle,
     panelFields: panel.data.fields,
@@ -113,9 +122,13 @@ export function DeviceDashboardPage() {
     getFieldRawValue: panel.getters.getFieldRawValue,
     getFieldValue: panel.getters.getDisplayValue,
     getFieldBooleanDisplay: panel.getters.getFieldBooleanDisplay,
+    getFieldBooleanColors: panel.getters.getFieldBooleanColors,
+    getFieldBooleanLabels: panel.getters.getFieldBooleanLabels,
     getFieldType: panel.getters.getFieldType,
+    getFieldMetric: panel.getters.getFieldMetric,
     getFieldUnit: panel.getters.getFieldUnit,
     getFieldColor: panel.getters.getFieldColor,
+    getFieldCases: panel.getters.getFieldCases,
     getFieldCaseColors: panel.getters.getFieldCaseColors,
     onOpenFieldConfig: canEdit ? panel.actions.openFieldConfig : noop,
     onAddField: canEdit ? panel.actions.openAddField : noop,
@@ -138,6 +151,7 @@ export function DeviceDashboardPage() {
     onDisplayChange: setDisplayMode,
     deviceUid: device?.uid ?? "",
     dataIntervalSeconds: device?.data_interval,
+    filterMode: chart.filterMode,
     readOnly: isReadOnly,
     allowOutputControl: canControlOutput,
     availableFields: panel.data.fields,
@@ -145,6 +159,7 @@ export function DeviceDashboardPage() {
     getChartUnit: panel.getters.getFieldUnit,
     getChartLabel: panel.getters.getFieldLabel,
     getChartType: panel.getters.getFieldType,
+    getChartMetric: panel.getters.getFieldMetric,
     getChartColor: panel.getters.getFieldColor,
     getChartCases: panel.getters.getFieldCases,
     getChartCaseColors: panel.getters.getFieldCaseColors,

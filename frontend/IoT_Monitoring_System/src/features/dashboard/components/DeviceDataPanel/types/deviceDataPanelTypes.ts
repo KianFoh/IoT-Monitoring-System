@@ -1,9 +1,21 @@
+import type { ChartFilterMode } from "../../DeviceDataChart/types/deviceDataChartTypes";
+
 export type DisplayOption<T extends string> = {
   value: T;
   label: string;
 };
 
 export type FieldType = "number" | "text" | "list" | "boolean";
+export type FieldMetric =
+  | "last_state"
+  | "count"
+  | "sum"
+  | "min"
+  | "max"
+  | "last_value"
+  | "avg"
+  | "latest_value"
+  | "latest_list";
 
 export type PanelLayoutItem = {
   i: string;
@@ -34,6 +46,11 @@ export type DeviceDataPanelProps<T extends string> = {
   displayMode: T;
   options: DisplayOption<T>[];
   onDisplayChange: (value: T) => void;
+  deviceUid: string;
+  dataIntervalSeconds?: number | null;
+  rawTimestamp?: Date | null;
+  filterMode: ChartFilterMode;
+  onFilterModeChange: (value: ChartFilterMode) => void;
   disabled?: boolean;
   readOnly?: boolean;
   subtitle: string;
@@ -44,10 +61,18 @@ export type DeviceDataPanelProps<T extends string> = {
   getFieldSectionId: (field: string) => string | null;
   getFieldRawValue: (field: string) => unknown;
   getFieldValue: (field: string) => string;
-  getFieldBooleanDisplay?: (field: string) => { label: string; color?: string };
+  getFieldBooleanDisplay?: (field: string, rawValue?: unknown) => { label: string; color?: string };
+  getFieldBooleanColors?: (
+    field: string
+  ) => { trueColor?: string; falseColor?: string } | null | undefined;
+  getFieldBooleanLabels?: (
+    field: string
+  ) => { trueLabel?: string; falseLabel?: string } | null | undefined;
   getFieldType: (field: string) => FieldType;
+  getFieldMetric?: (field: string) => FieldMetric;
   getFieldUnit: (field: string) => string;
   getFieldColor?: (field: string) => string;
+  getFieldCases?: (field: string) => string[] | null | undefined;
   getFieldCaseColors?: (field: string) => Record<string, string> | null;
   onOpenFieldConfig: (field: string) => void;
   onAddField: () => void;

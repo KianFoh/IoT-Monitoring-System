@@ -11,6 +11,10 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import styles from "./DeviceDataPanel.module.css";
 import formStyles from "../DashboardForm/DashboardForm.module.css";
+import { Button } from "@/components/Button/Button";
+import { Input } from "@/components/Input/Input";
+import { Modal } from "@/components/Modal/Modal";
+import DropdownSelect from "../DropdownSelect/DropdownSelect";
 import { DeviceDataPanelHeader } from "./DeviceDataPanelHeader";
 import { DeviceDataPanelModals } from "./DeviceDataPanelModals";
 import {
@@ -24,6 +28,22 @@ import {
 } from "./utils/deviceDataPanelConstants";
 import { useSectionModalState } from "./state/deviceDataPanelState";
 import type { DeviceDataPanelProps, PanelLayoutItem, PanelSection } from "./types/deviceDataPanelTypes";
+import type {
+  ChartRangePreset,
+  LineGranularity,
+} from "../DeviceDataChart/types/deviceDataChartTypes";
+import { useDeviceChartData } from "../DeviceDataChart/hooks/useDeviceChartData";
+import {
+  FILTER_MODE_OPTIONS,
+  LINE_GRANULARITY_OPTIONS,
+  RANGE_PRESET_OPTIONS,
+} from "../DeviceDataChart/utils/deviceDataChartConstants";
+import {
+  getCustomRangeInputStep,
+  getCustomRangeLimitEnd,
+  parseCustomRangeInputMs,
+  usesDateOnlyCustomRangeInput,
+} from "../DeviceDataChart/utils/deviceDataChartUtils";
 import { useOutsideMenuClose } from "../../hooks/useOutsideMenuClose";
 import {
   buildListModalItems,
@@ -46,6 +66,64 @@ type DeviceDataCardContentProps = {
 const clearBrowserSelection = () => {
   if (typeof window === "undefined") return;
   window.getSelection?.()?.removeAllRanges?.();
+};
+
+const getRangeRefreshSpec = (granularity: LineGranularity) => {
+  switch (granularity) {
+    case "sec":
+      return { min: 2, max: 5, step: 1, unit: "s" as const };
+    case "minute":
+      return { min: 5, max: 10, step: 1, unit: "s" as const };
+    case "hour":
+      return { min: 30, max: 60, step: 1, unit: "s" as const };
+    case "day":
+    case "week":
+      return { min: 2, max: 5, step: 1, unit: "min" as const };
+    case "month":
+    case "year":
+      return { min: 5, max: 10, step: 1, unit: "min" as const };
+    default:
+      return { min: 5, max: 10, step: 1, unit: "s" as const };
+  }
+};
+
+const buildRefreshRangeOptions = (
+  spec: ReturnType<typeof getRangeRefreshSpec>
+): Array<{ value: string; label: string }> => {
+  const options: Array<{ value: string; label: string }> = [];
+  for (let value = spec.min; value <= spec.max; value += spec.step) {
+    const label = spec.unit === "min" ? `${value} min` : `${value}s`;
+    options.push({ value: String(value), label });
+  }
+  return options;
+};
+
+const getCountTotal = (value: unknown) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "boolean") return 1;
+  if (Array.isArray(value)) return value.length;
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).reduce<number>((sum, item) => {
+      if (typeof item === "number" && Number.isFinite(item)) return sum + item;
+      if (typeof item === "boolean") return sum + 1;
+      if (typeof item === "string") {
+        const parsed = Number(item.trim());
+        return Number.isFinite(parsed) ? sum + parsed : sum + 1;
+      }
+      return item === null || item === undefined ? sum : sum + 1;
+    }, 0);
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : 1;
+  }
+  return 0;
+};
+
+const formatCountTotal = (count: number, unit: string) => {
+  const display = Number.isInteger(count) ? String(count) : String(count);
+  return unit ? `${display} ${unit}` : display;
 };
 
 function DeviceDataCardContent({ label, labelColor, value }: DeviceDataCardContentProps) {
@@ -110,6 +188,11 @@ export function DeviceDataPanel<T extends string>({
   displayMode,
   options,
   onDisplayChange,
+  deviceUid,
+  dataIntervalSeconds,
+  rawTimestamp,
+  filterMode,
+  onFilterModeChange,
   disabled,
   readOnly = false,
   subtitle,
@@ -121,9 +204,13 @@ export function DeviceDataPanel<T extends string>({
   getFieldRawValue,
   getFieldValue,
   getFieldBooleanDisplay,
+  getFieldBooleanColors,
+  getFieldBooleanLabels,
   getFieldType,
+  getFieldMetric,
   getFieldUnit,
   getFieldColor,
+  getFieldCases,
   getFieldCaseColors,
   onOpenFieldConfig,
   onAddField,
@@ -143,11 +230,79 @@ export function DeviceDataPanel<T extends string>({
   const [activeListField, setActiveListField] = useState<string | null>(null);
   const [isLayoutEditing, setIsLayoutEditing] = useState(false);
   const [activeSectionMenu, setActiveSectionMenu] = useState<string | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [rangePreset, setRangePreset] = useState<ChartRangePreset>("last_1_hour");
+  const [rangeRefreshMs, setRangeRefreshMs] = useState(5000);
+  const [timeGranularity, setTimeGranularity] = useState<LineGranularity>("minute");
+  const [timeStart, setTimeStart] = useState("");
+  const [timeEnd, setTimeEnd] = useState("");
   const sectionModal = useSectionModalState();
   const [draftAssignments, setDraftAssignments] = useState<Record<string, string | null>>({});
   // Guard against layout updates triggered by props or effects vs user interactions.
   const isUserInteraction = useRef(false);
   const previousFieldsRef = useRef<string[]>(panelFields);
+  const maxRawGapMs = useMemo(() => {
+    if (typeof dataIntervalSeconds !== "number" || !Number.isFinite(dataIntervalSeconds)) {
+      return null;
+    }
+    if (dataIntervalSeconds <= 0) return null;
+    return Math.max(3000, Math.round(dataIntervalSeconds * 1000 * 3));
+  }, [dataIntervalSeconds]);
+  const rangeRefreshSpec = useMemo(() => getRangeRefreshSpec(timeGranularity), [timeGranularity]);
+  const rangeRefreshOptions = useMemo(
+    () => buildRefreshRangeOptions(rangeRefreshSpec),
+    [rangeRefreshSpec]
+  );
+  const rangeRefreshUnitMs = rangeRefreshSpec.unit === "min" ? 60_000 : 1000;
+  const rangeRefreshValue = Math.round(rangeRefreshMs / rangeRefreshUnitMs);
+  const { filteredLatestValues } = useDeviceChartData({
+    deviceUid,
+    filterMode,
+    rawTimestamp,
+    getChartValue: getFieldRawValue,
+    availableFields: panelFields,
+    maxRawGapMs,
+    rangePreset,
+    timeGranularity,
+    timeStart,
+    timeEnd,
+    rangeRefreshMs,
+    getChartType: getFieldType,
+    getChartMetric: getFieldMetric,
+    getChartCases: getFieldCases,
+    suspendLive: isLayoutEditing,
+    suspendRange: isLayoutEditing,
+  });
+  const getDisplayRawValue = (field: string) => {
+    if (filterMode === "raw") return getFieldRawValue(field);
+    const value = filteredLatestValues[field];
+    const fieldType = getFieldType(field);
+    const fieldMetric = getFieldMetric?.(field);
+    if (
+      fieldMetric !== "count" &&
+      (fieldType === "text" || fieldType === "boolean") &&
+      (Array.isArray(value) || (value && typeof value === "object"))
+    ) {
+      return undefined;
+    }
+    return value;
+  };
+  const getDisplayFormattedValue = (field: string) => {
+    const rawValue = getDisplayRawValue(field);
+    if (rawValue === null || rawValue === undefined) return "--";
+    if (Array.isArray(rawValue)) return JSON.stringify(rawValue);
+    if (typeof rawValue === "object") {
+      const entries = Object.entries(rawValue as Record<string, unknown>).filter(([, value]) => value !== null && value !== undefined);
+      if (
+        entries.length > 0 &&
+        entries.every(([, value]) => ["string", "number", "boolean"].includes(typeof value))
+      ) {
+        return entries.map(([key, value]) => `${key}: ${String(value)}`).join(", ");
+      }
+      return JSON.stringify(rawValue);
+    }
+    return String(rawValue);
+  };
   const currentAssignments = useMemo(() => {
     const map: Record<string, string | null> = {};
     panelFields.forEach((field) => {
@@ -187,12 +342,38 @@ export function DeviceDataPanel<T extends string>({
     sectionModal;
   const listModalItems = useMemo(() => {
     if (!activeListField) return [];
-    return buildListModalItems(getFieldRawValue(activeListField));
-  }, [activeListField, getFieldRawValue]);
+    return buildListModalItems(getDisplayRawValue(activeListField));
+  }, [activeListField, getDisplayRawValue]);
   const listCaseColors = useMemo(() => {
     if (!activeListField) return null;
+    if (getFieldType(activeListField) === "boolean") {
+      const labels = getFieldBooleanLabels?.(activeListField) ?? null;
+      const colors = getFieldBooleanColors?.(activeListField) ?? null;
+      const trueLabel = labels?.trueLabel?.trim() || "True";
+      const falseLabel = labels?.falseLabel?.trim() || "False";
+      const trueColor = colors?.trueColor?.trim() || "";
+      const falseColor = colors?.falseColor?.trim() || "";
+      const map: Record<string, string> = {};
+      if (trueColor) {
+        map[trueLabel] = trueColor;
+        map.true = trueColor;
+        map["1"] = trueColor;
+      }
+      if (falseColor) {
+        map[falseLabel] = falseColor;
+        map.false = falseColor;
+        map["0"] = falseColor;
+      }
+      return Object.keys(map).length ? map : null;
+    }
     return getFieldCaseColors?.(activeListField) ?? null;
-  }, [activeListField, getFieldCaseColors]);
+  }, [
+    activeListField,
+    getFieldBooleanColors,
+    getFieldBooleanLabels,
+    getFieldCaseColors,
+    getFieldType,
+  ]);
 
   useOutsideMenuClose(activeMenuField, "data-field-menu", setActiveMenuField);
   useOutsideMenuClose(activeSectionMenu, "data-section-menu", setActiveSectionMenu);
@@ -260,27 +441,40 @@ export function DeviceDataPanel<T extends string>({
 
   const renderFieldValue = (field: string) => {
     const fieldType = getFieldType(field);
+    const fieldMetric = getFieldMetric?.(field);
     if (fieldType === "list") {
-      const rawValue = getFieldRawValue(field);
+      const rawValue = getDisplayRawValue(field);
       const unit = getFieldUnit(field);
-      const count = getListCount(rawValue);
-      const display = unit ? `${count} ${unit}` : String(count);
-      return <span className={styles["device-data-list-value"]}>{display}</span>;
+      const count = fieldMetric === "count" ? getCountTotal(rawValue) : getListCount(rawValue);
+      const display = formatCountTotal(count, unit);
+      return <span className={styles["device-data-value-inner"]}>{display}</span>;
+    }
+    if (
+      fieldMetric === "count" &&
+      !(filterMode === "raw" && (fieldType === "boolean" || fieldType === "text"))
+    ) {
+      const count = getCountTotal(getDisplayRawValue(field));
+      return formatCountTotal(count, getFieldUnit(field));
     }
     if (fieldType === "boolean") {
-      const display = getFieldBooleanDisplay?.(field);
-      const label = display?.label ?? getFieldValue(field);
+      const display = getFieldBooleanDisplay?.(field, getDisplayRawValue(field));
+      const label = display?.label ?? getDisplayFormattedValue(field);
       const color = display?.color?.trim();
       if (color) {
-        return <span style={{ color }}>{label}</span>;
+        return <span className={styles["device-data-value-inner"]} style={{ color }}>{label}</span>;
       }
       return label;
     }
-    const displayValue = getFieldValue(field);
+    const displayValue = filterMode === "raw" ? getFieldValue(field) : (() => {
+      const value = getDisplayFormattedValue(field);
+      const unit = getFieldUnit(field);
+      if (!unit || value === "--") return value;
+      return `${value} ${unit}`;
+    })();
     if (fieldType !== "text") {
       return displayValue;
     }
-    const rawValue = getFieldRawValue(field);
+    const rawValue = getDisplayRawValue(field);
     const caseColors = getFieldCaseColors?.(field) ?? null;
     if (!caseColors || rawValue === null || rawValue === undefined) {
       return displayValue;
@@ -291,7 +485,7 @@ export function DeviceDataPanel<T extends string>({
     const fallbackColor = caseColors[key.toLowerCase()];
     const color = directColor || fallbackColor;
     if (!color) return displayValue;
-    return <span style={{ color }}>{displayValue}</span>;
+    return <span className={styles["device-data-value-inner"]} style={{ color }}>{displayValue}</span>;
   };
 
   const openAddSection = () => {
@@ -452,7 +646,14 @@ export function DeviceDataPanel<T extends string>({
 
   const renderFieldCard = (field: string) => {
     const fieldType = getFieldType(field);
-    const canOpenMenu = fieldType === "list" || (!readOnly && isLayoutEditing);
+    const fieldMetric = getFieldMetric?.(field);
+    const canViewCountDetails = filterMode !== "raw";
+    const canViewDetails =
+      fieldType === "list" ||
+      (canViewCountDetails &&
+        (fieldType === "text" || fieldType === "boolean") &&
+        fieldMetric === "count");
+    const canOpenMenu = canViewDetails || (!readOnly && isLayoutEditing);
     const labelColor = getFieldColor?.(field)?.trim();
     return (
       <div
@@ -482,14 +683,14 @@ export function DeviceDataPanel<T extends string>({
                 className={styles["device-data-menu"]}
                 onMouseDown={(event) => event.stopPropagation()}
               >
-                {fieldType === "list" && (
+                {canViewDetails && (
                   <button
                     type="button"
                     onClick={() => {
                       setActiveMenuField(null);
                       setActiveListField(field);
                     }}
-                    disabled={getListCount(getFieldRawValue(field)) === 0}
+                    disabled={getListCount(getDisplayRawValue(field)) === 0}
                   >
                     View details
                   </button>
@@ -628,6 +829,40 @@ export function DeviceDataPanel<T extends string>({
     );
   };
 
+  const useDateOnlyCustomInput = usesDateOnlyCustomRangeInput(timeGranularity);
+  const timeDateInputType = useDateOnlyCustomInput ? "date" : "datetime-local";
+  const timeDateStep = useDateOnlyCustomInput ? undefined : getCustomRangeInputStep(timeGranularity);
+  const timeDateLabel = useDateOnlyCustomInput ? "(date)" : "(time)";
+  const startTimeValue = timeStart.trim();
+  const endTimeValue = timeEnd.trim();
+  const parsedStartTime = startTimeValue
+    ? parseCustomRangeInputMs(startTimeValue, timeGranularity)
+    : null;
+  const parsedEndTime = endTimeValue
+    ? parseCustomRangeInputMs(endTimeValue, timeGranularity, { end: true })
+    : null;
+  const hasTimeFormatError =
+    filterMode === "custom" &&
+    Boolean((startTimeValue && parsedStartTime === null) || (endTimeValue && parsedEndTime === null));
+  const hasTimeRangeError =
+    filterMode === "custom" &&
+    parsedStartTime !== null &&
+    parsedEndTime !== null &&
+    parsedStartTime > parsedEndTime;
+  const maxCustomRangeEnd =
+    parsedStartTime === null ? null : getCustomRangeLimitEnd(parsedStartTime, timeGranularity);
+  const hasTimeRangeLimitError =
+    filterMode === "custom" &&
+    maxCustomRangeEnd !== null &&
+    parsedEndTime !== null &&
+    parsedEndTime > maxCustomRangeEnd;
+  const maxEndDate =
+    maxCustomRangeEnd === null
+      ? undefined
+      : useDateOnlyCustomInput
+        ? new Date(maxCustomRangeEnd).toISOString().slice(0, 10)
+        : new Date(maxCustomRangeEnd).toISOString().slice(0, 16);
+
   return (
     <div className={styles["device-data-panel"]}>
       <DeviceDataPanelHeader
@@ -639,6 +874,7 @@ export function DeviceDataPanel<T extends string>({
         displayMode={displayMode}
         options={options}
         onDisplayChange={onDisplayChange}
+        onOpenFilter={() => setIsFilterOpen(true)}
         onOpenSection={openAddSection}
         onAddField={onAddField}
         onEnterEdit={handleEnterLayoutEdit}
@@ -696,6 +932,102 @@ export function DeviceDataPanel<T extends string>({
           </GridLayout>
         </div>
       )}
+
+      <Modal isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} title="Data panel filters">
+        <div className={formStyles["dashboard-modal-form"]}>
+          <DropdownSelect
+            id="device-panel-filter-mode"
+            label="Mode"
+            value={filterMode}
+            options={FILTER_MODE_OPTIONS}
+            onChange={onFilterModeChange}
+            disabled={disabled}
+          />
+          {filterMode === "raw" && (
+            <div className={formStyles["dashboard-modal-hint"]}>Using live device data.</div>
+          )}
+          {filterMode === "range" && (
+            <div className={formStyles["dashboard-inline-row"]}>
+              <DropdownSelect
+                id="device-panel-range-preset"
+                label="Range"
+                value={rangePreset}
+                options={RANGE_PRESET_OPTIONS}
+                onChange={setRangePreset}
+                disabled={disabled}
+                groupClassName={formStyles["dashboard-inline-field"]}
+              />
+              <DropdownSelect
+                id="device-panel-range-refresh"
+                label="Refresh rate"
+                value={String(rangeRefreshValue)}
+                options={rangeRefreshOptions}
+                onChange={(value) => {
+                  const next = Number(value);
+                  if (!Number.isFinite(next)) return;
+                  const clamped = Math.min(rangeRefreshSpec.max, Math.max(rangeRefreshSpec.min, next));
+                  setRangeRefreshMs(clamped * rangeRefreshUnitMs);
+                }}
+                disabled={disabled || rangeRefreshOptions.length === 0}
+                groupClassName={formStyles["dashboard-inline-field"]}
+              />
+            </div>
+          )}
+          {filterMode === "custom" && (
+            <>
+              <DropdownSelect
+                id="device-panel-time-granularity"
+                label="Granularity"
+                value={timeGranularity}
+                options={LINE_GRANULARITY_OPTIONS}
+                onChange={setTimeGranularity}
+                disabled={disabled}
+              />
+              <Input
+                id="device-panel-time-start"
+                label={`Start ${timeDateLabel}`}
+                type={timeDateInputType}
+                step={timeDateStep}
+                value={timeStart}
+                onChange={(event) => setTimeStart(event.target.value)}
+                disabled={disabled}
+                max={endTimeValue || undefined}
+              />
+              <Input
+                id="device-panel-time-end"
+                label={`End ${timeDateLabel}`}
+                type={timeDateInputType}
+                step={timeDateStep}
+                value={timeEnd}
+                onChange={(event) => setTimeEnd(event.target.value)}
+                disabled={disabled}
+                min={startTimeValue || undefined}
+                max={maxEndDate}
+              />
+              {hasTimeFormatError && (
+                <p className={formStyles["dashboard-modal-error"]}>
+                  Enter a valid start and end time.
+                </p>
+              )}
+              {!hasTimeFormatError && hasTimeRangeError && (
+                <p className={formStyles["dashboard-modal-error"]}>
+                  End time must be after start time.
+                </p>
+              )}
+              {!hasTimeFormatError && !hasTimeRangeError && hasTimeRangeLimitError && (
+                <p className={formStyles["dashboard-modal-error"]}>
+                  Selected range is too large for this granularity.
+                </p>
+              )}
+            </>
+          )}
+          <div className={formStyles["dashboard-modal-actions"]}>
+            <Button type="button" variant="cancel" onClick={() => setIsFilterOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <DeviceDataPanelModals
         sectionModalState={sectionModalState}

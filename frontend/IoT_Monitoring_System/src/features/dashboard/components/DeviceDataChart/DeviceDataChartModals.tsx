@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { Modal } from "@/components/Modal/Modal";
 import { Switch } from "@/components/Switch/Switch";
 import DropdownSelect from "../DropdownSelect/DropdownSelect";
+import styles from "./DeviceDataChart.module.css";
 import {
   CHART_OPTIONS,
   OUTPUT_OPTIONS,
@@ -27,6 +29,7 @@ import {
   getCustomRangeLimitEnd,
   parseCustomRangeInputMs,
 } from "./utils/deviceDataChartUtils";
+import type { ListModalItem } from "../DeviceDataPanel/types/deviceDataPanelTypes";
 import formStyles from "../DashboardForm/DashboardForm.module.css";
 
 type DeviceDataChartModalsProps = {
@@ -35,6 +38,9 @@ type DeviceDataChartModalsProps = {
     data: Array<DisplayOption<string>>;
     meter: Array<DisplayOption<string>>;
     list: Array<DisplayOption<string>>;
+    pie: Array<DisplayOption<string>>;
+    bar: Array<DisplayOption<string>>;
+    text: Array<DisplayOption<string>>;
   };
   sectionModal: {
     state: SectionModalState;
@@ -167,6 +173,13 @@ type DeviceDataChartModalsProps = {
     onTimeEndChange: (value: string) => void;
     onClose: () => void;
   };
+  detailModal: {
+    isOpen: boolean;
+    title: string;
+    items: ListModalItem[];
+    caseColors: Record<string, string> | null;
+    onClose: () => void;
+  };
 };
 
 export function DeviceDataChartModals({
@@ -178,7 +191,29 @@ export function DeviceDataChartModals({
   editOutputModal,
   editModal,
   filterModal,
+  detailModal,
 }: DeviceDataChartModalsProps) {
+  const normalizedDetailCaseColors = useMemo(() => {
+    if (!detailModal.caseColors) return null;
+    const map = new Map<string, string>();
+    Object.entries(detailModal.caseColors).forEach(([label, color]) => {
+      const key = label.trim().toLowerCase();
+      const value = typeof color === "string" ? color.trim() : "";
+      if (!key || !value || map.has(key)) return;
+      map.set(key, value);
+    });
+    return map;
+  }, [detailModal.caseColors]);
+  const resolveDetailCaseColor = (matchKey: string) => {
+    if (!detailModal.caseColors) return undefined;
+    const direct = detailModal.caseColors[matchKey];
+    if (direct) return direct;
+    const trimmed = matchKey.trim();
+    if (!trimmed) return undefined;
+    const trimmedDirect = detailModal.caseColors[trimmed];
+    if (trimmedDirect) return trimmedDirect;
+    return normalizedDetailCaseColors?.get(trimmed.toLowerCase());
+  };
   const formatDateValue = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -242,8 +277,12 @@ export function DeviceDataChartModals({
   const addFieldOptions =
     addModal.selectedChartType === "meter"
       ? options.meter
-      : addModal.selectedChartType === "pie" || addModal.selectedChartType === "bar"
-        ? options.list
+      : addModal.selectedChartType === "water_tank"
+        ? options.text
+      : addModal.selectedChartType === "pie"
+        ? options.pie
+      : addModal.selectedChartType === "bar"
+        ? options.bar
         : options.data;
   const showAddWaterTankNumericInputs =
     addModal.selectedChartType === "water_tank" &&
@@ -254,8 +293,12 @@ export function DeviceDataChartModals({
   const editFieldOptions =
     editModal.editingChartType === "meter"
       ? options.meter
-      : editModal.editingChartType === "pie" || editModal.editingChartType === "bar"
-        ? options.list
+      : editModal.editingChartType === "water_tank"
+        ? options.text
+      : editModal.editingChartType === "pie"
+        ? options.pie
+      : editModal.editingChartType === "bar"
+        ? options.bar
         : options.data;
   const showEditWaterTankNumericInputs =
     editModal.editingChartType === "water_tank" &&
@@ -264,19 +307,23 @@ export function DeviceDataChartModals({
     editModal.editFieldType !== "boolean";
   const addFieldMessage =
     addModal.selectedChartType === "pie"
-      ? "Pie chart requires list-type data fields."
+      ? "Pie chart requires list fields, or text/boolean fields using the count metric."
       : addModal.selectedChartType === "bar"
-        ? "Bar chart requires list-type data fields."
+        ? "Bar chart requires list fields, or text/boolean fields using the count metric."
         : addModal.selectedChartType === "meter"
           ? "Meter chart requires numeric data fields."
+          : addModal.selectedChartType === "water_tank"
+            ? "Water tank chart requires text data fields."
           : "Add data fields in the data panel first.";
   const editFieldMessage =
     editModal.editingChartType === "pie"
-      ? "Pie chart requires list-type data fields."
+      ? "Pie chart requires list fields, or text/boolean fields using the count metric."
       : editModal.editingChartType === "bar"
-        ? "Bar chart requires list-type data fields."
+        ? "Bar chart requires list fields, or text/boolean fields using the count metric."
         : editModal.editingChartType === "meter"
           ? "Meter chart requires numeric data fields."
+          : editModal.editingChartType === "water_tank"
+            ? "Water tank chart requires text data fields."
           : "Add data fields in the data panel first.";
 
   const outputTypeOptions = OUTPUT_OPTIONS;
@@ -368,7 +415,7 @@ export function DeviceDataChartModals({
                 value={addModal.selectedBarOrientation}
                 options={BAR_ORIENTATION_OPTIONS}
                 onChange={addModal.onSelectedBarOrientationChange}
-                disabled={disabled || addModal.selectedBarRaceMode}
+                disabled={disabled}
               />
               <div className={formStyles["dashboard-checkbox-row"]}>
                 <Switch
@@ -404,7 +451,7 @@ export function DeviceDataChartModals({
             {addModal.showLineListMode && (
               <DropdownSelect
                 id="device-chart-line-list-mode"
-                label="List mode"
+                label="Line mode"
                 value={addModal.selectedLineListMode}
                 options={LINE_LIST_MODE_OPTIONS}
                 onChange={addModal.onSelectedLineListModeChange}
@@ -703,7 +750,7 @@ export function DeviceDataChartModals({
                 value={editModal.editBarOrientation}
                 options={BAR_ORIENTATION_OPTIONS}
                 onChange={editModal.onEditBarOrientationChange}
-                disabled={disabled || editModal.editBarRaceMode}
+                disabled={disabled}
               />
               <div className={formStyles["dashboard-checkbox-row"]}>
                 <Switch
@@ -728,7 +775,7 @@ export function DeviceDataChartModals({
           {editModal.showLineListMode && (
             <DropdownSelect
               id="device-edit-chart-line-list-mode"
-              label="List mode"
+              label="Line mode"
               value={editModal.editLineListMode}
               options={LINE_LIST_MODE_OPTIONS}
               onChange={editModal.onEditLineListModeChange}
@@ -924,6 +971,37 @@ export function DeviceDataChartModals({
             </Button>
           </div>
 
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={detailModal.isOpen}
+        onClose={detailModal.onClose}
+        title={detailModal.title}
+        footer={
+          <Button type="button" variant="cancel" onClick={detailModal.onClose}>
+            Close
+          </Button>
+        }
+      >
+        <div className={styles["device-data-list-modal"]}>
+          {detailModal.items.length === 0 ? (
+            <p className={styles["device-data-list-empty"]}>No items available.</p>
+          ) : (
+            <ul>
+              {detailModal.items.map((item, index) => {
+                const color = resolveDetailCaseColor(item.matchKey);
+                return (
+                  <li
+                    key={`chart-detail-${index}`}
+                    style={color ? { color } : undefined}
+                  >
+                    {item.label}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </Modal>
     </>

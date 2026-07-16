@@ -1,4 +1,14 @@
 export type DataFieldType = "number" | "text" | "list" | "boolean";
+export type DataFieldMetric =
+  | "last_state"
+  | "count"
+  | "sum"
+  | "min"
+  | "max"
+  | "last_value"
+  | "avg"
+  | "latest_value"
+  | "latest_list";
 
 export type GridLayoutItem = {
   i: string;
@@ -20,6 +30,7 @@ export type DataPanelFieldConfig = {
   label?: string;
   unit?: string;
   type?: DataFieldType;
+  metric?: DataFieldMetric;
   color?: string;
   cases?: string[] | null;
   case_colors?: Record<string, string> | null;

@@ -106,36 +106,39 @@ const formatLastUpdate = (value: Date) => {
   return `${day}/${month}/${year} ${pad(hours12)}:${minutes}:${seconds} ${meridiem}`;
 };
 
-const getLiveListFields = (device: Device | null) => {
+const getLiveListCountFields = (device: Device | null) => {
   if (!device) return new Set<string>();
   const normalized = normalizeDashboardConfig(device.dashboard_config);
   return new Set(
     normalized.data_panel.fields.filter(
-      (field) => normalized.data_panel.config[field]?.type === "list"
+      (field) =>
+        normalized.data_panel.config[field]?.type === "list" &&
+        normalized.data_panel.config[field]?.metric === "count"
     )
   );
 };
 
 // Ignore null/undefined values so partial updates don't wipe previous scalar state.
-// List fields are event-like counts, so they should reflect only the latest payload.
+// List count fields are event-like counts, so they should reflect only the latest payload.
+// Latest-list fields retain their most recent value across partial updates.
 const mergeLiveData = (
   prev: DevicePayload | null,
   next: DevicePayload,
-  listFields: Set<string>
+  listCountFields: Set<string>
 ) => {
   const filteredEntries = Object.entries(next).filter(([, value]) => value !== null && value !== undefined);
   const filteredKeys = new Set(filteredEntries.map(([key]) => key));
   if (filteredEntries.length === 0) {
-    if (!prev || listFields.size === 0) return prev ?? next;
+    if (!prev || listCountFields.size === 0) return prev ?? next;
     return Object.fromEntries(
-      Object.entries(prev).filter(([key]) => !listFields.has(key))
+      Object.entries(prev).filter(([key]) => !listCountFields.has(key))
     ) as DevicePayload;
   }
   const filtered = Object.fromEntries(filteredEntries);
   const carried = prev
     ? Object.fromEntries(
         Object.entries(prev).filter(
-          ([key]) => !listFields.has(key) || filteredKeys.has(key)
+          ([key]) => !listCountFields.has(key) || filteredKeys.has(key)
         )
       )
     : {};
@@ -159,7 +162,11 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [latestFetched, setLatestFetched] = useState(false);
   const [chartLiveData, setChartLiveData] = useState<DevicePayload | null>(null);
   const canManageAlertRules = String(user?.role ?? "").trim().toLowerCase() === "superuser";
-  const liveListFields = useMemo(() => getLiveListFields(device), [device]);
+  const liveListCountFields = useMemo(() => getLiveListCountFields(device), [device]);
+  const liveListCountFieldsKey = useMemo(
+    () => Array.from(liveListCountFields).sort().join("\u0000"),
+    [liveListCountFields]
+  );
 
   useEffect(() => {
     setDevice(null);
@@ -175,12 +182,6 @@ export function useDeviceDashboard(deviceUid?: string) {
     setLatestFetched(false);
     setChartFilterMode("raw");
   }, [deviceUid]);
-
-  useEffect(() => {
-    if (displayMode !== "data_chart" && chartFilterMode !== "raw") {
-      setChartFilterMode("raw");
-    }
-  }, [displayMode, chartFilterMode]);
 
   const deviceQuery = useQuery<Device | null, Error>({
     queryKey: ["devices", "by-uid", deviceUid],
@@ -262,7 +263,7 @@ export function useDeviceDashboard(deviceUid?: string) {
         updateLastUpdate(timestamp);
       }
       if (data) {
-        setLiveData((prev) => mergeLiveData(prev, data, liveListFields));
+        setLiveData((prev) => mergeLiveData(prev, data, liveListCountFields));
         setChartLiveData(data);
       }
     });
@@ -289,7 +290,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     device?.customer_name,
     device?.department_name,
     device?.uid,
-    liveListFields,
+    liveListCountFields,
     updateLastUpdate,
   ]);
 
@@ -298,6 +299,11 @@ export function useDeviceDashboard(deviceUid?: string) {
       setLatestFetched(false);
     }
   }, [wsStatus]);
+
+  useEffect(() => {
+    if (wsStatus !== "connected") return;
+    setLatestFetched(false);
+  }, [liveListCountFieldsKey, wsStatus]);
 
   useEffect(() => {
     const uid = device?.uid;
@@ -376,11 +382,9 @@ export function useDeviceDashboard(deviceUid?: string) {
           return;
         }
         const { data, timestamp } = extractPayloadInfo(payload);
-        if (data && !liveData) {
-          setLiveData(data);
-        }
-        if (data && !chartLiveData) {
-          setChartLiveData(data);
+        if (data) {
+          setLiveData((prev) => mergeLiveData(prev, data, liveListCountFields));
+          setChartLiveData((prev) => (prev ? mergeLiveData(data, prev, liveListCountFields) : data));
         }
         if (timestamp) {
           updateLastUpdate(timestamp);
@@ -393,7 +397,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     return () => {
       cancelled = true;
     };
-  }, [wsStatus, device?.uid, latestFetched, liveData, chartLiveData, updateLastUpdate]);
+  }, [wsStatus, device?.uid, latestFetched, liveListCountFields, updateLastUpdate]);
 
   const handleDeviceUpdate = useCallback((updated: Device) => {
     setDevice(updated);

@@ -31,7 +31,7 @@ export function BarChart({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ReactECharts | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const effectiveOrientation = raceMode ? "horizontal" : orientation;
+  const effectiveOrientation = orientation;
   const normalizedData = useMemo(
     () =>
       data
@@ -64,9 +64,14 @@ export function BarChart({
     const bottomBase = effectiveOrientation === "vertical" ? 70 : 24;
     const bottom = axisLabelVisible ? bottomBase : 12;
     return axisLabelVisible
-      ? { top: 12, right: 60, bottom: 5, left: 0 }
+      ? {
+          top: effectiveOrientation === "vertical" && showValueLabels ? 26 : 12,
+          right: 60,
+          bottom: 5,
+          left: effectiveOrientation === "horizontal" ? 12 : 0,
+        }
       : { top: 8, right: 8, bottom, left: 8 };
-  }, [axisLabelVisible, effectiveOrientation]);
+  }, [axisLabelVisible, effectiveOrientation, showValueLabels]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -132,7 +137,7 @@ export function BarChart({
           effectiveOrientation === "vertical"
             ? (axisLabelVisible ? 12 : 6)
             : axisLabelVisible
-              ? 8
+              ? 10
               : 4,
         formatter:
           effectiveOrientation === "vertical"

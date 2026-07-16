@@ -47,6 +47,7 @@ import {
   usesDateOnlyCustomRangeInput,
 } from "./utils/deviceDataChartUtils";
 import { getRangeGranularity, normalizeCaseList } from "./utils/deviceChartHelpers";
+import { buildListModalItems } from "../DeviceDataPanel/utils/deviceDataPanelUtils";
 
 const getRangeRefreshSpec = (granularity: LineGranularity) => {
   switch (granularity) {
@@ -89,6 +90,7 @@ export function DeviceDataChart<T extends string>({
   onDisplayChange,
   deviceUid,
   dataIntervalSeconds,
+  filterMode: sharedFilterMode,
   disabled,
   readOnly = false,
   allowOutputControl = false,
@@ -97,6 +99,7 @@ export function DeviceDataChart<T extends string>({
   getChartUnit,
   getChartLabel,
   getChartType,
+  getChartMetric,
   getChartColor,
   getChartCases,
   getChartCaseColors,
@@ -132,6 +135,7 @@ export function DeviceDataChart<T extends string>({
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [rangeRefreshMs, setRangeRefreshMs] = useState<number>(5000);
   const [chartViewToken, setChartViewToken] = useState(0);
+  const [activeDetailChartId, setActiveDetailChartId] = useState<string | null>(null);
   const [observedWidth, setObservedWidth] = useState<number | null>(null);
   const [frozenValues, setFrozenValues] = useState<Record<string, unknown> | null>(null);
   const wasEditingRef = useRef(false);
@@ -215,10 +219,15 @@ export function DeviceDataChart<T extends string>({
     timeEnd,
     rangeRefreshMs,
     getChartType,
+    getChartMetric,
     getChartCases,
     suspendLive: isEditing,
     suspendRange: isEditing,
   });
+  useEffect(() => {
+    if (!sharedFilterMode || sharedFilterMode === filterMode) return;
+    dispatchChartForm({ type: "set-filter-mode", value: sharedFilterMode });
+  }, [sharedFilterMode, filterMode]);
   const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
   const handlePreventNativeDrag = (event: ReactDragEvent<HTMLDivElement>) => {
     if (!isEditing) return;
@@ -264,14 +273,52 @@ export function DeviceDataChart<T extends string>({
     () => listAllowedFields.map((field) => ({ value: field, label: field })),
     [listAllowedFields]
   );
+  const pieAllowedFields = useMemo(() => {
+    if (!getChartType) return [];
+    return availableFields.filter((field) => {
+      const fieldType = getChartType(field);
+      if (fieldType === "list") return true;
+      return (
+        (fieldType === "text" || fieldType === "boolean") &&
+        getChartMetric?.(field) === "count"
+      );
+    });
+  }, [availableFields, getChartMetric, getChartType]);
+  const pieDataOptions = useMemo(
+    () => pieAllowedFields.map((field) => ({ value: field, label: field })),
+    [pieAllowedFields]
+  );
+  const barAllowedFields = useMemo(() => {
+    if (!getChartType) return [];
+    return availableFields.filter((field) => {
+      const fieldType = getChartType(field);
+      if (fieldType === "list") return true;
+      return (
+        (fieldType === "text" || fieldType === "boolean") &&
+        getChartMetric?.(field) === "count"
+      );
+    });
+  }, [availableFields, getChartMetric, getChartType]);
+  const barDataOptions = useMemo(
+    () => barAllowedFields.map((field) => ({ value: field, label: field })),
+    [barAllowedFields]
+  );
+  const textAllowedFields = useMemo(() => {
+    if (!getChartType) return [];
+    return availableFields.filter((field) => getChartType(field) === "text");
+  }, [availableFields, getChartType]);
+  const textDataOptions = useMemo(
+    () => textAllowedFields.map((field) => ({ value: field, label: field })),
+    [textAllowedFields]
+  );
   const {
     canAddChart,
     selectedOutputFieldType,
     editOutputFieldType,
     selectedLineFieldType,
-    isSelectedLineList,
+    canSelectLineListMode,
     hideLineNumericInputsInAdd,
-    isEditLineList,
+    canEditLineListMode,
     hideLineNumericInputsInEdit,
     setSelectedChartType,
     setSelectedOutputType,
@@ -318,7 +365,11 @@ export function DeviceDataChart<T extends string>({
     availableFields,
     meterAllowedFields,
     listAllowedFields,
+    pieAllowedFields,
+    barAllowedFields,
+    textAllowedFields,
     getChartType,
+    getChartMetric,
     getChartCases,
     disabled,
     readOnly,
@@ -442,7 +493,8 @@ export function DeviceDataChart<T extends string>({
     readOnly,
     disabled,
     availableFields,
-    listAllowedFields,
+    pieAllowedFields,
+    barAllowedFields,
     selectedChartType,
     selectedOutputType,
     selectedOutputValueType,
@@ -484,6 +536,7 @@ export function DeviceDataChart<T extends string>({
     editPieShowLabels,
     editOutputValueType,
     getChartType,
+    getChartMetric,
     dispatchChartForm,
     setDraftCharts,
     setDraftLayout,
@@ -536,6 +589,66 @@ export function DeviceDataChart<T extends string>({
   });
 
   const zoomResetKey = `${displayMode}:${filterMode}:${rangePreset}:${timeStart}:${timeEnd}:${timeGranularity}:${chartViewToken}`;
+
+  const getChartDisplayRawValue = (chart: ChartItem) => {
+    if (filterMode !== "raw") {
+      return filteredLatestValues[chart.field] ?? null;
+    }
+    if (isEditing && frozenValues) {
+      return frozenValues[chart.field] ?? null;
+    }
+    return getChartValue ? getChartValue(chart.field) : null;
+  };
+
+  const activeDetailChart = useMemo(
+    () => chartsForRender.find((chart) => chart.id === activeDetailChartId) ?? null,
+    [activeDetailChartId, chartsForRender]
+  );
+  const detailModalItems = useMemo(
+    () => (activeDetailChart ? buildListModalItems(getChartDisplayRawValue(activeDetailChart)) : []),
+    [activeDetailChart, filteredLatestValues, filterMode, frozenValues, getChartValue, isEditing]
+  );
+  const detailModalCaseColors = useMemo(() => {
+    if (!activeDetailChart) return null;
+    const field = activeDetailChart.field;
+    const fieldType = getChartType?.(field);
+    if (fieldType === "boolean") {
+      const labels = getChartBooleanLabels?.(field) ?? null;
+      const colors = getChartBooleanColors?.(field) ?? null;
+      const trueLabel = labels?.trueLabel?.trim() || "True";
+      const falseLabel = labels?.falseLabel?.trim() || "False";
+      const trueColor = colors?.trueColor?.trim() || "";
+      const falseColor = colors?.falseColor?.trim() || "";
+      const map: Record<string, string> = {};
+      if (trueColor) {
+        map[trueLabel] = trueColor;
+        map.true = trueColor;
+        map["1"] = trueColor;
+      }
+      if (falseColor) {
+        map[falseLabel] = falseColor;
+        map.false = falseColor;
+        map["0"] = falseColor;
+      }
+      return Object.keys(map).length ? map : null;
+    }
+    return getChartCaseColors?.(field) ?? null;
+  }, [
+    activeDetailChart,
+    getChartBooleanColors,
+    getChartBooleanLabels,
+    getChartCaseColors,
+    getChartType,
+  ]);
+
+  useEffect(() => {
+    if (
+      activeDetailChartId &&
+      !chartsForRender.some((chart) => chart.id === activeDetailChartId)
+    ) {
+      setActiveDetailChartId(null);
+    }
+  }, [activeDetailChartId, chartsForRender]);
 
   useEffect(() => {
     if (readOnly && isEditing) {
@@ -688,6 +801,7 @@ export function DeviceDataChart<T extends string>({
         setActiveMenuId={setActiveMenuId}
         onEdit={handleOpenEdit}
         onRemove={handleRemoveChart}
+        onViewDetails={(item) => setActiveDetailChartId(item.id)}
         filterMode={filterMode}
         rangePreset={rangePreset}
         timeGranularity={timeGranularity}
@@ -700,6 +814,7 @@ export function DeviceDataChart<T extends string>({
         getChartUnit={getChartUnit}
         getChartLabel={getChartLabel}
         getChartType={getChartType}
+        getChartMetric={getChartMetric}
         getChartColor={getChartColor}
         getChartCases={getChartCases}
         getChartCaseColors={getChartCaseColors}
@@ -806,6 +921,9 @@ export function DeviceDataChart<T extends string>({
     data: dataOptions,
     meter: meterDataOptions,
     list: listDataOptions,
+    pie: pieDataOptions,
+    bar: barDataOptions,
+    text: textDataOptions,
   };
   const sectionModalProps = {
     state: sectionModalState,
@@ -832,7 +950,7 @@ export function DeviceDataChart<T extends string>({
     selectedBarRaceMode,
     selectedPieShowLabels,
     hideLineNumericInputs: hideLineNumericInputsInAdd,
-    showLineListMode: isSelectedLineList,
+    showLineListMode: canSelectLineListMode,
     canAddChart,
     onSelectedChartTypeChange: setSelectedChartType,
     onSelectedFieldChange: setSelectedField,
@@ -901,7 +1019,7 @@ export function DeviceDataChart<T extends string>({
     editBarRaceMode,
     editPieShowLabels,
     hideLineNumericInputs: hideLineNumericInputsInEdit,
-    showLineListMode: isEditLineList,
+    showLineListMode: canEditLineListMode,
     editingChartType,
     onEditNameChange: setEditName,
     onEditFieldChange: setEditField,
@@ -943,6 +1061,15 @@ export function DeviceDataChart<T extends string>({
     onTimeStartChange: setTimeStart,
     onTimeEndChange: setTimeEnd,
     onClose: handleCloseFilter,
+  };
+  const detailModalProps = {
+    isOpen: Boolean(activeDetailChart),
+    title: activeDetailChart
+      ? `${activeDetailChart.name || getChartLabel?.(activeDetailChart.field) || activeDetailChart.field} details`
+      : "Field details",
+    items: detailModalItems,
+    caseColors: detailModalCaseColors,
+    onClose: () => setActiveDetailChartId(null),
   };
 
   return (
@@ -1026,6 +1153,7 @@ export function DeviceDataChart<T extends string>({
         editOutputModal={editOutputModalProps}
         editModal={editModalProps}
         filterModal={filterModalProps}
+        detailModal={detailModalProps}
       />
     </div>
   );

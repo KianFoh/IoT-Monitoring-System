@@ -3,6 +3,7 @@ import type {
   BarOrientation,
   ChartItem,
   ChartType,
+  DataFieldMetric,
   DataFieldType,
   LineListMode,
 } from "../types/deviceDataChartTypes";
@@ -19,7 +20,8 @@ type UseChartActionsParams = {
   readOnly?: boolean;
   disabled?: boolean;
   availableFields: string[];
-  listAllowedFields: string[];
+  pieAllowedFields: string[];
+  barAllowedFields: string[];
   selectedChartType: ChartType;
   selectedOutputType: "button";
   selectedOutputValueType: "boolean" | "multi";
@@ -61,6 +63,7 @@ type UseChartActionsParams = {
   editPieShowLabels: boolean;
   editOutputValueType: "boolean" | "multi";
   getChartType?: (field: string) => DataFieldType;
+  getChartMetric?: (field: string) => DataFieldMetric | string;
   dispatchChartForm: Dispatch<any>;
   setDraftCharts: Dispatch<SetStateAction<ChartItem[]>>;
   setDraftLayout: Dispatch<SetStateAction<Layout>>;
@@ -71,7 +74,8 @@ export const useChartActions = ({
   readOnly,
   disabled,
   availableFields,
-  listAllowedFields,
+  pieAllowedFields,
+  barAllowedFields,
   selectedChartType,
   selectedOutputType,
   selectedOutputValueType,
@@ -113,6 +117,7 @@ export const useChartActions = ({
   editPieShowLabels,
   editOutputValueType,
   getChartType,
+  getChartMetric,
   dispatchChartForm,
   setDraftCharts,
   setDraftLayout,
@@ -157,14 +162,19 @@ export const useChartActions = ({
     const isPieChart = selectedChartType === "pie";
     const isBarChart = selectedChartType === "bar";
     const isStatChart = selectedChartType === "stat";
-    const barOrientation = selectedBarRaceMode ? "horizontal" : selectedBarOrientation;
+    const barOrientation = selectedBarOrientation;
     const selectedLinePrimary = selectedLineFields[0] ?? "";
     const fieldValue = isLineChart ? selectedLinePrimary : selectedField;
     if (!fieldValue) return;
     if (isLineChart && selectedLineFields.length === 0) return;
-    if (isPieChart && !listAllowedFields.includes(fieldValue)) return;
-    if (isBarChart && !listAllowedFields.includes(fieldValue)) return;
+    if (isPieChart && !pieAllowedFields.includes(fieldValue)) return;
+    if (isBarChart && !barAllowedFields.includes(fieldValue)) return;
     const fieldType = getChartType?.(fieldValue) ?? null;
+    const fieldMetric = getChartMetric?.(fieldValue) ?? null;
+    if (isWaterTankChart && fieldType !== "text") return;
+    const isLineTextCount = isLineChart && fieldType === "text" && fieldMetric === "count";
+    const isLineBooleanCount =
+      isLineChart && fieldType === "boolean" && fieldMetric === "count";
     const isWaterTankNumeric =
       isWaterTankChart && fieldType !== "text" && fieldType !== "list" && fieldType !== "boolean";
     const id = `chart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -184,17 +194,20 @@ export const useChartActions = ({
         ? parseOptionalNumber(selectedMax)
         : undefined;
     const isLineText = isLineChart && selectedLineFieldType === "text";
-    const lineMin = isLineChart && !isLineText ? parseOptionalNumber(selectedLineMin) : undefined;
-    const lineMax = isLineChart && !isLineText ? parseOptionalNumber(selectedLineMax) : undefined;
+    const isLineCategoricalText = isLineText && !isLineTextCount;
+    const lineMin =
+      isLineChart && !isLineCategoricalText ? parseOptionalNumber(selectedLineMin) : undefined;
+    const lineMax =
+      isLineChart && !isLineCategoricalText ? parseOptionalNumber(selectedLineMax) : undefined;
     const tickCount =
       isLineChart || isMeterChart || isWaterTankNumeric
-        ? isLineText
+        ? isLineCategoricalText
           ? undefined
           : parseOptionalInteger(selectedLineTicks, 2)
         : undefined;
     const valueDecimals =
       isLineChart || isMeterChart || isWaterTankNumeric
-        ? isLineText
+        ? isLineCategoricalText
           ? undefined
           : parseOptionalInteger(selectedLineDecimals, 0)
         : undefined;
@@ -230,7 +243,7 @@ export const useChartActions = ({
               value_decimals: valueDecimals,
               line_smooth: selectedLineSmooth,
               fields: selectedLineFields.length ? [selectedLineFields[0]] : [],
-              ...(selectedLineFieldType === "list"
+              ...(selectedLineFieldType === "list" || isLineTextCount || isLineBooleanCount
                 ? { line_list_mode: selectedLineListMode }
                 : {}),
             }
@@ -361,33 +374,41 @@ export const useChartActions = ({
     const isPieChart = editingChartType === "pie";
     const isBarChart = editingChartType === "bar";
     const isStatChart = editingChartType === "stat";
-    const barOrientation = editBarRaceMode ? "horizontal" : editBarOrientation;
+    const barOrientation = editBarOrientation;
     const fieldType =
       editingChartType === "button" ? null : getChartType?.(field) ?? null;
+    const fieldMetric =
+      editingChartType === "button" ? null : getChartMetric?.(field) ?? null;
+    if (isWaterTankChart && fieldType !== "text") return;
+    if (isPieChart && !pieAllowedFields.includes(field)) return;
+    if (isBarChart && !barAllowedFields.includes(field)) return;
+    const isLineTextCount = isLineChart && fieldType === "text" && fieldMetric === "count";
+    const isLineBooleanCount = isLineChart && fieldType === "boolean" && fieldMetric === "count";
     const isLineText = isLineChart && fieldType === "text";
+    const isLineCategoricalText = isLineText && !isLineTextCount;
     const isWaterTankNumeric =
       isWaterTankChart && fieldType !== "text" && fieldType !== "list" && fieldType !== "boolean";
     const min =
       isLineChart || isMeterChart || isWaterTankNumeric
-        ? isLineText
+        ? isLineCategoricalText
           ? undefined
           : parseOptionalNumber(editMin)
         : undefined;
     const max =
       isLineChart || isMeterChart || isWaterTankNumeric
-        ? isLineText
+        ? isLineCategoricalText
           ? undefined
           : parseOptionalNumber(editMax)
         : undefined;
     const tickCount =
       isLineChart || isMeterChart || isWaterTankNumeric
-        ? isLineText
+        ? isLineCategoricalText
           ? undefined
           : parseOptionalInteger(editLineTicks, 2)
         : undefined;
     const valueDecimals =
       isLineChart || isMeterChart || isWaterTankNumeric
-        ? isLineText
+        ? isLineCategoricalText
           ? undefined
           : parseOptionalInteger(editLineDecimals, 0)
         : undefined;
@@ -418,7 +439,10 @@ export const useChartActions = ({
               ...(isLineChart
                 ? {
                     fields: field ? [field] : [],
-                    line_list_mode: fieldType === "list" ? editLineListMode : undefined,
+                    line_list_mode:
+                      fieldType === "list" || isLineTextCount || isLineBooleanCount
+                        ? editLineListMode
+                        : undefined,
                     line_smooth: editLineSmooth,
                   }
                 : {}),

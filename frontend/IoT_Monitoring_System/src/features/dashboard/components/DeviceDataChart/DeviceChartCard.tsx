@@ -13,6 +13,7 @@ import type {
   ChartFilterMode,
   ChartItem,
   ChartRangePreset,
+  DataFieldMetric,
   DataFieldType,
   LineGranularity,
 } from "./types/deviceDataChartTypes";
@@ -20,6 +21,7 @@ import { parseNumericValue } from "./utils/deviceDataChartUtils";
 import {
   buildCaseColorsKey,
   buildChartConfigKey,
+  buildBooleanCaseCounts,
   buildDynamicListCounts,
   buildDynamicListLabels,
   buildLineData,
@@ -49,6 +51,45 @@ const normalizeBooleanValue = (value: unknown) => {
   return null;
 };
 
+const formatMapValue = (value: unknown) => {
+  if (value === null || value === undefined) return "--";
+  if (Array.isArray(value)) return JSON.stringify(value);
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, item]) => item !== null && item !== undefined);
+    if (
+      entries.length > 0 &&
+      entries.every(([, item]) => ["string", "number", "boolean"].includes(typeof item))
+    ) {
+      return entries.map(([key, item]) => `${key}: ${String(item)}`).join(", ");
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
+const getCountTotal = (value: unknown) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "boolean") return 1;
+  if (Array.isArray(value)) return value.length;
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).reduce<number>((sum, item) => {
+      if (typeof item === "number" && Number.isFinite(item)) return sum + item;
+      if (typeof item === "boolean") return sum + 1;
+      if (typeof item === "string") {
+        const parsed = Number(item.trim());
+        return Number.isFinite(parsed) ? sum + parsed : sum + 1;
+      }
+      return item === null || item === undefined ? sum : sum + 1;
+    }, 0);
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : 1;
+  }
+  return 0;
+};
+
 type DeviceChartCardProps = HTMLAttributes<HTMLDivElement> & {
   chart: ChartItem;
   isEditing: boolean;
@@ -59,6 +100,7 @@ type DeviceChartCardProps = HTMLAttributes<HTMLDivElement> & {
   setActiveMenuId: Dispatch<SetStateAction<string | null>>;
   onEdit: (chart: ChartItem) => void;
   onRemove: (chartId: string) => void;
+  onViewDetails?: (chart: ChartItem) => void;
   onOutputSend?: (field: string, value: string | number | boolean) => void;
   filterMode: ChartFilterMode;
   rangePreset: ChartRangePreset;
@@ -72,6 +114,7 @@ type DeviceChartCardProps = HTMLAttributes<HTMLDivElement> & {
   getChartUnit?: (field: string) => string;
   getChartLabel?: (field: string) => string;
   getChartType?: (field: string) => DataFieldType;
+  getChartMetric?: (field: string) => DataFieldMetric | string;
   getChartColor?: (field: string) => string;
   getChartCases?: (field: string) => string[] | null | undefined;
   getChartCaseColors?: (field: string) => Record<string, string> | null | undefined;
@@ -94,6 +137,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     setActiveMenuId,
     onEdit,
     onRemove,
+    onViewDetails,
     onOutputSend,
     filterMode,
     rangePreset,
@@ -107,6 +151,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     getChartUnit,
     getChartLabel,
     getChartType,
+    getChartMetric,
     getChartColor,
     getChartCases,
     getChartCaseColors,
@@ -138,22 +183,40 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   const tickCount = typeof chart.tick_count === "number" ? chart.tick_count : undefined;
   const valueDecimals = typeof chart.value_decimals === "number" ? chart.value_decimals : undefined;
   const fieldType = getChartType?.(chart.field) ?? null;
+  const fieldMetric = getChartMetric?.(chart.field);
   const isLineChart = chart.type === "line" || chart.type === "area";
   const lineFieldType = isLineChart ? fieldType : null;
   const isLineText = lineFieldType === "text";
   const isLineBoolean = lineFieldType === "boolean";
   const isLineList = lineFieldType === "list";
+  const isLineTextCount =
+    isLineText && fieldMetric === "count" && filterMode !== "raw";
+  const isLineBooleanCount =
+    isLineBoolean && fieldMetric === "count" && filterMode !== "raw";
   const isPieChart = chart.type === "pie";
   const isPieList = isPieChart && fieldType === "list";
+  const isPieTextCount = isPieChart && fieldType === "text" && fieldMetric === "count";
+  const isPieBooleanCount = isPieChart && fieldType === "boolean" && fieldMetric === "count";
+  const canRenderPie = isPieList || isPieTextCount || isPieBooleanCount;
   const isBarChart = chart.type === "bar";
   const isBarList = isBarChart && fieldType === "list";
+  const isBarTextCount = isBarChart && fieldType === "text" && fieldMetric === "count";
+  const isBarBooleanCount = isBarChart && fieldType === "boolean" && fieldMetric === "count";
+  const canRenderBar = isBarList || isBarTextCount || isBarBooleanCount;
   const isStatChart = chart.type === "stat";
+  const canViewStatDetails =
+    isStatChart &&
+    (fieldType === "list" ||
+      (filterMode !== "raw" &&
+        (fieldType === "text" || fieldType === "boolean") &&
+        fieldMetric === "count")) &&
+    typeof onViewDetails === "function";
   const isWaterTankChart = chart.type === "water_tank";
   const isButtonChart = chart.type === "button";
   const panelCases = normalizeCaseList(getChartCases?.(chart.field));
   const chartCases = normalizeCaseList(chart.value_cases);
   const booleanCaseLabels = (() => {
-    if (!isLineBoolean) return [];
+    if (fieldType !== "boolean") return [];
     const labels = getChartBooleanLabels?.(chart.field) ?? null;
     const trueLabel = labels?.trueLabel?.trim() || "True";
     const falseLabel = labels?.falseLabel?.trim() || "False";
@@ -165,12 +228,20 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
       : isLineBoolean
         ? booleanCaseLabels
         : [];
-  const pieCases = isPieChart ? (panelCases.length ? panelCases : chartCases) : [];
-  const barCases = isBarChart ? (panelCases.length ? panelCases : chartCases) : [];
+  const pieCases = isPieBooleanCount
+    ? booleanCaseLabels
+    : isPieChart
+      ? (panelCases.length ? panelCases : chartCases)
+      : [];
+  const barCases = isBarBooleanCount
+    ? booleanCaseLabels
+    : isBarChart
+      ? (panelCases.length ? panelCases : chartCases)
+      : [];
   const panelCaseColors = getChartCaseColors?.(chart.field) ?? null;
   const caseColors = panelCases.length ? panelCaseColors : null;
   const booleanCaseColors = (() => {
-    if (!isLineBoolean) return null;
+    if (fieldType !== "boolean") return null;
     const colors = getChartBooleanColors?.(chart.field) ?? null;
     const trueColor = colors?.trueColor?.trim() || "";
     const falseColor = colors?.falseColor?.trim() || "";
@@ -230,9 +301,12 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   const outputCase = chart.value_cases?.[0] ?? "";
   const outputCaseLabel = outputCase.trim();
   const outputCaseColor = outputCaseLabel ? resolveCaseColor(outputCaseLabel) : undefined;
-  const useCategoricalAxis = (isLineText || isLineBoolean) && lineCases.length > 0;
-  const lineListMode = isLineList && chart.line_list_mode === "multi" ? "multi" : "single";
-  const isLineListMulti = isLineList && lineListMode === "multi";
+  const useCategoricalAxis =
+    ((isLineText && !isLineTextCount) || (isLineBoolean && !isLineBooleanCount)) &&
+    lineCases.length > 0;
+  const canUseLineListMode = isLineList || isLineTextCount || isLineBooleanCount;
+  const lineListMode = canUseLineListMode && chart.line_list_mode === "multi" ? "multi" : "single";
+  const isLineListMulti = canUseLineListMode && lineListMode === "multi";
   const lineMin = useCategoricalAxis ? undefined : meterMin;
   const lineMax = useCategoricalAxis ? undefined : meterMax;
   const lineTickCount = useCategoricalAxis ? undefined : tickCount;
@@ -257,7 +331,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     fieldType ?? "",
     buildListKey(panelCases),
     buildListKey(chartCases),
-    buildCaseColorsKey(isLineBoolean ? lineCaseColors : caseColors),
+    buildCaseColorsKey(fieldType === "boolean" ? booleanCaseColors : caseColors),
     lineColor,
     unit,
   ]);
@@ -285,6 +359,12 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   })();
   const statValue = (() => {
     if (!isStatChart) return null;
+    if (
+      fieldMetric === "count" &&
+      !(filterMode === "raw" && (fieldType === "boolean" || fieldType === "text"))
+    ) {
+      return formatStatUnitValue(getCountTotal(rawValue), unit);
+    }
     if (fieldType === "list") {
       const count = resolveListCount([], rawValue);
       const safeCount = typeof count === "number" && Number.isFinite(count) ? count : 0;
@@ -311,7 +391,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
       return formatStatUnitValue(formatted, unit);
     }
     if (rawValue === null || rawValue === undefined) return "--";
-    const fallback = String(rawValue);
+    const fallback = formatMapValue(rawValue);
     return formatStatUnitValue(fallback, unit);
   })();
   const waterTankCases = (() => {
@@ -505,28 +585,41 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   const { lineData, listCaseBreakdowns } = buildLineData(sourceRows, chart.field, {
     isLineList,
     isLineListMulti,
+    isLineTextCount,
+    isLineBooleanCount,
     isLineText,
     isLineBoolean,
     lineCases,
     lineListLabels,
     parseNumericValue,
   });
-  const pieCounts = isPieList
-    ? pieCases.length
-      ? buildListCaseCounts(pieCases, rawValue)
-      : buildDynamicListCounts(rawValue)
+  const pieCaseColors = isPieBooleanCount ? booleanCaseColors : caseColors;
+  const resolvePieCaseColor = (label: string) => {
+    if (!pieCaseColors) return undefined;
+    const match = Object.entries(pieCaseColors).find(
+      ([key]) => key.trim().toLowerCase() === label.trim().toLowerCase()
+    );
+    const color = typeof match?.[1] === "string" ? match[1].trim() : "";
+    return color || undefined;
+  };
+  const pieCounts = canRenderPie
+    ? isPieBooleanCount
+      ? buildBooleanCaseCounts(pieCases, rawValue)
+      : pieCases.length
+        ? buildListCaseCounts(pieCases, rawValue)
+        : buildDynamicListCounts(rawValue)
     : {};
-  const pieSeriesData = isPieList
+  const pieSeriesData = canRenderPie
     ? pieCases.length
       ? pieCases.map((label) => ({
           name: label,
           value: pieCounts[label] ?? 0,
-          color: resolveCaseColor(label),
+          color: resolvePieCaseColor(label),
         }))
       : Object.entries(pieCounts).map(([label, value]) => ({
           name: label,
           value,
-          color: resolveCaseColor(label),
+          color: resolvePieCaseColor(label),
         }))
     : [];
   const pieLegendData = pieCases.length ? pieCases : pieSeriesData.map((item) => item.name);
@@ -534,18 +627,33 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     ? barCases.length
       ? buildListCaseCounts(barCases, rawValue)
       : buildDynamicListCounts(rawValue)
+    : canRenderBar
+      ? isBarBooleanCount
+        ? buildBooleanCaseCounts(barCases, rawValue)
+        : barCases.length
+          ? buildListCaseCounts(barCases, rawValue)
+          : buildDynamicListCounts(rawValue)
     : {};
-  const barSeriesData = isBarList
+  const barCaseColors = isBarBooleanCount ? booleanCaseColors : caseColors;
+  const resolveBarCaseColor = (label: string) => {
+    if (!barCaseColors) return undefined;
+    const match = Object.entries(barCaseColors).find(
+      ([key]) => key.trim().toLowerCase() === label.trim().toLowerCase()
+    );
+    const color = typeof match?.[1] === "string" ? match[1].trim() : "";
+    return color || undefined;
+  };
+  const barSeriesData = canRenderBar
     ? barCases.length
       ? barCases.map((label) => ({
           name: label,
           value: barCounts[label] ?? 0,
-          color: resolveCaseColor(label),
+          color: resolveBarCaseColor(label),
         }))
       : Object.entries(barCounts).map(([label, value]) => ({
           name: label,
           value,
-          color: resolveCaseColor(label),
+          color: resolveBarCaseColor(label),
         }))
     : [];
   const lineTimeGranularity =
@@ -601,14 +709,14 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
         smooth={chart.line_smooth}
         variant={chart.type === "area" ? "area" : "line"}
         stackSeries={isLineListMulti && chart.type === "area"}
-        totalLabel={isLineList ? fieldLabel : undefined}
-        totalLabelColor={isLineList ? (lineColor || undefined) : undefined}
+        totalLabel={canUseLineListMode ? fieldLabel : undefined}
+        totalLabelColor={canUseLineListMode ? (lineColor || undefined) : undefined}
         resetZoomKey={zoomResetKey}
         timeGranularity={lineTimeGranularity}
         assumeSorted={filterMode !== "raw"}
       />
     ) : chart.type === "pie" ? (
-      isPieList ? (
+      canRenderPie ? (
         <PieChart
           key={chartConfigKey}
           data={pieSeriesData}
@@ -618,11 +726,11 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
         />
       ) : (
         <div className={styles["device-chart-placeholder"]}>
-          Pie chart requires a list-type field.
+          Pie chart requires a list field or a text/boolean count field.
         </div>
       )
     ) : chart.type === "bar" ? (
-      isBarList ? (
+      canRenderBar ? (
         <BarChart
           key={chartConfigKey}
           data={barSeriesData}
@@ -632,7 +740,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
         />
       ) : (
         <div className={styles["device-chart-placeholder"]}>
-          Bar chart requires a list-type field.
+          Bar chart requires a list field or a text/boolean count field.
         </div>
       )
     ) : chart.type === "stat" ? (
@@ -670,7 +778,7 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
           {chart.name || fieldLabel || "New panel"}
         </span>
         <div className={styles["device-chart-card-actions"]} data-chart-menu={chart.id}>
-          {isEditing && (
+          {(isEditing || canViewStatDetails) && (
             <>
               <button
                 type="button"
@@ -691,16 +799,32 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
                   className={styles["device-chart-menu"]}
                   onMouseDown={(event) => event.stopPropagation()}
                 >
-                  <button type="button" onClick={() => onEdit(chart)}>
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className={styles["device-chart-menu-remove"]}
-                    onClick={() => onRemove(chart.id)}
-                  >
-                    Remove
-                  </button>
+                  {canViewStatDetails && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveMenuId(null);
+                        onViewDetails?.(chart);
+                      }}
+                      disabled={getCountTotal(rawValue) === 0}
+                    >
+                      View details
+                    </button>
+                  )}
+                  {isEditing && (
+                    <>
+                      <button type="button" onClick={() => onEdit(chart)}>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className={styles["device-chart-menu-remove"]}
+                        onClick={() => onRemove(chart.id)}
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </>

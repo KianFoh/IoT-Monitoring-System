@@ -294,8 +294,14 @@ export function useDeviceActions() {
         const nestedPayload = (data.payload && typeof data.payload === "object")
           ? (data.payload as Record<string, unknown>)
           : null;
-        const mobileValue = data.mobile_no ?? nested?.mobile_no ?? nestedPayload?.mobile_no;
-        const simValue = data.sim_id ?? nested?.sim_id ?? nestedPayload?.sim_id;
+        const mobileValue =
+          data.cellnum ??
+          nested?.cellnum ??
+          nestedPayload?.cellnum;
+        const simValue =
+          data.iccid ??
+          nested?.iccid ??
+          nestedPayload?.iccid;
         if (mobileValue == null && simValue == null) return;
         setEditForm((prev) => ({
           ...prev,

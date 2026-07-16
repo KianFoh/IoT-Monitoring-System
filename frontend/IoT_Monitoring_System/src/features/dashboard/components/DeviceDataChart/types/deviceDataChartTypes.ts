@@ -4,6 +4,16 @@ export type DisplayOption<T extends string> = {
 };
 
 export type DataFieldType = "number" | "text" | "list" | "boolean";
+export type DataFieldMetric =
+  | "last_state"
+  | "count"
+  | "sum"
+  | "min"
+  | "max"
+  | "last_value"
+  | "avg"
+  | "latest_value"
+  | "latest_list";
 
 export type ChartType =
   | "meter"
@@ -99,6 +109,7 @@ export type DeviceDataChartProps<T extends string> = {
   onDisplayChange: (value: T) => void;
   deviceUid: string;
   dataIntervalSeconds?: number | null;
+  filterMode?: ChartFilterMode;
   disabled?: boolean;
   readOnly?: boolean;
   allowOutputControl?: boolean;
@@ -107,6 +118,7 @@ export type DeviceDataChartProps<T extends string> = {
   getChartUnit?: (field: string) => string;
   getChartLabel?: (field: string) => string;
   getChartType?: (field: string) => DataFieldType;
+  getChartMetric?: (field: string) => DataFieldMetric;
   getChartColor?: (field: string) => string;
   getChartCases?: (field: string) => string[] | null | undefined;
   getChartCaseColors?: (field: string) => Record<string, string> | null | undefined;

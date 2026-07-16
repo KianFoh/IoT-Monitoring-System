@@ -174,6 +174,53 @@ export const buildListCaseCounts = (cases: string[], value: unknown) => {
   return counts;
 };
 
+export const buildBooleanCaseCounts = (cases: string[], value: unknown) => {
+  const falseLabel = cases[0]?.trim() || "False";
+  const trueLabel = cases[1]?.trim() || "True";
+  const counts: Record<string, number> = {
+    [falseLabel]: 0,
+    [trueLabel]: 0,
+  };
+  const addBooleanCount = (raw: unknown, amount = 1) => {
+    const nextValue = Number.isFinite(amount) ? amount : 0;
+    if (typeof raw === "boolean") {
+      counts[raw ? trueLabel : falseLabel] += nextValue;
+      return;
+    }
+    const normalized = String(raw).trim().toLowerCase();
+    if (!normalized) return;
+    if (normalized === "true" || normalized === "1" || normalized === trueLabel.toLowerCase()) {
+      counts[trueLabel] += nextValue;
+      return;
+    }
+    if (normalized === "false" || normalized === "0" || normalized === falseLabel.toLowerCase()) {
+      counts[falseLabel] += nextValue;
+    }
+  };
+
+  if (value === null || value === undefined) return counts;
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => addBooleanCount(item, 1));
+    return counts;
+  }
+
+  if (value && typeof value === "object") {
+    Object.entries(value as Record<string, unknown>).forEach(([key, entryValue]) => {
+      if (entryValue === null || entryValue === undefined) return;
+      if (typeof entryValue === "number" && Number.isFinite(entryValue)) {
+        addBooleanCount(key, entryValue);
+        return;
+      }
+      addBooleanCount(key, 1);
+    });
+    return counts;
+  }
+
+  addBooleanCount(value, 1);
+  return counts;
+};
+
 export const buildDynamicListCounts = (value: unknown) => {
   const counts: Record<string, number> = {};
   const addCount = (label: string, amount = 1) => {
@@ -256,6 +303,8 @@ export const buildLineData = (
   opts: {
     isLineList: boolean;
     isLineListMulti: boolean;
+    isLineTextCount: boolean;
+    isLineBooleanCount: boolean;
     isLineText: boolean;
     isLineBoolean: boolean;
     lineCases: string[];
@@ -266,6 +315,8 @@ export const buildLineData = (
   const {
     isLineList,
     isLineListMulti,
+    isLineTextCount,
+    isLineBooleanCount,
     isLineText,
     isLineBoolean,
     lineCases,
@@ -273,12 +324,12 @@ export const buildLineData = (
     parseNumericValue,
   } = opts;
   const listCaseBreakdowns =
-    !isLineListMulti && isLineList && lineCases.length
+    !isLineListMulti && (isLineList || isLineTextCount || isLineBooleanCount) && lineCases.length
       ? new Map<number, Record<string, number>>()
       : undefined;
   const lineData: LineChartPoint[] = rows.map((row) => {
     const rawValue = row.data[field];
-    if (isLineList) {
+    if (isLineList || isLineTextCount || isLineBooleanCount) {
       if (rawValue === null || rawValue === undefined) {
         if (isLineListMulti) {
           const rowData: LineChartPoint = { ts: row.ts };
@@ -291,7 +342,9 @@ export const buildLineData = (
       }
       if (isLineListMulti) {
         const breakdown = lineCases.length
-          ? buildListCaseCounts(lineListLabels, rawValue)
+          ? isLineBooleanCount
+            ? buildBooleanCaseCounts(lineListLabels, rawValue)
+            : buildListCaseCounts(lineListLabels, rawValue)
           : buildDynamicListCounts(rawValue);
         const rowData: LineChartPoint = { ts: row.ts };
         lineListLabels.forEach((label) => {
@@ -301,7 +354,9 @@ export const buildLineData = (
       }
       const value = lineCases.length
         ? (() => {
-            const breakdown = buildListCaseCounts(lineCases, rawValue);
+            const breakdown = isLineBooleanCount
+              ? buildBooleanCaseCounts(lineCases, rawValue)
+              : buildListCaseCounts(lineCases, rawValue);
             if (listCaseBreakdowns) {
               listCaseBreakdowns.set(row.ts, breakdown);
             }

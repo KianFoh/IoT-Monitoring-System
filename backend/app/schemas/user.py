@@ -16,7 +16,7 @@ class UserProfilePictureUpdate(BaseModel):
 class UserUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: Optional[EmailStr] = None
-    password: Optional[str] = None
+    password: Optional[str] = Field(default=None, min_length=5)
     department_id: Optional[int] = None
     role: Optional[UserRole] = None
     is_verified: Optional[bool] = None

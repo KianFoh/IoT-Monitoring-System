@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { devicesApi } from "../../../api/devicesApi";
-import type { DataFieldType, DashboardChartConfig, DashboardPanelConfig, Device } from "@/types/device";
+import type { DataFieldMetric, DataFieldType, DashboardChartConfig, DashboardPanelConfig, Device } from "@/types/device";
 import { type DevicePayload, formatValue } from "./deviceDashboardUtils";
 import { buildDashboardConfig, normalizeDashboardConfig } from "./dashboardConfig";
 import {
@@ -26,6 +26,31 @@ type UseDeviceDataPanelParams = {
 
 type PanelLayoutConfig = NonNullable<DashboardPanelConfig["layout"]>;
 type PanelSection = NonNullable<DashboardPanelConfig["sections"]>[number];
+
+const DEFAULT_METRIC_BY_TYPE: Record<DataFieldType, DataFieldMetric> = {
+  text: "last_state",
+  number: "last_value",
+  boolean: "latest_value",
+  list: "latest_list",
+};
+
+const VALID_METRICS_BY_TYPE: Record<DataFieldType, Set<DataFieldMetric>> = {
+  text: new Set(["last_state", "count"]),
+  number: new Set(["count", "sum", "min", "max", "last_value", "avg"]),
+  boolean: new Set(["latest_value", "count"]),
+  list: new Set(["latest_list", "count"]),
+};
+
+const normalizeMetric = (type: DataFieldType, metric?: string | null): DataFieldMetric => {
+  if (type === "boolean" && metric === "true_false_counts") {
+    return "count";
+  }
+  const candidate = metric as DataFieldMetric | undefined;
+  if (candidate && VALID_METRICS_BY_TYPE[type].has(candidate)) {
+    return candidate;
+  }
+  return DEFAULT_METRIC_BY_TYPE[type];
+};
 
 const cleanPanelConfig = (fields: string[], config: DataPanelConfig) => {
   const nextEntries = Object.entries(config).filter(([key]) => fields.includes(key));
@@ -267,6 +292,7 @@ export function useDeviceDataPanel({
   const [editLabel, setEditLabel] = useState("");
   const [editUnit, setEditUnit] = useState("");
   const [editType, setEditType] = useState<DataFieldType>("number");
+  const [editMetric, setEditMetric] = useState<DataFieldMetric>("last_value");
   const [editColor, setEditColor] = useState("");
   const [editKey, setEditKey] = useState("");
   const [editTrueLabel, setEditTrueLabel] = useState("");
@@ -281,6 +307,7 @@ export function useDeviceDataPanel({
   const [newFieldLabel, setNewFieldLabel] = useState("");
   const [newFieldUnit, setNewFieldUnit] = useState("");
   const [newFieldType, setNewFieldType] = useState<DataFieldType>("number");
+  const [newFieldMetric, setNewFieldMetric] = useState<DataFieldMetric>("last_value");
   const [newFieldColor, setNewFieldColor] = useState("");
   const [newFieldTrueLabel, setNewFieldTrueLabel] = useState("");
   const [newFieldFalseLabel, setNewFieldFalseLabel] = useState("");
@@ -309,6 +336,7 @@ export function useDeviceDataPanel({
     setEditLabel("");
     setEditUnit("");
     setEditType("number");
+    setEditMetric("last_value");
     setEditColor("");
     setEditKey("");
     setEditTrueLabel("");
@@ -323,6 +351,7 @@ export function useDeviceDataPanel({
     setNewFieldLabel("");
     setNewFieldUnit("");
     setNewFieldType("number");
+    setNewFieldMetric("last_value");
     setNewFieldColor("");
     setNewFieldTrueLabel("");
     setNewFieldFalseLabel("");
@@ -424,13 +453,28 @@ export function useDeviceDataPanel({
   };
 
   const getFieldRawValue = (field: string) => getFieldValue(field);
-  const getFieldLabel = (field: string) => panelConfig[field]?.label?.trim() || field;
+  const getDisplayFieldConfig = (field: string) => {
+    const snapshotConfig = panelSnapshotRef.current?.config;
+    if (snapshotConfig && Object.prototype.hasOwnProperty.call(snapshotConfig, field)) {
+      return snapshotConfig[field];
+    }
+    return panelConfig[field];
+  };
+  const getFieldLabel = (field: string) => getDisplayFieldConfig(field)?.label?.trim() || field;
   const getFieldUnit = (field: string) =>
-    panelConfig[field]?.type === "boolean" ? "" : panelConfig[field]?.unit?.trim() || "";
-  const getFieldType = (field: string) => panelConfig[field]?.type ?? "text";
-  const getFieldColor = (field: string) => panelConfig[field]?.color?.trim() || "";
-  const getFieldCases = (field: string) => panelConfig[field]?.cases ?? [];
-  const getFieldCaseColors = (field: string) => panelConfig[field]?.case_colors ?? null;
+    getDisplayFieldConfig(field)?.type === "boolean"
+      ? ""
+      : getDisplayFieldConfig(field)?.unit?.trim() || "";
+  const getFieldType = (field: string) => getDisplayFieldConfig(field)?.type ?? "text";
+  const getFieldMetric = (field: string) => {
+    const config = getDisplayFieldConfig(field);
+    const type = config?.type ?? "text";
+    return normalizeMetric(type, config?.metric);
+  };
+  const getFieldColor = (field: string) => getDisplayFieldConfig(field)?.color?.trim() || "";
+  const getFieldCases = (field: string) => getDisplayFieldConfig(field)?.cases ?? [];
+  const getFieldCaseColors = (field: string) =>
+    getDisplayFieldConfig(field)?.case_colors ?? null;
   const getFieldSectionId = (field: string) => {
     const sectionId = panelConfig[field]?.section_id ?? null;
     if (!sectionId) return null;
@@ -438,7 +482,7 @@ export function useDeviceDataPanel({
   };
 
   const getFieldBooleanColors = (field: string) => {
-    const config = panelConfig[field];
+    const config = getDisplayFieldConfig(field);
     const trueColor = config?.true_color?.trim() || "";
     const falseColor = config?.false_color?.trim() || "";
     if (!trueColor && !falseColor) return null;
@@ -449,7 +493,7 @@ export function useDeviceDataPanel({
   };
 
   const getFieldBooleanLabels = (field: string) => {
-    const config = panelConfig[field];
+    const config = getDisplayFieldConfig(field);
     const trueLabel = config?.true_label?.trim() || "True";
     const falseLabel = config?.false_label?.trim() || "False";
     return {
@@ -458,10 +502,10 @@ export function useDeviceDataPanel({
     };
   };
 
-  const getFieldBooleanDisplay = (field: string) => {
-    const rawValue = getFieldRawValue(field);
+  const getFieldBooleanDisplay = (field: string, rawValueOverride?: unknown) => {
+    const rawValue = rawValueOverride !== undefined ? rawValueOverride : getFieldRawValue(field);
     const normalized = normalizeBooleanValue(rawValue);
-    const config = panelConfig[field];
+    const config = getDisplayFieldConfig(field);
     const trueLabel = config?.true_label?.trim() || "True";
     const falseLabel = config?.false_label?.trim() || "False";
     const trueColor = config?.true_color?.trim() || "";
@@ -488,6 +532,7 @@ export function useDeviceDataPanel({
     setEditLabel(panelConfig[field]?.label?.trim() || field);
     setEditUnit(panelConfig[field]?.unit?.trim() || "");
     setEditType(panelConfig[field]?.type ?? "number");
+    setEditMetric(normalizeMetric(panelConfig[field]?.type ?? "number", panelConfig[field]?.metric));
     setEditColor(panelConfig[field]?.color?.trim() || "");
     setEditKey(field);
     setEditTrueLabel(panelConfig[field]?.true_label?.trim() || "");
@@ -505,6 +550,7 @@ export function useDeviceDataPanel({
     setEditLabel("");
     setEditUnit("");
     setEditType("number");
+    setEditMetric("last_value");
     setEditColor("");
     setEditKey("");
     setEditTrueLabel("");
@@ -586,6 +632,7 @@ export function useDeviceDataPanel({
       label: editLabel.trim() || trimmedKey,
       unit: editType === "boolean" ? undefined : editUnit.trim() || undefined,
       type: editType,
+      metric: normalizeMetric(editType, editMetric),
       color: editColor.trim() || undefined,
       cases: nextCases,
       case_colors: caseColors,
@@ -644,6 +691,7 @@ export function useDeviceDataPanel({
     setNewFieldLabel("");
     setNewFieldUnit("");
     setNewFieldType("number");
+    setNewFieldMetric("last_value");
     setNewFieldColor("");
     setNewFieldTrueLabel("");
     setNewFieldFalseLabel("");
@@ -706,6 +754,7 @@ export function useDeviceDataPanel({
         label: trimmedLabel || trimmedKey,
         unit: newFieldType === "boolean" ? undefined : trimmedUnit || undefined,
         type: newFieldType,
+        metric: normalizeMetric(newFieldType, newFieldMetric),
         color: newFieldColor.trim() || undefined,
         cases: nextCases,
         case_colors: caseColors,
@@ -919,6 +968,7 @@ export function useDeviceDataPanel({
       getFieldBooleanLabels,
       getFieldUnit,
       getFieldType,
+      getFieldMetric,
       getFieldColor,
       getFieldCases,
       getFieldCaseColors,
@@ -949,6 +999,8 @@ export function useDeviceDataPanel({
       setUnit: setEditUnit,
       type: editType,
       setType: setEditType,
+      metric: editMetric,
+      setMetric: (value: string) => setEditMetric(normalizeMetric(editType, value)),
       color: editColor,
       setColor: setEditColor,
       key: editKey,
@@ -976,6 +1028,8 @@ export function useDeviceDataPanel({
       setUnit: setNewFieldUnit,
       type: newFieldType,
       setType: setNewFieldType,
+      metric: newFieldMetric,
+      setMetric: (value: string) => setNewFieldMetric(normalizeMetric(newFieldType, value)),
       color: newFieldColor,
       setColor: setNewFieldColor,
       trueLabel: newFieldTrueLabel,

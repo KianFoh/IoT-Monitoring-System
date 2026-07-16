@@ -30,6 +30,31 @@ def normalize_field_type(value: Any) -> str:
     return "text"
 
 
+def normalize_field_metric(field_type: str, value: Any) -> str:
+    default_by_type = {
+        "text": "last_state",
+        "number": "last_value",
+        "boolean": "latest_value",
+        "list": "latest_list",
+    }
+    valid_by_type = {
+        "text": {"last_state", "count"},
+        "number": {"count", "sum", "min", "max", "last_value", "avg"},
+        "boolean": {"latest_value", "count"},
+        "list": {"latest_list", "count"},
+    }
+    normalized_type = normalize_field_type(field_type)
+    default = default_by_type.get(normalized_type, "last_state")
+    if not isinstance(value, str):
+        return default
+    normalized = value.strip().lower()
+    if normalized_type == "boolean" and normalized == "true_false_counts":
+        return "count"
+    if normalized in valid_by_type.get(normalized_type, set()):
+        return normalized
+    return default
+
+
 def extract_panel_fields_and_config(
     dashboard_config: Optional[dict],
 ) -> Tuple[List[str], Dict[str, dict]]:

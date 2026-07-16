@@ -24,6 +24,7 @@ export function useUserActions() {
 
   const [editForm, setEditForm] = useState({
     email: "",
+    password: "",
     role: "user" as UserRole,
     is_verified: false,
     is_active: true,
@@ -51,6 +52,7 @@ export function useUserActions() {
     setSelectedUser(user);
     setEditForm({
       email: user.email || "",
+      password: "",
       role: user.role,
       is_verified: !!user.is_verified,
       is_active: !!user.is_active,
@@ -91,7 +93,13 @@ export function useUserActions() {
       payload,
     }: {
       id: number;
-      payload: { email?: string; role?: UserRole; is_verified?: boolean; is_active?: boolean };
+      payload: {
+        email?: string;
+        password?: string;
+        role?: UserRole;
+        is_verified?: boolean;
+        is_active?: boolean;
+      };
     }) => usersApi.update(id, payload),
     onSuccess: () => {
       closeEditModal();
@@ -142,12 +150,25 @@ export function useUserActions() {
       return false;
     }
 
-    const payload: { email?: string; role?: UserRole; is_verified?: boolean; is_active?: boolean } = {
+    const payload: {
+      email?: string;
+      password?: string;
+      role?: UserRole;
+      is_verified?: boolean;
+      is_active?: boolean;
+    } = {
       is_verified: editForm.is_verified,
       is_active: editForm.is_active,
     };
 
     if (editForm.email.trim()) payload.email = editForm.email.trim();
+    if (editForm.password.trim()) {
+      if (editForm.password.length < 5) {
+        setActionError("Password must be at least 5 characters.");
+        return false;
+      }
+      payload.password = editForm.password;
+    }
     if (editForm.role) payload.role = editForm.role;
 
     try {

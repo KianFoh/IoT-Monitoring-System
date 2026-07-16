@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import type { ChartFormState } from "../state/deviceDataChartState";
-import type { ChartFilterMode, DataFieldType } from "../types/deviceDataChartTypes";
+import type { ChartFilterMode, DataFieldMetric, DataFieldType } from "../types/deviceDataChartTypes";
 import { normalizeCaseList } from "../utils/deviceChartHelpers";
 
 type UseChartFormControlsParams = {
@@ -9,7 +9,11 @@ type UseChartFormControlsParams = {
   availableFields: string[];
   meterAllowedFields: string[];
   listAllowedFields: string[];
+  pieAllowedFields: string[];
+  barAllowedFields: string[];
+  textAllowedFields: string[];
   getChartType?: (field: string) => DataFieldType;
+  getChartMetric?: (field: string) => DataFieldMetric | string;
   getChartCases?: (field: string) => string[] | null | undefined;
   disabled?: boolean;
   readOnly?: boolean;
@@ -22,7 +26,11 @@ export const useChartFormControls = ({
   availableFields,
   meterAllowedFields,
   listAllowedFields,
+  pieAllowedFields,
+  barAllowedFields,
+  textAllowedFields,
   getChartType,
+  getChartMetric,
   getChartCases,
   disabled,
   readOnly,
@@ -123,7 +131,11 @@ export const useChartFormControls = ({
       return selectedLineFields.length > 0;
     }
     if (selectedChartType === "pie" || selectedChartType === "bar") {
-      return Boolean(selectedField) && listAllowedFields.includes(selectedField);
+      const allowedFields = selectedChartType === "pie" ? pieAllowedFields : barAllowedFields;
+      return Boolean(selectedField) && allowedFields.includes(selectedField);
+    }
+    if (selectedChartType === "water_tank") {
+      return Boolean(selectedField) && textAllowedFields.includes(selectedField);
     }
     return Boolean(selectedField);
   }, [
@@ -133,31 +145,52 @@ export const useChartFormControls = ({
     selectedLineFields.length,
     selectedField,
     listAllowedFields,
+    pieAllowedFields,
+    barAllowedFields,
+    textAllowedFields,
   ]);
 
   const editFieldType = editField && getChartType ? getChartType(editField) : null;
   const selectedLineField = selectedLineFields[0] ?? "";
   const selectedLineFieldType =
     selectedLineField && getChartType ? getChartType(selectedLineField) : null;
+  const selectedLineFieldMetric =
+    selectedLineField && getChartMetric ? getChartMetric(selectedLineField) : null;
   const selectedOutputFieldType =
     selectedOutputField && getChartType ? getChartType(selectedOutputField) : null;
   const editOutputFieldType =
     editOutputField && getChartType ? getChartType(editOutputField) : null;
+  const editFieldMetric = editField && getChartMetric ? getChartMetric(editField) : null;
   const isSelectedLineText = selectedLineFieldType === "text";
+  const isSelectedLineBoolean = selectedLineFieldType === "boolean";
   const isSelectedLineList = selectedLineFieldType === "list";
-  const hideLineNumericInputsInAdd = isSelectedLineText;
+  const isSelectedLineTextCount = isSelectedLineText && selectedLineFieldMetric === "count";
+  const isSelectedLineBooleanCount =
+    isSelectedLineBoolean && selectedLineFieldMetric === "count";
+  const canSelectLineListMode =
+    isSelectedLineList || isSelectedLineTextCount || isSelectedLineBooleanCount;
+  const hideLineNumericInputsInAdd = isSelectedLineText && !isSelectedLineTextCount;
   const isEditLineText =
     (editingChartType === "line" || editingChartType === "area") && editFieldType === "text";
+  const isEditLineBoolean =
+    (editingChartType === "line" || editingChartType === "area") && editFieldType === "boolean";
+  const isEditLineTextCount = isEditLineText && editFieldMetric === "count";
+  const isEditLineBooleanCount = isEditLineBoolean && editFieldMetric === "count";
   const isEditLineList =
     (editingChartType === "line" || editingChartType === "area") && editFieldType === "list";
-  const hideLineNumericInputsInEdit = isEditLineText;
+  const canEditLineListMode = isEditLineList || isEditLineTextCount || isEditLineBooleanCount;
+  const hideLineNumericInputsInEdit = isEditLineText && !isEditLineTextCount;
 
   useEffect(() => {
     const allowedFields =
       selectedChartType === "meter"
         ? meterAllowedFields
-        : selectedChartType === "pie" || selectedChartType === "bar"
-          ? listAllowedFields
+        : selectedChartType === "water_tank"
+          ? textAllowedFields
+        : selectedChartType === "pie"
+          ? pieAllowedFields
+        : selectedChartType === "bar"
+          ? barAllowedFields
           : availableFields;
     if (!allowedFields.length) {
       if (selectedField) {
@@ -175,6 +208,9 @@ export const useChartFormControls = ({
     selectedField,
     dispatchChartForm,
     listAllowedFields,
+    pieAllowedFields,
+    barAllowedFields,
+    textAllowedFields,
   ]);
 
   useEffect(() => {
@@ -203,8 +239,12 @@ export const useChartFormControls = ({
     const allowedFields =
       editingChartType === "meter"
         ? meterAllowedFields
-        : editingChartType === "pie" || editingChartType === "bar"
-          ? listAllowedFields
+        : editingChartType === "water_tank"
+          ? textAllowedFields
+        : editingChartType === "pie"
+          ? pieAllowedFields
+        : editingChartType === "bar"
+          ? barAllowedFields
           : availableFields;
     if (!allowedFields.length) return;
     if (!allowedFields.includes(editField)) {
@@ -218,6 +258,9 @@ export const useChartFormControls = ({
     isEditOpen,
     dispatchChartForm,
     listAllowedFields,
+    pieAllowedFields,
+    barAllowedFields,
+    textAllowedFields,
   ]);
 
   useEffect(() => {
@@ -328,9 +371,11 @@ export const useChartFormControls = ({
     selectedLineFieldType,
     isSelectedLineText,
     isSelectedLineList,
+    canSelectLineListMode,
     hideLineNumericInputsInAdd,
     isEditLineText,
     isEditLineList,
+    canEditLineListMode,
     hideLineNumericInputsInEdit,
     setSelectedChartType,
     setSelectedOutputType,

@@ -77,11 +77,18 @@ export function UsersPage() {
 
   const [addStep, setAddStep] = useState<"customer" | "department" | "details">("customer");
   const [addStepError, setAddStepError] = useState<string | null>(null);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   useEffect(() => {
     setAddStep("customer");
     setAddStepError(null);
   }, [showAddModal]);
+
+  useEffect(() => {
+    if (!showEditModal) {
+      setShowEditPassword(false);
+    }
+  }, [showEditModal]);
 
   const customerAutocomplete = useSearchAutocomplete<CustomerSearch>({
     value: addForm.customer_name,
@@ -184,6 +191,7 @@ export function UsersPage() {
   const editFlow = {
     editForm,
     setEditForm,
+    showPassword: showEditPassword,
   };
 
   const actions = {
@@ -196,6 +204,7 @@ export function UsersPage() {
     onAddBack: handleAddBack,
     onEditSubmit: handleEditSubmit,
     onDelete: handleDelete,
+    onToggleEditPassword: () => setShowEditPassword((prev) => !prev),
   };
 
   return (
