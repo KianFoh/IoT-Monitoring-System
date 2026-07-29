@@ -174,7 +174,11 @@ def _rollup_metric_value(
 
     if field_type == "list":
         if metric == "count":
-            return value_count.get(field)
+            element_frequency = (source_meta.get("element_frequency") or {}).get(field)
+            if isinstance(element_frequency, dict):
+                return element_frequency
+            source_value = source_data.get(field)
+            return source_value if isinstance(source_value, dict) else value_count.get(field)
         return (source_meta.get("list_last_value") or {}).get(field, source_data.get(field))
 
     if metric == "count":
@@ -543,61 +547,148 @@ def get_aggregated_by_uid(
         list_value = f"$data.{field}"
         facet_name = f"list_{idx}"
         metric = _metric_for(field_metrics, field, "latest_list")
-        list_value_expr: Any = f"${field}_last.value"
         if metric == "count":
-            list_value_expr = f"${field}_count"
-        facets[facet_name] = [
-            {
-                "$project": {
-                    "_bucket": 1,
-                    "_bucket_id": 1,
-                    "device_id": 1,
-                    "ts": 1,
-                    "value": list_value,
-                }
-            },
-            {
-                "$group": {
-                    "_id": {"bucket": "$_bucket_id", "device_id": "$device_id"},
-                    "ts": {"$first": "$_bucket"},
-                    "device_id": {"$first": "$device_id"},
-                    f"{field}_count": {
-                        "$sum": {
-                            "$cond": [
-                                {"$ne": [{"$ifNull": ["$value", None]}, None]},
-                                1,
-                                0,
-                            ]
-                        }
-                    },
-                    f"{field}_last": {
-                        "$max": {
-                            "$cond": [
-                                {"$ne": [{"$ifNull": ["$value", None]}, None]},
-                                {"ts": "$ts", "value": "$value"},
-                                None,
-                            ]
-                        }
-                    },
-                }
-            },
-            {
-                "$project": {
-                    "_id": {"bucket": "$_id.bucket"},
-                    "device_id": 1,
-                    "ts": 1,
-                    "data": {
-                        field: {
-                            "$cond": [
-                                {"$gt": [f"${field}_count", 0]},
-                                list_value_expr,
-                                "$$REMOVE",
-                            ]
-                        }
-                    },
-                }
-            },
-        ]
+            facets[facet_name] = [
+                {
+                    "$project": {
+                        "_bucket": 1,
+                        "_bucket_id": 1,
+                        "device_id": 1,
+                        "value": list_value,
+                    }
+                },
+                {"$match": {"value": {"$ne": None}}},
+                {
+                    "$project": {
+                        "_bucket": 1,
+                        "_bucket_id": 1,
+                        "device_id": 1,
+                        "items": {
+                            "$switch": {
+                                "branches": [
+                                    {
+                                        "case": {"$isArray": "$value"},
+                                        "then": {
+                                            "$map": {
+                                                "input": "$value",
+                                                "as": "item",
+                                                "in": {"k": {"$toString": "$$item"}, "v": 1},
+                                            }
+                                        },
+                                    },
+                                    {
+                                        "case": {"$eq": [{"$type": "$value"}, "object"]},
+                                        "then": {
+                                            "$map": {
+                                                "input": {"$objectToArray": "$value"},
+                                                "as": "item",
+                                                "in": {
+                                                    "k": {"$toString": "$$item.k"},
+                                                    "v": {
+                                                        "$cond": [
+                                                            {
+                                                                "$in": [
+                                                                    {"$type": "$$item.v"},
+                                                                    ["int", "long", "double", "decimal"],
+                                                                ]
+                                                            },
+                                                            "$$item.v",
+                                                            1,
+                                                        ]
+                                                    },
+                                                },
+                                            }
+                                        },
+                                    },
+                                ],
+                                "default": [{"k": {"$toString": "$value"}, "v": 1}],
+                            }
+                        },
+                    }
+                },
+                {"$unwind": "$items"},
+                {
+                    "$group": {
+                        "_id": {
+                            "bucket": "$_bucket_id",
+                            "device_id": "$device_id",
+                            "value": "$items.k",
+                        },
+                        "ts": {"$first": "$_bucket"},
+                        "device_id": {"$first": "$device_id"},
+                        "count": {"$sum": "$items.v"},
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": {"bucket": "$_id.bucket"},
+                        "device_id": {"$first": "$device_id"},
+                        "ts": {"$first": "$ts"},
+                        "counts": {"$push": {"k": "$_id.value", "v": "$count"}},
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": 1,
+                        "device_id": 1,
+                        "ts": 1,
+                        "data": {field: {"$arrayToObject": "$counts"}},
+                    }
+                },
+            ]
+        else:
+            facets[facet_name] = [
+                {
+                    "$project": {
+                        "_bucket": 1,
+                        "_bucket_id": 1,
+                        "device_id": 1,
+                        "ts": 1,
+                        "value": list_value,
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": {"bucket": "$_bucket_id", "device_id": "$device_id"},
+                        "ts": {"$first": "$_bucket"},
+                        "device_id": {"$first": "$device_id"},
+                        f"{field}_count": {
+                            "$sum": {
+                                "$cond": [
+                                    {"$ne": [{"$ifNull": ["$value", None]}, None]},
+                                    1,
+                                    0,
+                                ]
+                            }
+                        },
+                        f"{field}_last": {
+                            "$max": {
+                                "$cond": [
+                                    {"$ne": [{"$ifNull": ["$value", None]}, None]},
+                                    {"ts": "$ts", "value": "$value"},
+                                    None,
+                                ]
+                            }
+                        },
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": {"bucket": "$_id.bucket"},
+                        "device_id": 1,
+                        "ts": 1,
+                        "data": {
+                            field: {
+                                "$cond": [
+                                    {"$gt": [f"${field}_count", 0]},
+                                    f"${field}_last.value",
+                                    "$$REMOVE",
+                                ]
+                            }
+                        },
+                    }
+                },
+            ]
         facet_keys.append(facet_name)
 
     if not facet_keys:
@@ -732,6 +823,7 @@ def get_rollup_aggregated_by_uid(
                     "true": 0,
                     "false": 0,
                     "states": {},
+                    "elements": {},
                 },
             )
             if field_type == "number":
@@ -752,6 +844,22 @@ def get_rollup_aggregated_by_uid(
                 field_count = (source_meta.get("value_count") or {}).get(field)
                 if isinstance(field_count, (int, float)):
                     stats["count"] += field_count
+                if field_type == "list":
+                    element_frequency = (source_meta.get("element_frequency") or {}).get(field)
+                    if isinstance(element_frequency, dict):
+                        for element, element_count in element_frequency.items():
+                            if isinstance(element_count, (int, float)):
+                                element_key = str(element)
+                                stats["elements"][element_key] = (
+                                    stats["elements"].get(element_key, 0) + element_count
+                                )
+                    elif isinstance(source_data.get(field), dict):
+                        for element, element_count in source_data[field].items():
+                            if isinstance(element_count, (int, float)):
+                                element_key = str(element)
+                                stats["elements"][element_key] = (
+                                    stats["elements"].get(element_key, 0) + element_count
+                                )
                 state_counts = (source_meta.get("value_state_count") or {}).get(field) or {}
                 if isinstance(state_counts, dict):
                     for state, state_count in state_counts.items():
@@ -789,6 +897,8 @@ def get_rollup_aggregated_by_uid(
                 value = {"true": stats["true"], "false": stats["false"]}
             elif metric == "count" and field_type == "text":
                 value = stats["states"]
+            elif metric == "count" and field_type == "list":
+                value = stats["elements"] if stats["elements"] else stats["count"]
             elif metric == "count":
                 value = stats["count"]
             elif field_type == "number" and metric == "sum":

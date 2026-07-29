@@ -73,6 +73,7 @@ def _empty_bucket(device_id: str, ts: datetime) -> Dict[str, Any]:
             "text_last_ts": {},
             "value_count": {},
             "value_state_count": {},
+            "element_frequency": {},
             "num_sum": {},
             "num_count": {},
             "num_min": {},
@@ -113,8 +114,10 @@ def _apply_value(bucket: Dict[str, Any], key: str, value: Any, field_type: str, 
         if not isinstance(counts, dict):
             counts = {}
             data[key] = counts
+        element_frequency = meta["element_frequency"].setdefault(key, {})
         for item_key, inc in _iter_list_counts(value):
             counts[item_key] = counts.get(item_key, 0) + inc
+            element_frequency[item_key] = element_frequency.get(item_key, 0) + inc
         meta["value_count"][key] = meta["value_count"].get(key, 0) + 1
         return
 
