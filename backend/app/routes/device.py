@@ -617,6 +617,10 @@ def fetch_device_data(
             and field_metrics.get(field, "last_state") == "last_state"
         )
         or (
+            field_type == "number"
+            and field_metrics.get(field, "last_value") == "last_value"
+        )
+        or (
             field_type == "boolean"
             and field_metrics.get(field, "latest_value") == "latest_value"
         )

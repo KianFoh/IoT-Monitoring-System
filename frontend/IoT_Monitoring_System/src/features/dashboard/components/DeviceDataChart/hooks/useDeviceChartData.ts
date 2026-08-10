@@ -178,15 +178,25 @@ const buildZeroFilledList = (knownKeys: string[], value: unknown): Record<string
   return { ...zeroFilled, ...counts };
 };
 
+const floorToSecond = (value: number) => Math.floor(value / 1000) * 1000;
+
 const processHistoricalRows = (
   rows: ParsedDeviceDataRow[],
   availableFields: string[],
   getFieldType?: (field: string) => DataFieldType,
   getFieldMetric?: (field: string) => DataFieldMetric | string,
-  getFieldCases?: (field: string) => string[] | null | undefined
+  getFieldCases?: (field: string) => string[] | null | undefined,
+  window?: TimeWindow | null
 ) => {
   const stateSeed: Record<string, unknown> = {};
   const listKeys = new Map<string, Set<string>>();
+  const countFields = new Set(
+    availableFields.filter((field) => {
+      const fieldType = getFieldType?.(field);
+      const fieldMetric = getFieldMetric?.(field);
+      return (fieldType === "text" || fieldType === "boolean") && fieldMetric === "count";
+    })
+  );
 
   rows.forEach((row) => {
     const seed = row.seed;
@@ -195,6 +205,7 @@ const processHistoricalRows = (
         const fieldType = getFieldType?.(field);
         const fieldMetric = getFieldMetric?.(field);
         if (
+          (fieldType === "number" && fieldMetric === "last_value") ||
           (fieldType === "text" && fieldMetric !== "count") ||
           (fieldType === "boolean" && fieldMetric !== "count") ||
           (fieldType === "list" && fieldMetric === "latest_list")
@@ -203,6 +214,7 @@ const processHistoricalRows = (
         }
       });
     }
+
     availableFields.forEach((field) => {
       if (getFieldType?.(field) !== "list") return;
       const keys = listKeys.get(field) ?? new Set<string>();
@@ -212,28 +224,113 @@ const processHistoricalRows = (
     });
   });
 
+  const rowsToProcess =
+    window?.granularity === "sec"
+      ? (() => {
+          const startMs = new Date(window.start).getTime();
+          const endMs = new Date(window.end).getTime();
+          if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
+            return rows;
+          }
+
+          const normalizedStart = floorToSecond(startMs);
+          const normalizedEnd = floorToSecond(endMs);
+          const rowMap = new Map<number, ParsedDeviceDataRow>();
+
+          rows.forEach((row) => {
+            const bucketTs = floorToSecond(row.ts);
+            const existing = rowMap.get(bucketTs);
+            if (existing) {
+              existing.data = { ...existing.data, ...row.data };
+              if (row.seed) {
+                existing.seed = { ...(existing.seed ?? {}), ...row.seed };
+              }
+              return;
+            }
+            rowMap.set(bucketTs, {
+              ts: bucketTs,
+              data: { ...row.data },
+              seed: row.seed ? { ...row.seed } : undefined,
+            });
+          });
+
+          const denseRows: ParsedDeviceDataRow[] = [];
+          for (let ts = normalizedStart; ts <= normalizedEnd; ts += 1000) {
+            const existing = rowMap.get(ts);
+            const nextData: Record<string, unknown> = existing ? { ...existing.data } : {};
+
+            countFields.forEach((field) => {
+              if (nextData[field] === undefined || nextData[field] === null) {
+                nextData[field] = {};
+              }
+            });
+
+            denseRows.push({
+              ts,
+              data: nextData,
+              seed: existing?.seed,
+            });
+          }
+
+          return denseRows;
+        })()
+      : rows;
+
   const lastState = new Map<string, unknown>(Object.entries(stateSeed));
-  return rows.map((row, index) => {
+  return rowsToProcess.map((row, index) => {
     const nextData: Record<string, unknown> = { ...row.data };
+
     availableFields.forEach((field) => {
       const fieldType = getFieldType?.(field);
       const fieldMetric = getFieldMetric?.(field);
-      if ((fieldType === "text" || fieldType === "boolean") && fieldMetric !== "count") {
+
+      if (fieldType === "number") {
         const current = nextData[field];
-        if (current === undefined || current === null) {
-          if (lastState.has(field)) {
-            nextData[field] = lastState.get(field);
+
+        // Only last_value should carry the previous value forward.
+        if (fieldMetric === "last_value") {
+          if (current === undefined || current === null) {
+            if (lastState.has(field)) {
+              nextData[field] = lastState.get(field);
+            }
+          } else {
+            lastState.set(field, current);
           }
           return;
         }
-        lastState.set(field, current);
+
+        // Other number metrics (average, sum, min, max, etc.)
+        // should be 0 when there is no value in the bucket.
+        if (current === undefined || current === null) {
+          nextData[field] = 0;
+        }
+
+        return;
+      }
+
+      if (fieldType === "text" || fieldType === "boolean") {
+        if (fieldMetric !== "count") {
+          const current = nextData[field];
+
+          if (current === undefined || current === null) {
+            if (lastState.has(field)) {
+              nextData[field] = lastState.get(field);
+            }
+            return;
+          }
+
+          lastState.set(field, current);
+        }
+
         return;
       }
 
       if (fieldType === "list") {
         const knownKeys = Array.from(listKeys.get(field) ?? []);
+
         if (getFieldMetric?.(field) === "latest_list") {
           const current = nextData[field];
+
           if (current === undefined || current === null) {
             if (lastState.has(field)) {
               nextData[field] = lastState.get(field);
@@ -242,6 +339,7 @@ const processHistoricalRows = (
             lastState.set(field, current);
           }
         }
+
         nextData[field] = buildZeroFilledList(knownKeys, nextData[field]);
       }
     });
@@ -450,12 +548,16 @@ export const useDeviceChartData = ({
         });
 
         const orderedRows = [...parsedRows].sort((a, b) => a.ts - b.ts);
+        const historicalWindow =
+          rangeWindow ?? (customWindow && customWindow !== "invalid" ? customWindow : null);
+
         const processedRows = processHistoricalRows(
           orderedRows,
           availableFields,
           getChartTypeRef.current,
           getChartMetricRef.current,
-          getChartCasesRef.current
+          getChartCasesRef.current,
+          historicalWindow
         );
         const latestValues: Record<string, unknown> = {};
         for (let i = processedRows.length - 1; i >= 0; i -= 1) {
