@@ -243,7 +243,7 @@ export function DeviceAlertRulesPanel<T extends string>({
       {
         accessorKey: "name",
         header: "Rule",
-        meta: { width: 200},
+        meta: { width: 200 },
       },
       {
         accessorKey: "field_label",
@@ -252,7 +252,7 @@ export function DeviceAlertRulesPanel<T extends string>({
           const rule = info.row.original;
           return <>{rule.field_label?.trim() || rule.field}</>;
         },
-        meta: { width: 150},
+        meta: { width: 150 },
       },
       {
         accessorKey: "notification_method",
@@ -264,9 +264,8 @@ export function DeviceAlertRulesPanel<T extends string>({
         header: "Status",
         cell: (info) => (
           <span
-            className={`${badgeStyles["dashboard-status-badge"]} ${
-              info.getValue<boolean>() ? badgeStyles["active"] : badgeStyles["inactive"]
-            }`}
+            className={`${badgeStyles["dashboard-status-badge"]} ${info.getValue<boolean>() ? badgeStyles["active"] : badgeStyles["inactive"]
+              }`}
           >
             {info.getValue<boolean>() ? "Active" : "Inactive"}
           </span>
@@ -690,14 +689,9 @@ export function DeviceAlertRulesPanel<T extends string>({
                 onChange={setNotificationMethod}
                 disabled={disabled || savingRule}
               />
-              <Input
-                id="alert-rule-message"
-                label="Message"
-                placeholder="Message to send"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                disabled={disabled || savingRule}
-              />
+
+              <div className={formStyles["dashboard-modal-field"]}> <label htmlFor="alert-rule-message" className={formStyles["dashboard-modal-label"]} > Message </label> <textarea id="alert-rule-message" className={styles["alert-rule-message"]} placeholder="Message to send" value={message} onChange={(event) => setMessage(event.target.value)} disabled={disabled || savingRule} rows={4} /> </div>
+
               <div className={formStyles["dashboard-checkbox-row"]}>
                 <Switch
                   checked={includeDataInMessage}
@@ -712,6 +706,7 @@ export function DeviceAlertRulesPanel<T extends string>({
                   disabled={disabled || savingRule}
                 />
               </div>
+
               <Input
                 id="alert-rule-cooldown"
                 label="Cooldown (seconds)"
