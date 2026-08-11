@@ -41,7 +41,7 @@ class NotificationService:
             return
 
         alert_time = self._format_alert_time()
-        subject = f"IoT System Alert: {context.rule.name} - {context.rule.device_name} - {alert_time}"
+        subject = f"IoT System Alert: {context.rule.name} - {context.rule.device_name}"
 
         sent_count = 0
         for email, username in recipients:
