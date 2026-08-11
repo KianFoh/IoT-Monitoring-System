@@ -9,6 +9,7 @@ from app.models.department import Department
 from app.models.customer import Customer
 from app.models.distributor import Distributor
 from app.crud.postgres import device as device_crud
+from app.crud.postgres import user as user_crud
 from app.models.enum.user_role import UserRole
 from app.services.device_status_ws import device_status_ws_manager
 from app.services.device_event_ws import device_event_ws_manager
@@ -153,6 +154,31 @@ def _build_device_receive_topic(
     return f"{normalized_customer}/json/receive/{device_uid}/"
 
 
+def _user_device_scopes(db, user: User) -> list[dict[str, str | None]]:
+    department_ids = user_crud.get_user_department_ids(db, user.id)
+    if not department_ids:
+        return []
+    rows = (
+        db.query(
+            Department.name.label("department_name"),
+            Customer.name.label("customer_name"),
+            Distributor.name.label("distributor_name"),
+        )
+        .join(Customer, Department.customer_id == Customer.id)
+        .outerjoin(Distributor, Customer.distributor_id == Distributor.id)
+        .filter(Department.id.in_(department_ids))
+        .all()
+    )
+    return [
+        {
+            "department": (department_name or "").strip().lower(),
+            "customer": (customer_name or "").strip().lower(),
+            "distributor": (distributor_name or "").strip().lower() if distributor_name else None,
+        }
+        for department_name, customer_name, distributor_name in rows
+    ]
+
+
 @router.websocket("/ws/{channel}")
 async def websocket_endpoint(websocket: WebSocket, channel: str):
     if channel not in ALLOWED_CHANNELS:
@@ -166,35 +192,15 @@ async def websocket_endpoint(websocket: WebSocket, channel: str):
     if channel in {"device_status", "device"}:
         meta = {"role": user.role}
         if user.role == UserRole.user:
-            if not user.department_id:
-                await websocket.close(code=4403)
-                return
             db = SessionLocal()
             try:
-                row = (
-                    db.query(
-                        Department.name.label("department_name"),
-                        Customer.name.label("customer_name"),
-                        Distributor.name.label("distributor_name"),
-                    )
-                    .join(Customer, Department.customer_id == Customer.id)
-                    .outerjoin(Distributor, Customer.distributor_id == Distributor.id)
-                    .filter(Department.id == user.department_id)
-                    .first()
-                )
+                scopes = _user_device_scopes(db, user)
             finally:
                 db.close()
-            if not row:
+            if not scopes:
                 await websocket.close(code=4404)
                 return
-            department_name, customer_name, distributor_name = row
-            meta.update(
-                {
-                    "department": (department_name or "").strip().lower(),
-                    "customer": (customer_name or "").strip().lower(),
-                    "distributor": (distributor_name or "").strip().lower() if distributor_name else None,
-                }
-            )
+            meta["scopes"] = scopes
 
         manager_to_use = device_status_ws_manager if channel == "device_status" else device_event_ws_manager
         await manager_to_use.connect(websocket, meta=meta)
@@ -239,6 +245,10 @@ async def device_stream_websocket(
     try:
         device = device_crud.get_device_with_relations_by_uid(db, device_uid)
         device_record = device_crud.get_device_by_uid(db, device_uid)
+        has_access = (
+            user.role == UserRole.superuser
+            or (device_record is not None and user_crud.user_has_department(db, user.id, device_record.department_id))
+        )
     finally:
         db.close()
     if not device or not device_record:
@@ -246,10 +256,7 @@ async def device_stream_websocket(
         return
 
     if user.role == UserRole.user:
-        if not user.department_id:
-            await websocket.close(code=4403)
-            return
-        if device_record.department_id != user.department_id:
+        if not has_access:
             await websocket.close(code=4403)
             return
 
@@ -291,6 +298,10 @@ async def device_response_websocket(
     try:
         device = device_crud.get_device_with_relations_by_uid(db, device_uid)
         device_record = device_crud.get_device_by_uid(db, device_uid)
+        has_access = (
+            user.role == UserRole.superuser
+            or (device_record is not None and user_crud.user_has_department(db, user.id, device_record.department_id))
+        )
     finally:
         db.close()
     if not device or not device_record:
@@ -298,10 +309,7 @@ async def device_response_websocket(
         return
 
     if user.role == UserRole.user:
-        if not user.department_id:
-            await websocket.close(code=4403)
-            return
-        if device_record.department_id != user.department_id:
+        if not has_access:
             await websocket.close(code=4403)
             return
 
@@ -342,6 +350,10 @@ async def device_command_websocket(
     try:
         device = device_crud.get_device_with_relations_by_uid(db, device_uid)
         device_record = device_crud.get_device_by_uid(db, device_uid)
+        has_access = (
+            user.role == UserRole.superuser
+            or (device_record is not None and user_crud.user_has_department(db, user.id, device_record.department_id))
+        )
     finally:
         db.close()
     if not device or not device_record:
@@ -349,10 +361,7 @@ async def device_command_websocket(
         return
 
     if user.role == UserRole.user:
-        if not user.department_id:
-            await websocket.close(code=4403)
-            return
-        if device_record.department_id != user.department_id:
+        if not has_access:
             await websocket.close(code=4403)
             return
 
@@ -405,6 +414,10 @@ async def device_receive_websocket(
     try:
         device = device_crud.get_device_with_relations_by_uid(db, device_uid)
         device_record = device_crud.get_device_by_uid(db, device_uid)
+        has_access = (
+            user.role == UserRole.superuser
+            or (device_record is not None and user_crud.user_has_department(db, user.id, device_record.department_id))
+        )
     finally:
         db.close()
     if not device or not device_record:
@@ -412,10 +425,7 @@ async def device_receive_websocket(
         return
 
     if user.role == UserRole.user:
-        if not user.department_id:
-            await websocket.close(code=4403)
-            return
-        if device_record.department_id != user.department_id:
+        if not has_access:
             await websocket.close(code=4403)
             return
 

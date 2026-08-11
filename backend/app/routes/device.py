@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.crud.postgres import device as device_crud
 from app.crud.postgres import department as department_crud
+from app.crud.postgres import user as user_crud
 from app.crud.mongodb import devices_data as device_data_crud
 from app.models.user import User as UserModel
 from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut, DeviceRecentOut, DeviceListResponse
@@ -85,6 +86,14 @@ def _extract_panel_field_types(dashboard_config: Optional[dict]) -> Dict[str, st
             field_config = {}
         field_types[field] = normalize_field_type(field_config.get("type"))
     return field_types
+
+
+def _user_department_ids(db: Session, current_user: UserModel) -> list[int]:
+    return user_crud.get_user_department_ids(db, current_user.id)
+
+
+def _user_can_access_department(db: Session, current_user: UserModel, department_id: Optional[int]) -> bool:
+    return user_crud.user_has_department(db, current_user.id, department_id)
 
 # ==================== Count ====================
 @router.get("/count", response_model=int)
@@ -171,10 +180,10 @@ def get_devices(
     """Get devices with pagination and search."""
     require_role(current_user, [UserRole.superuser, UserRole.user])
 
-    department_id = None
+    department_ids = None
     if current_user.role == UserRole.user:
-        department_id = current_user.department_id
-        if not department_id:
+        department_ids = _user_department_ids(db, current_user)
+        if not department_ids:
             return DeviceListResponse(
                 items=[],
                 total=0,
@@ -191,7 +200,7 @@ def get_devices(
         search=search.strip() if search else None,
         page=page,
         page_size=page_size,
-        department_id=department_id,
+        department_ids=department_ids,
         include_customer_name=include_customer_name,
         include_department_name=include_department_name,
         include_machine_name=include_machine_name,
@@ -242,7 +251,7 @@ async def update_device(
         )
 
     if current_user.role == UserRole.user:
-        if existing_device.department_id != current_user.department_id:
+        if not _user_can_access_department(db, current_user, existing_device.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to update this device",
@@ -389,7 +398,7 @@ def fetch_device_latest_data(
             detail="Device not found"
         )
     if current_user.role == UserRole.user:
-        if device.department_id != current_user.department_id:
+        if not _user_can_access_department(db, current_user, device.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to this device's data"
@@ -434,7 +443,7 @@ def fetch_device_data(
             detail="Device not found"
         )
     if current_user.role == UserRole.user:
-        if device.department_id != current_user.department_id:
+        if not _user_can_access_department(db, current_user, device.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to this device's data"

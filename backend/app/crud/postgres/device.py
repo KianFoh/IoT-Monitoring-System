@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import func, or_
+from sqlalchemy import false, func, or_
 from sqlalchemy.orm import Session
 from app.models.device import Device as DeviceModel
 from app.models.department import Department as DepartmentModel
@@ -81,6 +81,7 @@ def get_devices(
     page: int = 1,
     page_size: int = 10,
     department_id: Optional[int] = None,
+    department_ids: Optional[list[int]] = None,
     include_customer_name: bool = True,
     include_department_name: bool = True,
     include_machine_name: bool = True,
@@ -88,7 +89,9 @@ def get_devices(
     """Get devices with optional search and pagination, enriched with customer/department names."""
     query = _base_device_query(db)
 
-    if department_id is not None:
+    if department_ids is not None:
+        query = query.filter(DeviceModel.department_id.in_(department_ids) if department_ids else false())
+    elif department_id is not None:
         query = query.filter(DeviceModel.department_id == department_id)
 
     if search:

@@ -9,6 +9,7 @@ class DeviceEventMeta(TypedDict, total=False):
     customer: str
     department: str
     distributor: str
+    scopes: list[dict[str, Optional[str]]]
 
 
 class DeviceEventConnectionManager:
@@ -51,6 +52,18 @@ class DeviceEventConnectionManager:
             return True
         if role != UserRole.user or not scope:
             return False
+        scopes = meta.get("scopes")
+        if scopes:
+            return any(
+                item.get("customer") == scope.get("customer")
+                and item.get("department") == scope.get("department")
+                and (
+                    item.get("distributor") == scope.get("distributor")
+                    if item.get("distributor")
+                    else not scope.get("distributor")
+                )
+                for item in scopes
+            )
         if meta.get("customer") != scope.get("customer"):
             return False
         if meta.get("department") != scope.get("department"):

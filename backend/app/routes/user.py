@@ -35,6 +35,28 @@ def _delete_avatar_file(profile_path: str | None) -> None:
     if file_path.exists():
         file_path.unlink()
 
+
+def _normalize_department_ids(department_id: Optional[int], department_ids: Optional[list[int]]) -> list[int]:
+    ids = list(department_ids or [])
+    if department_id is not None and department_id not in ids:
+        ids.insert(0, department_id)
+    return list(dict.fromkeys(ids))
+
+
+def _validate_department_ids(db: Session, department_ids: list[int]) -> None:
+    if not department_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one department is required")
+    existing_ids = {
+        department.id
+        for department in department_crud.get_departments_by_ids(db, department_ids)
+    }
+    missing_ids = [department_id for department_id in department_ids if department_id not in existing_ids]
+    if missing_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid department IDs: {', '.join(str(department_id) for department_id in missing_ids)}",
+        )
+
 # ==================== Count ====================
 @router.get("/count", response_model=int)
 def count_users(
@@ -60,9 +82,7 @@ async def create_user(
     existing_user = user_crud.get_user_by_email(db, user.email)
     if existing_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-    department_exists = department_crud.get_department(db, user.department_id)
-    if not department_exists:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid department")
+    _validate_department_ids(db, _normalize_department_ids(user.department_id, user.department_ids))
         
     db_user = user_crud.create_user(db, user)
 
@@ -170,6 +190,12 @@ async def update_user(
                 detail="Email already registered"
             )
         user_update = user_update.model_copy(update={"is_verified": False})
+
+    update_data = user_update.model_dump(exclude_unset=True)
+    if "department_ids" in update_data:
+        _validate_department_ids(db, _normalize_department_ids(None, update_data["department_ids"]))
+    elif "department_id" in update_data:
+        _validate_department_ids(db, _normalize_department_ids(update_data["department_id"], None))
 
     db_user = user_crud.update_user(db, db_user, user_update)
 

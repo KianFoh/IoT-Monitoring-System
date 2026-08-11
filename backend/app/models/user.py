@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, BigInteger, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.enum.user_role import UserRole
+from app.models.user_department import user_department_table
 
 
 class User(Base):
@@ -28,4 +29,9 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
-    department = relationship("Department", back_populates="users")
+    department = relationship("Department", foreign_keys=[department_id])
+    departments = relationship(
+        "Department",
+        secondary=user_department_table,
+        back_populates="users",
+    )

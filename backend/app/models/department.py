@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, BigInteger, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
+from app.models.user_department import user_department_table
 
 
 class Department(Base):
@@ -20,5 +21,9 @@ class Department(Base):
 
     # Relationships
     customer = relationship("Customer", back_populates="departments")
-    users = relationship("User", back_populates="department") 
+    users = relationship(
+        "User",
+        secondary=user_department_table,
+        back_populates="departments",
+    ) 
     devices = relationship("Device", back_populates="department")

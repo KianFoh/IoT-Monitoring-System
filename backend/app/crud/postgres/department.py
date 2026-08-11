@@ -5,6 +5,7 @@ from app.models.department import Department as DepartmentModel
 from app.models.customer import Customer as CustomerModel
 from app.models.device import Device as DeviceModel
 from app.models.user import User as UserModel
+from app.models.user_department import user_department_table
 from app.schemas.department import DepartmentCreate, DepartmentUpdate, DepartmentOut
 
 # ==================== Create ====================
@@ -24,6 +25,12 @@ def get_department(db: Session, department_id: int):
     """Get department by ID"""
     return db.query(DepartmentModel).filter(DepartmentModel.id == department_id).first()
 
+def get_departments_by_ids(db: Session, department_ids: list[int]):
+    """Get departments by IDs."""
+    if not department_ids:
+        return []
+    return db.query(DepartmentModel).filter(DepartmentModel.id.in_(department_ids)).all()
+
 def get_department_by_name(db: Session, name: str):
     """Get department by name"""
     return db.query(DepartmentModel).filter(DepartmentModel.name == name).first()
@@ -37,8 +44,8 @@ def _base_department_query(db: Session):
         .exists()
     )
     has_users = (
-        db.query(UserModel.id)
-        .filter(UserModel.department_id == DepartmentModel.id)
+        db.query(user_department_table.c.user_id)
+        .filter(user_department_table.c.department_id == DepartmentModel.id)
         .exists()
     )
     return (
@@ -106,7 +113,8 @@ def department_has_references(db: Session, department_id: int) -> bool:
         return True
     has_user = (
         db.query(UserModel.id)
-        .filter(UserModel.department_id == department_id)
+        .outerjoin(user_department_table, UserModel.id == user_department_table.c.user_id)
+        .filter(or_(UserModel.department_id == department_id, user_department_table.c.department_id == department_id))
         .first()
         is not None
     )

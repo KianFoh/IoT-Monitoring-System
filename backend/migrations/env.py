@@ -13,7 +13,7 @@ load_dotenv(repo_root / ".env")
 
 from app.core.database import Base
 # Import models so tables are attached to Base.metadata
-from app.models import user, device, customer, distributor, department, mqtt_user
+from app.models import user, device, customer, distributor, department, mqtt_user, user_department_table
 
 
 # this is the Alembic Config object, which provides

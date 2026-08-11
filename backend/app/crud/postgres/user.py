@@ -1,9 +1,10 @@
 from typing import Optional
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from app.models.user import User as UserModel
 from app.models.department import Department as DepartmentModel
 from app.models.customer import Customer as CustomerModel
+from app.models.user_department import user_department_table
 from app.schemas.user import UserCreate, UserProfilePictureUpdate, UserUpdate
 from pydantic import BaseModel
 from app.core.security import get_password_hash
@@ -13,17 +14,72 @@ from app.utils.time import utc_now
 # ==================== Password Hashing Context ====================
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+def _normalize_department_ids(department_ids: Optional[list[int]], department_id: Optional[int] = None) -> list[int]:
+    ids = list(department_ids or [])
+    if department_id is not None and department_id not in ids:
+        ids.insert(0, department_id)
+    return list(dict.fromkeys(ids))
+
+
+def _sync_user_departments(db: Session, db_user: UserModel, department_ids: list[int]) -> None:
+    db_user.departments = (
+        db.query(DepartmentModel)
+        .filter(DepartmentModel.id.in_(department_ids))
+        .all()
+        if department_ids
+        else []
+    )
+    db_user.department_id = department_ids[0] if department_ids else None
+
+
+def _department_payload(user: UserModel) -> dict:
+    departments = list(user.departments or [])
+    if not departments and user.department:
+        departments = [user.department]
+    department_ids = [department.id for department in departments]
+    department_names = [department.name for department in departments]
+    customer_names = [
+        department.customer.name
+        for department in departments
+        if getattr(department, "customer", None) is not None
+    ]
+    return {
+        "department_id": department_ids[0] if department_ids else user.department_id,
+        "department_name": department_names[0] if department_names else None,
+        "department_ids": department_ids,
+        "department_names": department_names,
+        "customer_name": customer_names[0] if customer_names else None,
+        "customer_names": list(dict.fromkeys(customer_names)),
+    }
+
+
+def _serialize_user(user: UserModel) -> dict:
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "profile_picture": user.profile_picture,
+        **_department_payload(user),
+        "role": user.role,
+        "is_verified": user.is_verified,
+        "is_active": user.is_active,
+        "last_login": user.last_login,
+        "created_at": user.created_at,
+    }
+
 # ==================== Create ====================
 def create_user(db: Session, user: UserCreate):
     """Create new user"""
+    department_ids = _normalize_department_ids(user.department_ids, user.department_id)
     db_user = UserModel(
         email=user.email,
-        department_id=user.department_id,
+        department_id=department_ids[0] if department_ids else None,
         role=user.role,
         username=user.username,
         profile_picture=user.profile_picture,
     )
     db.add(db_user)
+    _sync_user_departments(db, db_user, department_ids)
     db.commit()
     db.refresh(db_user)
     return db_user
@@ -40,16 +96,50 @@ def get_user_by_email(db: Session, email: str):
     return db.query(UserModel).filter(UserModel.email == email).first()
 
 def _base_user_query(db: Session):
-    """Base query joining department and customer for enrichment."""
+    """Base user query with departments eager-loaded for serialization."""
+    return db.query(UserModel).options(
+        selectinload(UserModel.department).selectinload(DepartmentModel.customer),
+        selectinload(UserModel.departments).selectinload(DepartmentModel.customer),
+    )
+
+
+def _join_departments_for_filter(query):
     return (
-        db.query(
-            UserModel,
-            DepartmentModel.name.label("department_name"),
-            CustomerModel.name.label("customer_name"),
-        )
-        .outerjoin(DepartmentModel, UserModel.department_id == DepartmentModel.id)
+        query
+        .outerjoin(user_department_table, UserModel.id == user_department_table.c.user_id)
+        .outerjoin(DepartmentModel, user_department_table.c.department_id == DepartmentModel.id)
         .outerjoin(CustomerModel, DepartmentModel.customer_id == CustomerModel.id)
     )
+
+
+def get_user_department_ids(db: Session, user_id: int) -> list[int]:
+    rows = (
+        db.query(user_department_table.c.department_id)
+        .filter(user_department_table.c.user_id == user_id)
+        .all()
+    )
+    ids = [row[0] for row in rows]
+    if ids:
+        return ids
+    user = get_user(db, user_id)
+    return [user.department_id] if user and user.department_id else []
+
+
+def user_has_department(db: Session, user_id: int, department_id: Optional[int]) -> bool:
+    if department_id is None:
+        return False
+    exists = (
+        db.query(user_department_table.c.user_id)
+        .filter(
+            user_department_table.c.user_id == user_id,
+            user_department_table.c.department_id == department_id,
+        )
+        .first()
+    )
+    if exists:
+        return True
+    user = get_user(db, user_id)
+    return bool(user and user.department_id == department_id)
 
 
 def get_users(
@@ -63,8 +153,15 @@ def get_users(
     """Get all users with optional filters and pagination."""
     query = _base_user_query(db)
 
+    if department_id or search:
+        query = _join_departments_for_filter(query)
     if department_id:
-        query = query.filter(UserModel.department_id == department_id)
+        query = query.filter(
+            or_(
+                UserModel.department_id == department_id,
+                user_department_table.c.department_id == department_id,
+            )
+        )
     if role:
         query = query.filter(UserModel.role == role)
     if search:
@@ -77,53 +174,23 @@ def get_users(
             )
         )
 
+    query = query.distinct()
     total = query.count()
-    rows = (
+    users = (
         query.order_by(UserModel.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
-    items = []
-    for user, department_name, customer_name in rows:
-        items.append(
-            {
-                "id": user.id,
-                "email": user.email,
-                "username": user.username,
-                "profile_picture": user.profile_picture,
-                "department_id": user.department_id,
-                "department_name": department_name,
-                "customer_name": customer_name,
-                "role": user.role,
-                "is_verified": user.is_verified,
-                "is_active": user.is_active,
-                "last_login": user.last_login,
-                "created_at": user.created_at,
-            }
-        )
+    items = [_serialize_user(user) for user in users]
     return items, total
 
 def get_user_with_relations(db: Session, user_id: int):
     """Get a single user enriched with department and customer names."""
-    row = _base_user_query(db).filter(UserModel.id == user_id).first()
-    if not row:
+    user = _base_user_query(db).filter(UserModel.id == user_id).first()
+    if not user:
         return None
-    user, department_name, customer_name = row
-    return {
-        "id": user.id,
-        "email": user.email,
-        "username": user.username,
-        "profile_picture": user.profile_picture,
-        "department_id": user.department_id,
-        "department_name": department_name,
-        "customer_name": customer_name,
-        "role": user.role,
-        "is_verified": user.is_verified,
-        "is_active": user.is_active,
-        "last_login": user.last_login,
-        "created_at": user.created_at,
-    }
+    return _serialize_user(user)
 
 
 # ==================== Update ====================
@@ -135,9 +202,14 @@ def update_user(db: Session, db_user: UserModel, user_update: UserUpdate | UserP
     # Hash password if it's being updated
     if "password" in update_data:
         update_data["password"] = get_password_hash(update_data["password"])
+    department_ids = update_data.pop("department_ids", None)
     
     for field, value in update_data.items():
         setattr(db_user, field, value)
+    if department_ids is not None:
+        _sync_user_departments(db, db_user, _normalize_department_ids(department_ids))
+    elif "department_id" in update_data:
+        _sync_user_departments(db, db_user, _normalize_department_ids([], update_data["department_id"]))
     
     db.commit()
     db.refresh(db_user)

@@ -11,6 +11,7 @@ from app.models.user import User as UserModel
 from app.models.department import Department
 from app.models.customer import Customer
 from app.models.distributor import Distributor
+from app.models.user_department import user_department_table
 
 settings = get_settings()
 SMTP_TIMEOUT_SECONDS = int(getattr(settings, "SMTP_TIMEOUT", 10))
@@ -59,12 +60,23 @@ def _get_distributor_subdomain(db: Session, email: str) -> str | None:
     row = (
         db.query(Distributor.name)
         .select_from(UserModel)
-        .join(Department, UserModel.department_id == Department.id)
+        .outerjoin(user_department_table, UserModel.id == user_department_table.c.user_id)
+        .outerjoin(Department, user_department_table.c.department_id == Department.id)
         .join(Customer, Department.customer_id == Customer.id)
         .outerjoin(Distributor, Customer.distributor_id == Distributor.id)
         .filter(func.lower(UserModel.email) == normalized_email)
         .first()
     )
+    if not row:
+        row = (
+            db.query(Distributor.name)
+            .select_from(UserModel)
+            .join(Department, UserModel.department_id == Department.id)
+            .join(Customer, Department.customer_id == Customer.id)
+            .outerjoin(Distributor, Customer.distributor_id == Distributor.id)
+            .filter(func.lower(UserModel.email) == normalized_email)
+            .first()
+        )
     distributor_name = row[0] if row else None
     return _normalize_subdomain(distributor_name)
 

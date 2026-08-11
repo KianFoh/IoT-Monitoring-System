@@ -85,7 +85,7 @@ def login(
     return {
         "access_token": access_token,
         'token_type': 'bearer',
-        "user": user
+        "user": user_crud.get_user_with_relations(db, user.id) or user
     }
 
 
@@ -103,7 +103,7 @@ def login_app(
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user": user,
+        "user": user_crud.get_user_with_relations(db, user.id) or user,
     }
 
 # ==================== Set Password/ Verify Email ====================
@@ -224,7 +224,7 @@ def refresh_jwt_token(
         return {
             "access_token": access_token,
             "token_type": "bearer",
-            "user": UserOut.model_validate(user, from_attributes=True),
+            "user": user_crud.get_user_with_relations(db, user.id) or UserOut.model_validate(user, from_attributes=True),
         }
 
     # header mode: return refresh token in response body
@@ -232,7 +232,7 @@ def refresh_jwt_token(
         "access_token": access_token,
         "refresh_token": new_refresh_token,
         "token_type": "bearer",
-        "user": UserOut.model_validate(user, from_attributes=True),
+        "user": user_crud.get_user_with_relations(db, user.id) or UserOut.model_validate(user, from_attributes=True),
     }
 
 # ==================== Logout ====================
