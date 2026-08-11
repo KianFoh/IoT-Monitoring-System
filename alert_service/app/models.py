@@ -7,6 +7,7 @@ class AlertRule:
     id: int
     device_id: int
     department_id: int | None
+    customer_name: str | None
     device_uid: str
     device_name: str
     name: str

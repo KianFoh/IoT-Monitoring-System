@@ -15,6 +15,7 @@ SELECT
     ar.id,
     ar.device_id,
     d.department_id,
+    c.name AS customer_name,
     d.uid AS device_uid,
     d.name AS device_name,
     ar.name,
@@ -30,6 +31,8 @@ SELECT
     ar.is_active
 FROM alert_rule ar
 JOIN device d ON d.id = ar.device_id
+LEFT JOIN department dept ON dept.id = d.department_id
+LEFT JOIN customer c ON c.id = dept.customer_id
 WHERE ar.is_active = TRUE
 """
 
@@ -40,6 +43,7 @@ def _row_to_rule(row) -> AlertRule:
         id=int(data["id"]),
         device_id=int(data["device_id"]),
         department_id=int(data["department_id"]) if data["department_id"] is not None else None,
+        customer_name=data["customer_name"],
         device_uid=data["device_uid"],
         device_name=data["device_name"],
         name=data["name"],

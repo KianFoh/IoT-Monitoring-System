@@ -62,12 +62,13 @@ class NotificationService:
             rows = db.execute(
                 text(
                     """
-                    SELECT email
-                    FROM "user"
-                    WHERE department_id = :department_id
-                      AND is_active = TRUE
-                      AND email IS NOT NULL
-                    ORDER BY email
+                    SELECT DISTINCT u.email
+                    FROM "user" u
+                    LEFT JOIN user_department ud ON ud.user_id = u.id
+                    WHERE (u.department_id = :department_id OR ud.department_id = :department_id)
+                      AND u.is_active = TRUE
+                      AND u.email IS NOT NULL
+                    ORDER BY u.email
                     """
                 ),
                 {"department_id": department_id},
@@ -79,6 +80,7 @@ class NotificationService:
         lines = [
             "Dear User,",
             "",
+            f"Customer: {context.rule.customer_name or '-'}",
             f"Device Name: {context.rule.device_name}",
             f"Device UID: {context.rule.device_uid}",
             "",
