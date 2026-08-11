@@ -1,5 +1,6 @@
 import logging
 import smtplib
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
@@ -39,12 +40,13 @@ class NotificationService:
             )
             return
 
-        subject = f"IoT System Alert: {context.rule.name}"
+        alert_time = self._format_alert_time()
+        subject = f"IoT System Alert: {context.rule.name} - {context.rule.device_name} - {alert_time}"
 
         sent_count = 0
         for email, username in recipients:
-            text_body = self._build_text_body(context, username)
-            html_body = self._build_html_body(context, username)
+            text_body = self._build_text_body(context, username, alert_time)
+            html_body = self._build_html_body(text_body)
             if self._send_email_smtp(email, subject, text_body, html_body):
                 sent_count += 1
 
@@ -77,12 +79,13 @@ class NotificationService:
             )
             return [(row._mapping["email"], row._mapping["username"]) for row in rows]
 
-    def _build_text_body(self, context: AlertContext, username: str | None = None) -> str:
+    def _build_text_body(self, context: AlertContext, username: str | None = None, alert_time: str | None = None) -> str:
         message = context.rule.message or f"Alert rule triggered: {context.rule.name}"
         greeting_name = username.strip() if username else ""
         lines = [
             f"Dear {greeting_name or 'User'},",
             "",
+            f"Alert Time: {alert_time or self._format_alert_time()}",
             f"Customer: {context.rule.customer_name or '-'}",
             f"Device Name: {context.rule.device_name}",
             f"Device UID: {context.rule.device_uid}",
@@ -94,8 +97,7 @@ class NotificationService:
             lines.extend(["", "", f"{field_name}: {self._format_value(context.actual_value)}"])
         return "\n".join(lines)
 
-    def _build_html_body(self, context: AlertContext, username: str | None = None) -> str:
-        text_body = self._build_text_body(context, username)
+    def _build_html_body(self, text_body: str) -> str:
         paragraphs = []
         for block in text_body.split("\n\n"):
             escaped = escape(block).replace("\n", "<br>")
@@ -112,6 +114,9 @@ class NotificationService:
         if isinstance(value, list):
             return ", ".join(str(item) for item in value)
         return "" if value is None else str(value)
+
+    def _format_alert_time(self) -> str:
+        return datetime.now().astimezone().strftime("%Y-%m-%d %I:%M:%S %p %z")
 
     def _send_email_smtp(self, to_email: str, subject: str, text_body: str, html_body: str) -> bool:
         try:
