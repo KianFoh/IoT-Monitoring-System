@@ -13,6 +13,8 @@ from app.models import AlertContext
 
 logger = logging.getLogger(__name__)
 
+AlertRecipient = tuple[str, str | None]
+
 
 def _smtp_from_header() -> str:
     return formataddr((settings.PROJECT_NAME, settings.SMTP_USER))
@@ -38,12 +40,12 @@ class NotificationService:
             return
 
         subject = f"IoT System Alert: {context.rule.name}"
-        text_body = self._build_text_body(context)
-        html_body = self._build_html_body(context)
 
         sent_count = 0
-        for recipient in recipients:
-            if self._send_email_smtp(recipient, subject, text_body, html_body):
+        for email, username in recipients:
+            text_body = self._build_text_body(context, username)
+            html_body = self._build_html_body(context, username)
+            if self._send_email_smtp(email, subject, text_body, html_body):
                 sent_count += 1
 
         logger.info(
@@ -54,7 +56,7 @@ class NotificationService:
             len(recipients),
         )
 
-    def _get_department_recipients(self, department_id: int | None) -> list[str]:
+    def _get_department_recipients(self, department_id: int | None) -> list[AlertRecipient]:
         if department_id is None:
             return []
 
@@ -62,7 +64,7 @@ class NotificationService:
             rows = db.execute(
                 text(
                     """
-                    SELECT DISTINCT u.email
+                    SELECT DISTINCT u.email, u.username
                     FROM "user" u
                     LEFT JOIN user_department ud ON ud.user_id = u.id
                     WHERE (u.department_id = :department_id OR ud.department_id = :department_id)
@@ -73,12 +75,13 @@ class NotificationService:
                 ),
                 {"department_id": department_id},
             )
-            return [row._mapping["email"] for row in rows]
+            return [(row._mapping["email"], row._mapping["username"]) for row in rows]
 
-    def _build_text_body(self, context: AlertContext) -> str:
+    def _build_text_body(self, context: AlertContext, username: str | None = None) -> str:
         message = context.rule.message or f"Alert rule triggered: {context.rule.name}"
+        greeting_name = username.strip() if username else ""
         lines = [
-            "Dear User,",
+            f"Dear {greeting_name or 'User'},",
             "",
             f"Customer: {context.rule.customer_name or '-'}",
             f"Device Name: {context.rule.device_name}",
@@ -91,8 +94,8 @@ class NotificationService:
             lines.extend(["", "", f"{field_name}: {self._format_value(context.actual_value)}"])
         return "\n".join(lines)
 
-    def _build_html_body(self, context: AlertContext) -> str:
-        text_body = self._build_text_body(context)
+    def _build_html_body(self, context: AlertContext, username: str | None = None) -> str:
+        text_body = self._build_text_body(context, username)
         paragraphs = []
         for block in text_body.split("\n\n"):
             escaped = escape(block).replace("\n", "<br>")
