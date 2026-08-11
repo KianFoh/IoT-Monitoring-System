@@ -7,7 +7,10 @@ export interface User {
   profile_picture?: string | null;
   department_id?: number | null;
   department_name?: string | null;
+  department_ids?: number[];
+  department_names?: string[];
   customer_name?: string | null;
+  customer_names?: string[];
   role: UserRole;
   is_verified: boolean;
   is_active: boolean;

@@ -7,6 +7,13 @@ import badgeStyles from "../../../styles/StatusBadge.module.css";
 import { config } from "@/config";
 
 const formatRole = (role: string) => role.replace("_", " ");
+const formatUserListValue = (values: string[] | undefined, fallback?: string | null) => {
+  const normalized = (Array.isArray(values) ? values : [])
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (normalized.length) return normalized.join(", ");
+  return fallback || "-";
+};
 const getInitials = (user: User) => {
   const username = user.username?.trim() || "";
   if (username) {
@@ -61,13 +68,19 @@ export function useUserColumns(
         accessorKey: "customer_name",
         header: "Customer",
         meta: { width: 200 },
-        cell: (info) => info.getValue<string | null>() || "-",
+        cell: (info) => {
+          const user = info.row.original;
+          return formatUserListValue(user.customer_names, info.getValue<string | null>());
+        },
       },
       {
         accessorKey: "department_name",
         header: "Department",
         meta: { width: 200 },
-        cell: (info) => info.getValue<string | null>() || "-",
+        cell: (info) => {
+          const user = info.row.original;
+          return formatUserListValue(user.department_names, info.getValue<string | null>());
+        },
       },
       {
         accessorKey: "role",

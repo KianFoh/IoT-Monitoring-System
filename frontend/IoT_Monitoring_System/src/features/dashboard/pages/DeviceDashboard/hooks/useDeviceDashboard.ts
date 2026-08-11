@@ -23,6 +23,7 @@ import {
   normalizeLayoutItem,
   orderSectionsByLayout,
 } from "@/features/dashboard/components/DeviceDataChart/utils/deviceDataChartUtils";
+import { getRangeGranularity } from "@/features/dashboard/components/DeviceDataChart/utils/deviceChartHelpers";
 
 export type DisplayMode = "data_panel" | "data_chart" | "alert_rules";
 
@@ -31,6 +32,93 @@ const DISPLAY_OPTIONS: Array<{ value: DisplayMode; label: string }> = [
   { value: "data_chart", label: "Data chart" },
   { value: "alert_rules", label: "Alert rules" },
 ];
+
+const DEFAULT_FILTER_SETTINGS = {
+  filterMode: "raw" as ChartFilterMode,
+  rangePreset: INITIAL_CHART_FORM_STATE.rangePreset,
+  rangeRefreshMs: 5000,
+  timeGranularity: INITIAL_CHART_FORM_STATE.timeGranularity,
+  timeStart: "",
+  timeEnd: "",
+};
+
+const FILTER_MODE_VALUES: ChartFilterMode[] = ["raw", "range", "custom"];
+const RANGE_PRESET_VALUES: ChartRangePreset[] = [
+  "last_1_min",
+  "last_1_hour",
+  "last_1_day",
+  "last_1_week",
+  "last_1_month",
+  "last_1_year",
+];
+const GRANULARITY_VALUES: LineGranularity[] = [
+  "sec",
+  "minute",
+  "hour",
+  "day",
+  "week",
+  "month",
+  "year",
+];
+
+type DashboardFilterSettings = typeof DEFAULT_FILTER_SETTINGS;
+
+const getRangeRefreshSpec = (granularity: LineGranularity) => {
+  switch (granularity) {
+    case "sec":
+      return { min: 2, max: 5, unitMs: 1_000 };
+    case "minute":
+      return { min: 5, max: 10, unitMs: 1_000 };
+    case "hour":
+      return { min: 30, max: 60, unitMs: 1_000 };
+    case "day":
+    case "week":
+      return { min: 2, max: 5, unitMs: 60_000 };
+    case "month":
+    case "year":
+      return { min: 5, max: 10, unitMs: 60_000 };
+    default:
+      return { min: 5, max: 10, unitMs: 1_000 };
+  }
+};
+
+const clampRangeRefreshMs = (preset: ChartRangePreset, refreshMs: number) => {
+  const spec = getRangeRefreshSpec(getRangeGranularity(preset));
+  const minMs = spec.min * spec.unitMs;
+  const maxMs = spec.max * spec.unitMs;
+  if (!Number.isFinite(refreshMs)) return minMs;
+  return Math.min(maxMs, Math.max(minMs, refreshMs));
+};
+
+const getFilterStorageKey = (deviceUid?: string) =>
+  deviceUid?.trim() ? `device-dashboard-filter:${deviceUid.trim()}` : null;
+
+const readStoredFilterSettings = (deviceUid?: string): DashboardFilterSettings => {
+  const storageKey = getFilterStorageKey(deviceUid);
+  if (!storageKey || typeof window === "undefined") return DEFAULT_FILTER_SETTINGS;
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey) ?? "null") as Partial<DashboardFilterSettings> | null;
+    if (!parsed || typeof parsed !== "object") return DEFAULT_FILTER_SETTINGS;
+    const rangePreset = RANGE_PRESET_VALUES.includes(parsed.rangePreset as ChartRangePreset)
+      ? (parsed.rangePreset as ChartRangePreset)
+      : DEFAULT_FILTER_SETTINGS.rangePreset;
+    return {
+      filterMode: FILTER_MODE_VALUES.includes(parsed.filterMode as ChartFilterMode)
+        ? (parsed.filterMode as ChartFilterMode)
+        : DEFAULT_FILTER_SETTINGS.filterMode,
+      rangePreset,
+      rangeRefreshMs: clampRangeRefreshMs(rangePreset, Number(parsed.rangeRefreshMs)),
+      timeGranularity: GRANULARITY_VALUES.includes(parsed.timeGranularity as LineGranularity)
+        ? (parsed.timeGranularity as LineGranularity)
+        : DEFAULT_FILTER_SETTINGS.timeGranularity,
+      timeStart: typeof parsed.timeStart === "string" ? parsed.timeStart : "",
+      timeEnd: typeof parsed.timeEnd === "string" ? parsed.timeEnd : "",
+    };
+  } catch {
+    return DEFAULT_FILTER_SETTINGS;
+  }
+};
 
 type ChartItemConfig = NonNullable<DashboardChartConfig["items"]>;
 type ChartLayoutConfig = NonNullable<DashboardChartConfig["layout"]>;
@@ -155,16 +243,25 @@ export function useDeviceDashboard(deviceUid?: string) {
   const queryClient = useQueryClient();
   const [device, setDevice] = useState<Device | null>(null);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("data_panel");
-  const [chartFilterMode, setChartFilterMode] = useState<ChartFilterMode>("raw");
+  const [chartFilterMode, setChartFilterMode] = useState<ChartFilterMode>(
+    () => readStoredFilterSettings(deviceUid).filterMode
+  );
   const [chartRangePreset, setChartRangePreset] = useState<ChartRangePreset>(
-    INITIAL_CHART_FORM_STATE.rangePreset
+    () => readStoredFilterSettings(deviceUid).rangePreset
   );
-  const [chartRangeRefreshMs, setChartRangeRefreshMs] = useState(5000);
+  const [chartRangeRefreshMs, setChartRangeRefreshMs] = useState(
+    () => readStoredFilterSettings(deviceUid).rangeRefreshMs
+  );
   const [chartTimeGranularity, setChartTimeGranularity] = useState<LineGranularity>(
-    INITIAL_CHART_FORM_STATE.timeGranularity
+    () => readStoredFilterSettings(deviceUid).timeGranularity
   );
-  const [chartTimeStart, setChartTimeStart] = useState("");
-  const [chartTimeEnd, setChartTimeEnd] = useState("");
+  const [chartTimeStart, setChartTimeStart] = useState(
+    () => readStoredFilterSettings(deviceUid).timeStart
+  );
+  const [chartTimeEnd, setChartTimeEnd] = useState(
+    () => readStoredFilterSettings(deviceUid).timeEnd
+  );
+  const [filterSettingsDeviceUid, setFilterSettingsDeviceUid] = useState(deviceUid);
   const [liveData, setLiveData] = useState<DevicePayload | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [wsStatus, setWsStatus] = useState<"idle" | "connecting" | "connected" | "failed">("idle");
@@ -194,13 +291,39 @@ export function useDeviceDashboard(deviceUid?: string) {
     setChartSections([]);
     setChartError(null);
     setLatestFetched(false);
-    setChartFilterMode("raw");
-    setChartRangePreset(INITIAL_CHART_FORM_STATE.rangePreset);
-    setChartRangeRefreshMs(5000);
-    setChartTimeGranularity(INITIAL_CHART_FORM_STATE.timeGranularity);
-    setChartTimeStart("");
-    setChartTimeEnd("");
+    const filterSettings = readStoredFilterSettings(deviceUid);
+    setChartFilterMode(filterSettings.filterMode);
+    setChartRangePreset(filterSettings.rangePreset);
+    setChartRangeRefreshMs(filterSettings.rangeRefreshMs);
+    setChartTimeGranularity(filterSettings.timeGranularity);
+    setChartTimeStart(filterSettings.timeStart);
+    setChartTimeEnd(filterSettings.timeEnd);
+    setFilterSettingsDeviceUid(deviceUid);
   }, [deviceUid]);
+
+  useEffect(() => {
+    const storageKey = getFilterStorageKey(deviceUid);
+    if (!storageKey || typeof window === "undefined") return;
+    if (filterSettingsDeviceUid !== deviceUid) return;
+    const settings: DashboardFilterSettings = {
+      filterMode: chartFilterMode,
+      rangePreset: chartRangePreset,
+      rangeRefreshMs: clampRangeRefreshMs(chartRangePreset, chartRangeRefreshMs),
+      timeGranularity: chartTimeGranularity,
+      timeStart: chartTimeStart,
+      timeEnd: chartTimeEnd,
+    };
+    window.localStorage.setItem(storageKey, JSON.stringify(settings));
+  }, [
+    chartFilterMode,
+    chartRangePreset,
+    chartRangeRefreshMs,
+    chartTimeGranularity,
+    chartTimeStart,
+    chartTimeEnd,
+    deviceUid,
+    filterSettingsDeviceUid,
+  ]);
 
   const deviceQuery = useQuery<Device | null, Error>({
     queryKey: ["devices", "by-uid", deviceUid],
@@ -422,6 +545,11 @@ export function useDeviceDashboard(deviceUid?: string) {
     setDevice(updated);
   }, []);
 
+  const setChartRangePresetAndClamp = useCallback((value: ChartRangePreset) => {
+    setChartRangePreset(value);
+    setChartRangeRefreshMs((prev) => clampRangeRefreshMs(value, prev));
+  }, []);
+
   const panel = useDeviceDataPanel({
     device,
     deviceUid,
@@ -556,7 +684,7 @@ export function useDeviceDashboard(deviceUid?: string) {
       filterMode: chartFilterMode,
       setFilterMode: setChartFilterMode,
       rangePreset: chartRangePreset,
-      setRangePreset: setChartRangePreset,
+      setRangePreset: setChartRangePresetAndClamp,
       rangeRefreshMs: chartRangeRefreshMs,
       setRangeRefreshMs: setChartRangeRefreshMs,
       timeGranularity: chartTimeGranularity,

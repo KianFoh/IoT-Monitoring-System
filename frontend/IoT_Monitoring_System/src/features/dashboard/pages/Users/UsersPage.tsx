@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState } from "react";
 import { FaPlus } from "react-icons/fa";
 import { DataTable } from "../../components/DataTable/DataTable";
 import Pagination from "../../components/Pagination/Pagination";
@@ -6,7 +6,7 @@ import SearchFilter from "../../components/SearchFilter/SearchFilter";
 import PageSizeSelect from "../../components/PageSizeSelect/PageSizeSelect";
 import { Button } from "@/components/Button/Button";
 import { useUsersTable } from "./hooks/useUsersTable";
-import { useUserActions } from "./hooks/useUserActions";
+import { useUserActions, type UserDepartmentAssignment } from "./hooks/useUserActions";
 import { useUserColumns } from "./hooks/useUserColumns";
 import { useSearchAutocomplete } from "../../hooks/useSearchAutocomplete";
 import { customersApi } from "../../api/customersApi";
@@ -35,6 +35,16 @@ const findDepartmentId = (name: string, options: DepartmentSearch[]) => {
   if (!normalized) return null;
   const match = options.find((department) => department.name.toLowerCase() === normalized);
   return match ? match.id : null;
+};
+
+type UserModalView = "details" | "departments" | "department_customer" | "department_department";
+type DepartmentOwner = "add" | "edit";
+
+const EMPTY_DEPARTMENT_DRAFT = {
+  customer_name: "",
+  customer_id: null as number | null,
+  department_name: "",
+  department_id: null as number | null,
 };
 
 export function UsersPage() {
@@ -73,96 +83,163 @@ export function UsersPage() {
     handleDelete,
   } = useUserActions();
 
-  const columns = useUserColumns(openEditModal, openDeleteModal);
-
-  const [addStep, setAddStep] = useState<"customer" | "department" | "details">("customer");
-  const [addStepError, setAddStepError] = useState<string | null>(null);
+  const [addView, setAddView] = useState<UserModalView>("details");
+  const [editView, setEditView] = useState<UserModalView>("details");
+  const [departmentOwner, setDepartmentOwner] = useState<DepartmentOwner>("add");
+  const [departmentDraft, setDepartmentDraft] = useState(EMPTY_DEPARTMENT_DRAFT);
+  const [departmentStepError, setDepartmentStepError] = useState<string | null>(null);
   const [showEditPassword, setShowEditPassword] = useState(false);
 
-  useEffect(() => {
-    setAddStep("customer");
-    setAddStepError(null);
-  }, [showAddModal]);
+  const resetDepartmentState = () => {
+    setAddView("details");
+    setEditView("details");
+    setDepartmentDraft(EMPTY_DEPARTMENT_DRAFT);
+    setDepartmentStepError(null);
+  };
 
-  useEffect(() => {
-    if (!showEditModal) {
-      setShowEditPassword(false);
-    }
-  }, [showEditModal]);
+  const handleOpenAddModal = () => {
+    resetDepartmentState();
+    openAddModal();
+  };
+
+  const handleCloseAddModal = () => {
+    resetDepartmentState();
+    closeAddModal();
+  };
+
+  const handleOpenEditModal = (user: Parameters<typeof openEditModal>[0]) => {
+    resetDepartmentState();
+    setShowEditPassword(false);
+    openEditModal(user);
+  };
+
+  const handleCloseEditModal = () => {
+    resetDepartmentState();
+    setShowEditPassword(false);
+    closeEditModal();
+  };
+
+  const columns = useUserColumns(handleOpenEditModal, openDeleteModal);
 
   const customerAutocomplete = useSearchAutocomplete<CustomerSearch>({
-    value: addForm.customer_name,
-    id: addForm.customer_id,
-    setValue: (value) => setAddForm((prev) => ({ ...prev, customer_name: value })),
-    setId: (id) => setAddForm((prev) => ({ ...prev, customer_id: id })),
-    active: showAddModal && addStep === "customer",
+    value: departmentDraft.customer_name,
+    id: departmentDraft.customer_id,
+    setValue: (value) => setDepartmentDraft((prev) => ({ ...prev, customer_name: value })),
+    setId: (id) => setDepartmentDraft((prev) => ({ ...prev, customer_id: id })),
+    active:
+      (showAddModal || showEditModal) &&
+      (addView === "department_customer" || editView === "department_customer"),
     queryKeyBase: ["customers", "search"],
     searchFn: (query) => customersApi.search({ name: query }),
     resolveId: (value, options) => findCustomerId(value, options),
     onInputChange: (_value, nextId, prevId) => {
-      setAddStepError(null);
+      setDepartmentStepError(null);
       if (nextId !== prevId) {
-        setAddForm((prev) => ({ ...prev, department_name: "", department_id: null }));
+        setDepartmentDraft((prev) => ({ ...prev, department_name: "", department_id: null }));
       }
     },
   });
 
   const departmentAutocomplete = useSearchAutocomplete<DepartmentSearch>({
-    value: addForm.department_name,
-    id: addForm.department_id,
-    setValue: (value) => setAddForm((prev) => ({ ...prev, department_name: value })),
-    setId: (id) => setAddForm((prev) => ({ ...prev, department_id: id })),
-    active: showAddModal && addStep === "department",
-    queryKeyBase: ["departments", "search", addForm.customer_id],
+    value: departmentDraft.department_name,
+    id: departmentDraft.department_id,
+    setValue: (value) => setDepartmentDraft((prev) => ({ ...prev, department_name: value })),
+    setId: (id) => setDepartmentDraft((prev) => ({ ...prev, department_id: id })),
+    active:
+      (showAddModal || showEditModal) &&
+      (addView === "department_department" || editView === "department_department"),
+    queryKeyBase: ["departments", "search", departmentDraft.customer_id],
     searchFn: (query) =>
       departmentsApi.search({
         name: query,
-        customer_id: addForm.customer_id ?? undefined,
+        customer_id: departmentDraft.customer_id ?? undefined,
       }),
     resolveId: (value, options) => findDepartmentId(value, options),
-    enabled: !!addForm.customer_id,
-    onInputChange: () => setAddStepError(null),
+    enabled: !!departmentDraft.customer_id,
+    onInputChange: () => setDepartmentStepError(null),
   });
 
-  const handleCustomerNext = () => {
-    if (!addForm.customer_id) {
-      setAddStepError("Invalid customer");
-      return;
-    }
-    setAddStepError(null);
-    setAddStep("department");
-  };
-
-  const handleDepartmentNext = () => {
-    if (!addForm.department_id) {
-      setAddStepError("Invalid department");
-      return;
-    }
-    setAddStepError(null);
-    setAddStep("details");
-  };
-
-  const handleAddBack = () => {
-    setAddStepError(null);
-    if (addStep === "details") {
-      setAddStep("department");
-    } else if (addStep === "department") {
-      setAddStep("customer");
+  const setOwnerView = (owner: DepartmentOwner, view: UserModalView) => {
+    if (owner === "add") {
+      setAddView(view);
+    } else {
+      setEditView(view);
     }
   };
 
-  const handleAddFormSubmit = (e?: FormEvent) => {
-    if (addStep === "customer") {
-      e?.preventDefault();
-      handleCustomerNext();
+  const handleOpenDepartmentList = (owner: DepartmentOwner) => {
+    setDepartmentOwner(owner);
+    setDepartmentStepError(null);
+    setOwnerView(owner, "departments");
+  };
+
+  const handleOpenAddDepartment = (owner: DepartmentOwner) => {
+    setDepartmentOwner(owner);
+    setDepartmentDraft(EMPTY_DEPARTMENT_DRAFT);
+    setDepartmentStepError(null);
+    setOwnerView(owner, "department_customer");
+  };
+
+  const handleDepartmentCustomerNext = () => {
+    if (!departmentDraft.customer_id) {
+      setDepartmentStepError("Invalid customer");
       return;
     }
-    if (addStep === "department") {
-      e?.preventDefault();
-      handleDepartmentNext();
+    setDepartmentStepError(null);
+    setOwnerView(departmentOwner, "department_department");
+  };
+
+  const getCurrentDepartments = () =>
+    departmentOwner === "add" ? addForm.departments : editForm.departments;
+
+  const handleAddDepartmentToUser = () => {
+    if (!departmentDraft.department_id) {
+      setDepartmentStepError("Invalid department");
       return;
     }
-    handleAddSubmit(e);
+    if (getCurrentDepartments().some((item) => item.department_id === departmentDraft.department_id)) {
+      setDepartmentStepError("Department already added");
+      return;
+    }
+
+    const assignment: UserDepartmentAssignment = {
+      customer_name: departmentDraft.customer_name,
+      customer_id: departmentDraft.customer_id,
+      department_name: departmentDraft.department_name,
+      department_id: departmentDraft.department_id,
+    };
+
+    if (departmentOwner === "add") {
+      setAddForm((prev) => ({ ...prev, departments: [...prev.departments, assignment] }));
+    } else {
+      setEditForm((prev) => ({ ...prev, departments: [...prev.departments, assignment] }));
+    }
+    setDepartmentDraft(EMPTY_DEPARTMENT_DRAFT);
+    setDepartmentStepError(null);
+    setOwnerView(departmentOwner, "departments");
+  };
+
+  const handleRemoveDepartment = (owner: DepartmentOwner, departmentId: number) => {
+    if (owner === "add") {
+      setAddForm((prev) => ({
+        ...prev,
+        departments: prev.departments.filter((item) => item.department_id !== departmentId),
+      }));
+    } else {
+      setEditForm((prev) => ({
+        ...prev,
+        departments: prev.departments.filter((item) => item.department_id !== departmentId),
+      }));
+    }
+  };
+
+  const handleDepartmentBack = () => {
+    setDepartmentStepError(null);
+    if (addView === "department_department" || editView === "department_department") {
+      setOwnerView(departmentOwner, "department_customer");
+      return;
+    }
+    setOwnerView(departmentOwner, "departments");
   };
 
   const emptyMessage = loading ? "Loading users..." : "No users found";
@@ -182,26 +259,39 @@ export function UsersPage() {
   };
 
   const addFlow = {
-    step: addStep,
-    stepError: addStepError,
+    view: addView,
     addForm,
     setAddForm,
   };
 
   const editFlow = {
+    view: editView,
     editForm,
     setEditForm,
     showPassword: showEditPassword,
   };
 
+  const departmentFlow = {
+    owner: departmentOwner,
+    draft: departmentDraft,
+    stepError: departmentStepError,
+    addDepartments: addForm.departments,
+    editDepartments: editForm.departments,
+  };
+
   const actions = {
-    onCloseAdd: closeAddModal,
-    onCloseEdit: closeEditModal,
+    onCloseAdd: handleCloseAddModal,
+    onCloseEdit: handleCloseEditModal,
     onCloseDelete: closeDeleteModal,
-    onAddSubmit: handleAddFormSubmit,
-    onCustomerNext: handleCustomerNext,
-    onDepartmentNext: handleDepartmentNext,
-    onAddBack: handleAddBack,
+    onAddSubmit: handleAddSubmit,
+    onOpenDepartmentList: handleOpenDepartmentList,
+    onOpenAddDepartment: handleOpenAddDepartment,
+    onDepartmentCustomerNext: handleDepartmentCustomerNext,
+    onAddDepartmentToUser: handleAddDepartmentToUser,
+    onRemoveDepartment: handleRemoveDepartment,
+    onDepartmentBack: handleDepartmentBack,
+    onBackToAddDetails: () => setAddView("details"),
+    onBackToEditDetails: () => setEditView("details"),
     onEditSubmit: handleEditSubmit,
     onDelete: handleDelete,
     onToggleEditPassword: () => setShowEditPassword((prev) => !prev),
@@ -226,7 +316,7 @@ export function UsersPage() {
             <Button
               icon={FaPlus}
               className={styles["dashboard-add-button"]}
-              onClick={openAddModal}
+              onClick={handleOpenAddModal}
             >
               Add User
             </Button>
@@ -259,6 +349,7 @@ export function UsersPage() {
         modalState={modalState}
         addFlow={addFlow}
         editFlow={editFlow}
+        departmentFlow={departmentFlow}
         roleOptions={ROLE_OPTIONS}
         customerAutocomplete={customerAutocomplete}
         departmentAutocomplete={departmentAutocomplete}

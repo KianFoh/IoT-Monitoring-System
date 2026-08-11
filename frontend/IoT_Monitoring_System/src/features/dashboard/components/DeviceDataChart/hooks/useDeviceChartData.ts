@@ -234,7 +234,7 @@ const processHistoricalRows = (
           }
 
           const normalizedStart = floorToSecond(startMs);
-          const normalizedEnd = floorToSecond(endMs);
+          const requestedEnd = floorToSecond(endMs);
           const rowMap = new Map<number, ParsedDeviceDataRow>();
 
           rows.forEach((row) => {
@@ -253,6 +253,12 @@ const processHistoricalRows = (
               seed: row.seed ? { ...row.seed } : undefined,
             });
           });
+
+          const rowBuckets = Array.from(rowMap.keys());
+          if (!rowBuckets.length) return [];
+
+          const normalizedEnd = Math.min(requestedEnd, Math.max(...rowBuckets));
+          if (normalizedEnd < normalizedStart) return [];
 
           const denseRows: ParsedDeviceDataRow[] = [];
           for (let ts = normalizedStart; ts <= normalizedEnd; ts += 1000) {

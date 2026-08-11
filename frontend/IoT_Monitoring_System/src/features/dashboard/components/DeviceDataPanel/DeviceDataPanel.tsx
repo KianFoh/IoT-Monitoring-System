@@ -41,6 +41,7 @@ import {
   parseCustomRangeInputMs,
   usesDateOnlyCustomRangeInput,
 } from "../DeviceDataChart/utils/deviceDataChartUtils";
+import { getRangeGranularity } from "../DeviceDataChart/utils/deviceChartHelpers";
 import { useOutsideMenuClose } from "../../hooks/useOutsideMenuClose";
 import {
   buildListModalItems,
@@ -250,7 +251,10 @@ export function DeviceDataPanel<T extends string>({
     if (dataIntervalSeconds <= 0) return null;
     return Math.max(3000, Math.round(dataIntervalSeconds * 1000 * 3));
   }, [dataIntervalSeconds]);
-  const rangeRefreshSpec = useMemo(() => getRangeRefreshSpec(timeGranularity), [timeGranularity]);
+  const rangeRefreshSpec = useMemo(
+    () => getRangeRefreshSpec(getRangeGranularity(rangePreset)),
+    [rangePreset]
+  );
   const rangeRefreshOptions = useMemo(
     () => buildRefreshRangeOptions(rangeRefreshSpec),
     [rangeRefreshSpec]

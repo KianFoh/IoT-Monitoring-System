@@ -9,7 +9,7 @@ export const usersApi = {
     return api.get<UserListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
   },
 
-  async create(payload: { email: string; department_id: number; role: UserRole }) {
+  async create(payload: { email: string; department_id?: number; department_ids?: number[]; role: UserRole }) {
     return api.post<User>(`${BASE_PATH}/`, payload);
   },
 
@@ -20,6 +20,8 @@ export const usersApi = {
       role?: UserRole;
       is_verified?: boolean;
       is_active?: boolean;
+      department_id?: number;
+      department_ids?: number[];
       username?: string | null;
       profile_picture?: string | null;
       password?: string;
