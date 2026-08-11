@@ -110,6 +110,11 @@ export type DeviceDataChartProps<T extends string> = {
   deviceUid: string;
   dataIntervalSeconds?: number | null;
   filterMode?: ChartFilterMode;
+  rangePreset?: ChartRangePreset;
+  rangeRefreshMs?: number;
+  timeGranularity?: LineGranularity;
+  timeStart?: string;
+  timeEnd?: string;
   disabled?: boolean;
   readOnly?: boolean;
   allowOutputControl?: boolean;
@@ -130,6 +135,11 @@ export type DeviceDataChartProps<T extends string> = {
   ) => { trueLabel?: string; falseLabel?: string } | null | undefined;
   onOutputSend?: (field: string, value: string | number | boolean) => void;
   onFilterModeChange?: (value: ChartFilterMode) => void;
+  onRangePresetChange?: (value: ChartRangePreset) => void;
+  onRangeRefreshMsChange?: (value: number) => void;
+  onTimeGranularityChange?: (value: LineGranularity) => void;
+  onTimeStartChange?: (value: string) => void;
+  onTimeEndChange?: (value: string) => void;
   rawTimestamp?: Date | null;
   savedCharts?: ChartItemConfig[];
   savedLayout?: ChartLayoutItem[];

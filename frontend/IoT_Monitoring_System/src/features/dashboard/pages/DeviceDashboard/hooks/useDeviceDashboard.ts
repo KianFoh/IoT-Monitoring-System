@@ -9,7 +9,12 @@ import type { AlertRuleCreatePayload, AlertRuleUpdatePayload } from "@/types/ale
 import { type DevicePayload, extractPayloadInfo } from "./deviceDashboardUtils";
 import { useDeviceDataPanel } from "./useDeviceDataPanel";
 import { buildDashboardConfig, normalizeDashboardConfig } from "./dashboardConfig";
-import type { ChartFilterMode } from "@/features/dashboard/components/DeviceDataChart/types/deviceDataChartTypes";
+import { INITIAL_CHART_FORM_STATE } from "@/features/dashboard/components/DeviceDataChart/state/deviceDataChartState";
+import type {
+  ChartFilterMode,
+  ChartRangePreset,
+  LineGranularity,
+} from "@/features/dashboard/components/DeviceDataChart/types/deviceDataChartTypes";
 import {
   ensureChartLayout,
   getLayoutMaxY,
@@ -151,6 +156,15 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [device, setDevice] = useState<Device | null>(null);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("data_panel");
   const [chartFilterMode, setChartFilterMode] = useState<ChartFilterMode>("raw");
+  const [chartRangePreset, setChartRangePreset] = useState<ChartRangePreset>(
+    INITIAL_CHART_FORM_STATE.rangePreset
+  );
+  const [chartRangeRefreshMs, setChartRangeRefreshMs] = useState(5000);
+  const [chartTimeGranularity, setChartTimeGranularity] = useState<LineGranularity>(
+    INITIAL_CHART_FORM_STATE.timeGranularity
+  );
+  const [chartTimeStart, setChartTimeStart] = useState("");
+  const [chartTimeEnd, setChartTimeEnd] = useState("");
   const [liveData, setLiveData] = useState<DevicePayload | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [wsStatus, setWsStatus] = useState<"idle" | "connecting" | "connected" | "failed">("idle");
@@ -181,6 +195,11 @@ export function useDeviceDashboard(deviceUid?: string) {
     setChartError(null);
     setLatestFetched(false);
     setChartFilterMode("raw");
+    setChartRangePreset(INITIAL_CHART_FORM_STATE.rangePreset);
+    setChartRangeRefreshMs(5000);
+    setChartTimeGranularity(INITIAL_CHART_FORM_STATE.timeGranularity);
+    setChartTimeStart("");
+    setChartTimeEnd("");
   }, [deviceUid]);
 
   const deviceQuery = useQuery<Device | null, Error>({
@@ -536,6 +555,16 @@ export function useDeviceDashboard(deviceUid?: string) {
       sections: chartSections,
       filterMode: chartFilterMode,
       setFilterMode: setChartFilterMode,
+      rangePreset: chartRangePreset,
+      setRangePreset: setChartRangePreset,
+      rangeRefreshMs: chartRangeRefreshMs,
+      setRangeRefreshMs: setChartRangeRefreshMs,
+      timeGranularity: chartTimeGranularity,
+      setTimeGranularity: setChartTimeGranularity,
+      timeStart: chartTimeStart,
+      setTimeStart: setChartTimeStart,
+      timeEnd: chartTimeEnd,
+      setTimeEnd: setChartTimeEnd,
       saving: chartMutation.isPending,
       error: chartError,
       liveData: chartLiveData ?? liveData,

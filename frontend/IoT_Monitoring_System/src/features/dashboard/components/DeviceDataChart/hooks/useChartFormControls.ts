@@ -1,6 +1,12 @@
 import { useEffect, useMemo } from "react";
 import type { ChartFormState } from "../state/deviceDataChartState";
-import type { ChartFilterMode, DataFieldMetric, DataFieldType } from "../types/deviceDataChartTypes";
+import type {
+  ChartFilterMode,
+  ChartRangePreset,
+  DataFieldMetric,
+  DataFieldType,
+  LineGranularity,
+} from "../types/deviceDataChartTypes";
 import { normalizeCaseList } from "../utils/deviceChartHelpers";
 
 type UseChartFormControlsParams = {
@@ -18,6 +24,10 @@ type UseChartFormControlsParams = {
   disabled?: boolean;
   readOnly?: boolean;
   onFilterModeChange?: (value: ChartFilterMode) => void;
+  onRangePresetChange?: (value: ChartRangePreset) => void;
+  onTimeGranularityChange?: (value: LineGranularity) => void;
+  onTimeStartChange?: (value: string) => void;
+  onTimeEndChange?: (value: string) => void;
 };
 
 export const useChartFormControls = ({
@@ -35,6 +45,10 @@ export const useChartFormControls = ({
   disabled,
   readOnly,
   onFilterModeChange,
+  onRangePresetChange,
+  onTimeGranularityChange,
+  onTimeStartChange,
+  onTimeEndChange,
 }: UseChartFormControlsParams) => {
   const {
     selectedChartType,
@@ -114,16 +128,28 @@ export const useChartFormControls = ({
     dispatchChartForm({ type: "set-edit-pie-show-labels", value });
   const setEditOutputValueType = (value: ChartFormState["editOutputValueType"]) =>
     dispatchChartForm({ type: "set-edit-output-value-type", value });
-  const setTimeGranularity = (value: ChartFormState["timeGranularity"]) =>
+  const setTimeGranularity = (value: ChartFormState["timeGranularity"]) => {
     dispatchChartForm({ type: "set-time-granularity", value });
-  const setTimeStart = (value: string) => dispatchChartForm({ type: "set-time-start", value });
-  const setTimeEnd = (value: string) => dispatchChartForm({ type: "set-time-end", value });
+    onTimeGranularityChange?.(value);
+    onTimeStartChange?.("");
+    onTimeEndChange?.("");
+  };
+  const setTimeStart = (value: string) => {
+    dispatchChartForm({ type: "set-time-start", value });
+    onTimeStartChange?.(value);
+  };
+  const setTimeEnd = (value: string) => {
+    dispatchChartForm({ type: "set-time-end", value });
+    onTimeEndChange?.(value);
+  };
   const setFilterMode = (value: ChartFilterMode) => {
     dispatchChartForm({ type: "set-filter-mode", value });
     onFilterModeChange?.(value);
   };
-  const setRangePreset = (value: ChartFormState["rangePreset"]) =>
+  const setRangePreset = (value: ChartFormState["rangePreset"]) => {
     dispatchChartForm({ type: "set-range-preset", value });
+    onRangePresetChange?.(value);
+  };
 
   const canAddChart = useMemo(() => {
     if (disabled || readOnly) return false;
@@ -187,11 +213,11 @@ export const useChartFormControls = ({
         ? meterAllowedFields
         : selectedChartType === "water_tank"
           ? textAllowedFields
-        : selectedChartType === "pie"
-          ? pieAllowedFields
-        : selectedChartType === "bar"
-          ? barAllowedFields
-          : availableFields;
+          : selectedChartType === "pie"
+            ? pieAllowedFields
+            : selectedChartType === "bar"
+              ? barAllowedFields
+              : availableFields;
     if (!allowedFields.length) {
       if (selectedField) {
         dispatchChartForm({ type: "set-selected-field", value: "" });
@@ -241,11 +267,11 @@ export const useChartFormControls = ({
         ? meterAllowedFields
         : editingChartType === "water_tank"
           ? textAllowedFields
-        : editingChartType === "pie"
-          ? pieAllowedFields
-        : editingChartType === "bar"
-          ? barAllowedFields
-          : availableFields;
+          : editingChartType === "pie"
+            ? pieAllowedFields
+            : editingChartType === "bar"
+              ? barAllowedFields
+              : availableFields;
     if (!allowedFields.length) return;
     if (!allowedFields.includes(editField)) {
       dispatchChartForm({ type: "set-edit-field", value: allowedFields[0] });

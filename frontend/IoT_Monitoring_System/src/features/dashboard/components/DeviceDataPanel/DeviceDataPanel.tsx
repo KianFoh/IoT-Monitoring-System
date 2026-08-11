@@ -28,10 +28,7 @@ import {
 } from "./utils/deviceDataPanelConstants";
 import { useSectionModalState } from "./state/deviceDataPanelState";
 import type { DeviceDataPanelProps, PanelLayoutItem, PanelSection } from "./types/deviceDataPanelTypes";
-import type {
-  ChartRangePreset,
-  LineGranularity,
-} from "../DeviceDataChart/types/deviceDataChartTypes";
+import type { LineGranularity } from "../DeviceDataChart/types/deviceDataChartTypes";
 import { useDeviceChartData } from "../DeviceDataChart/hooks/useDeviceChartData";
 import {
   FILTER_MODE_OPTIONS,
@@ -193,6 +190,16 @@ export function DeviceDataPanel<T extends string>({
   rawTimestamp,
   filterMode,
   onFilterModeChange,
+  rangePreset,
+  onRangePresetChange,
+  rangeRefreshMs,
+  onRangeRefreshMsChange,
+  timeGranularity,
+  onTimeGranularityChange,
+  timeStart,
+  onTimeStartChange,
+  timeEnd,
+  onTimeEndChange,
   disabled,
   readOnly = false,
   subtitle,
@@ -231,11 +238,6 @@ export function DeviceDataPanel<T extends string>({
   const [isLayoutEditing, setIsLayoutEditing] = useState(false);
   const [activeSectionMenu, setActiveSectionMenu] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [rangePreset, setRangePreset] = useState<ChartRangePreset>("last_1_hour");
-  const [rangeRefreshMs, setRangeRefreshMs] = useState(5000);
-  const [timeGranularity, setTimeGranularity] = useState<LineGranularity>("minute");
-  const [timeStart, setTimeStart] = useState("");
-  const [timeEnd, setTimeEnd] = useState("");
   const sectionModal = useSectionModalState();
   const [draftAssignments, setDraftAssignments] = useState<Record<string, string | null>>({});
   // Guard against layout updates triggered by props or effects vs user interactions.
@@ -953,7 +955,7 @@ export function DeviceDataPanel<T extends string>({
                 label="Range"
                 value={rangePreset}
                 options={RANGE_PRESET_OPTIONS}
-                onChange={setRangePreset}
+                onChange={onRangePresetChange}
                 disabled={disabled}
                 groupClassName={formStyles["dashboard-inline-field"]}
               />
@@ -966,7 +968,7 @@ export function DeviceDataPanel<T extends string>({
                   const next = Number(value);
                   if (!Number.isFinite(next)) return;
                   const clamped = Math.min(rangeRefreshSpec.max, Math.max(rangeRefreshSpec.min, next));
-                  setRangeRefreshMs(clamped * rangeRefreshUnitMs);
+                  onRangeRefreshMsChange(clamped * rangeRefreshUnitMs);
                 }}
                 disabled={disabled || rangeRefreshOptions.length === 0}
                 groupClassName={formStyles["dashboard-inline-field"]}
@@ -980,7 +982,11 @@ export function DeviceDataPanel<T extends string>({
                 label="Granularity"
                 value={timeGranularity}
                 options={LINE_GRANULARITY_OPTIONS}
-                onChange={setTimeGranularity}
+                onChange={(value) => {
+                  onTimeGranularityChange(value);
+                  onTimeStartChange("");
+                  onTimeEndChange("");
+                }}
                 disabled={disabled}
               />
               <Input
@@ -989,7 +995,7 @@ export function DeviceDataPanel<T extends string>({
                 type={timeDateInputType}
                 step={timeDateStep}
                 value={timeStart}
-                onChange={(event) => setTimeStart(event.target.value)}
+                onChange={(event) => onTimeStartChange(event.target.value)}
                 disabled={disabled}
                 max={endTimeValue || undefined}
               />
@@ -999,7 +1005,7 @@ export function DeviceDataPanel<T extends string>({
                 type={timeDateInputType}
                 step={timeDateStep}
                 value={timeEnd}
-                onChange={(event) => setTimeEnd(event.target.value)}
+                onChange={(event) => onTimeEndChange(event.target.value)}
                 disabled={disabled}
                 min={startTimeValue || undefined}
                 max={maxEndDate}

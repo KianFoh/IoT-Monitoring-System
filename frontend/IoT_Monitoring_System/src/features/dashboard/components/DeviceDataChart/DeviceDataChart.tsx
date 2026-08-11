@@ -91,6 +91,11 @@ export function DeviceDataChart<T extends string>({
   deviceUid,
   dataIntervalSeconds,
   filterMode: sharedFilterMode,
+  rangePreset: sharedRangePreset,
+  rangeRefreshMs: sharedRangeRefreshMs,
+  timeGranularity: sharedTimeGranularity,
+  timeStart: sharedTimeStart,
+  timeEnd: sharedTimeEnd,
   disabled,
   readOnly = false,
   allowOutputControl = false,
@@ -107,6 +112,11 @@ export function DeviceDataChart<T extends string>({
   getChartBooleanLabels,
   onOutputSend,
   onFilterModeChange,
+  onRangePresetChange,
+  onRangeRefreshMsChange,
+  onTimeGranularityChange,
+  onTimeStartChange,
+  onTimeEndChange,
   rawTimestamp,
   savedCharts = [],
   savedLayout = [],
@@ -133,7 +143,7 @@ export function DeviceDataChart<T extends string>({
   const [draftCharts, setDraftCharts] = useState<ChartItem[]>(normalizedSavedCharts);
   const [draftLayout, setDraftLayout] = useState<Layout>(normalizedSavedLayout as Layout);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [rangeRefreshMs, setRangeRefreshMs] = useState<number>(5000);
+  const [localRangeRefreshMs, setLocalRangeRefreshMs] = useState<number>(5000);
   const [chartViewToken, setChartViewToken] = useState(0);
   const [activeDetailChartId, setActiveDetailChartId] = useState<string | null>(null);
   const [observedWidth, setObservedWidth] = useState<number | null>(null);
@@ -197,6 +207,20 @@ export function DeviceDataChart<T extends string>({
     filterMode,
     rangePreset,
   } = chartForm;
+  const effectiveFilterMode = sharedFilterMode ?? filterMode;
+  const effectiveRangePreset = sharedRangePreset ?? rangePreset;
+  const effectiveRangeRefreshMs = sharedRangeRefreshMs ?? localRangeRefreshMs;
+  const effectiveTimeGranularity = sharedTimeGranularity ?? timeGranularity;
+  const effectiveTimeStart = sharedTimeStart ?? timeStart;
+  const effectiveTimeEnd = sharedTimeEnd ?? timeEnd;
+  const setRangeRefreshMs = (valueOrUpdater: number | ((prev: number) => number)) => {
+    const next =
+      typeof valueOrUpdater === "function"
+        ? valueOrUpdater(effectiveRangeRefreshMs)
+        : valueOrUpdater;
+    setLocalRangeRefreshMs(next);
+    onRangeRefreshMsChange?.(next);
+  };
   const {
     state: sectionModalState,
     openAdd: openSectionModalAdd,
@@ -208,16 +232,16 @@ export function DeviceDataChart<T extends string>({
   } = sectionModal;
   const { rawSeries, filteredRawData, filteredLatestValues } = useDeviceChartData({
     deviceUid,
-    filterMode,
+    filterMode: effectiveFilterMode,
     rawTimestamp,
     getChartValue,
     availableFields,
     maxRawGapMs,
-    rangePreset,
-    timeGranularity,
-    timeStart,
-    timeEnd,
-    rangeRefreshMs,
+    rangePreset: effectiveRangePreset,
+    timeGranularity: effectiveTimeGranularity,
+    timeStart: effectiveTimeStart,
+    timeEnd: effectiveTimeEnd,
+    rangeRefreshMs: effectiveRangeRefreshMs,
     getChartType,
     getChartMetric,
     getChartCases,
@@ -228,6 +252,22 @@ export function DeviceDataChart<T extends string>({
     if (!sharedFilterMode || sharedFilterMode === filterMode) return;
     dispatchChartForm({ type: "set-filter-mode", value: sharedFilterMode });
   }, [sharedFilterMode, filterMode]);
+  useEffect(() => {
+    if (!sharedRangePreset || sharedRangePreset === rangePreset) return;
+    dispatchChartForm({ type: "set-range-preset", value: sharedRangePreset });
+  }, [sharedRangePreset, rangePreset]);
+  useEffect(() => {
+    if (!sharedTimeGranularity || sharedTimeGranularity === timeGranularity) return;
+    dispatchChartForm({ type: "set-time-granularity", value: sharedTimeGranularity });
+  }, [sharedTimeGranularity, timeGranularity]);
+  useEffect(() => {
+    if (sharedTimeStart === undefined || sharedTimeStart === timeStart) return;
+    dispatchChartForm({ type: "set-time-start", value: sharedTimeStart });
+  }, [sharedTimeStart, timeStart]);
+  useEffect(() => {
+    if (sharedTimeEnd === undefined || sharedTimeEnd === timeEnd) return;
+    dispatchChartForm({ type: "set-time-end", value: sharedTimeEnd });
+  }, [sharedTimeEnd, timeEnd]);
   const dragCancelSelector = `.${styles["device-chart-menu-button"]}, .${styles["device-chart-menu"]}, .${styles["device-section-menu-button"]}, .${styles["device-section-menu"]}, .${styles["device-section-toggle"]}, .${styles["device-chart-resize-handle"]}, .react-resizable-handle`;
   const handlePreventNativeDrag = (event: ReactDragEvent<HTMLDivElement>) => {
     if (!isEditing) return;
@@ -374,6 +414,10 @@ export function DeviceDataChart<T extends string>({
     disabled,
     readOnly,
     onFilterModeChange,
+    onRangePresetChange,
+    onTimeGranularityChange,
+    onTimeStartChange,
+    onTimeEndChange,
   });
   const selectedOutputCases = useMemo(
     () => normalizeCaseList(getChartCases?.(selectedOutputField)),
@@ -453,22 +497,22 @@ export function DeviceDataChart<T extends string>({
     setDraftAssignments,
   });
 
-  const timeDateInputType = usesDateOnlyCustomRangeInput(timeGranularity)
+  const timeDateInputType = usesDateOnlyCustomRangeInput(effectiveTimeGranularity)
     ? "date"
     : "datetime-local";
   const timeDateStep =
     timeDateInputType === "datetime-local"
-      ? getCustomRangeInputStep(timeGranularity)
+      ? getCustomRangeInputStep(effectiveTimeGranularity)
       : undefined;
   const timeDateLabel = timeDateInputType === "datetime-local" ? "date/time" : "date";
   const rangeRefreshSpec = useMemo(
-    () => getRangeRefreshSpec(getRangeGranularity(rangePreset)),
-    [rangePreset]
+    () => getRangeRefreshSpec(getRangeGranularity(effectiveRangePreset)),
+    [effectiveRangePreset]
   );
   const rangeRefreshUnitMs = rangeRefreshSpec.unit === "min" ? 60_000 : 1_000;
   const rangeRefreshMinMs = rangeRefreshSpec.min * rangeRefreshUnitMs;
   const rangeRefreshMaxMs = rangeRefreshSpec.max * rangeRefreshUnitMs;
-  const rangeRefreshValue = Math.round(rangeRefreshMs / rangeRefreshUnitMs);
+  const rangeRefreshValue = Math.round(effectiveRangeRefreshMs / rangeRefreshUnitMs);
   const rangeRefreshOptions = useMemo(
     () => buildRefreshRangeOptions(rangeRefreshSpec),
     [rangeRefreshSpec]
@@ -588,10 +632,10 @@ export function DeviceDataChart<T extends string>({
     dispatchChartForm,
   });
 
-  const zoomResetKey = `${displayMode}:${filterMode}:${rangePreset}:${timeStart}:${timeEnd}:${timeGranularity}:${chartViewToken}`;
+  const zoomResetKey = `${displayMode}:${effectiveFilterMode}:${effectiveRangePreset}:${effectiveTimeStart}:${effectiveTimeEnd}:${effectiveTimeGranularity}:${chartViewToken}`;
 
   const getChartDisplayRawValue = (chart: ChartItem) => {
-    if (filterMode !== "raw") {
+    if (effectiveFilterMode !== "raw") {
       return filteredLatestValues[chart.field] ?? null;
     }
     if (isEditing && frozenValues) {
@@ -606,7 +650,7 @@ export function DeviceDataChart<T extends string>({
   );
   const detailModalItems = useMemo(
     () => (activeDetailChart ? buildListModalItems(getChartDisplayRawValue(activeDetailChart)) : []),
-    [activeDetailChart, filteredLatestValues, filterMode, frozenValues, getChartValue, isEditing]
+    [activeDetailChart, filteredLatestValues, effectiveFilterMode, frozenValues, getChartValue, isEditing]
   );
   const detailModalCaseColors = useMemo(() => {
     if (!activeDetailChart) return null;
@@ -680,14 +724,14 @@ export function DeviceDataChart<T extends string>({
   }, [isEditing, availableFields, getChartValue]);
 
   useEffect(() => {
-    if (filterMode !== "range") return;
+    if (effectiveFilterMode !== "range") return;
     setRangeRefreshMs((prev) => {
       if (!Number.isFinite(prev)) return rangeRefreshMinMs;
       if (prev < rangeRefreshMinMs) return rangeRefreshMinMs;
       if (prev > rangeRefreshMaxMs) return rangeRefreshMaxMs;
       return prev;
     });
-  }, [filterMode, rangeRefreshMinMs, rangeRefreshMaxMs]);
+  }, [effectiveFilterMode, rangeRefreshMinMs, rangeRefreshMaxMs, effectiveRangeRefreshMs]);
 
   useEffect(() => {
     if (!isEditing) {
@@ -802,9 +846,9 @@ export function DeviceDataChart<T extends string>({
         onEdit={handleOpenEdit}
         onRemove={handleRemoveChart}
         onViewDetails={(item) => setActiveDetailChartId(item.id)}
-        filterMode={filterMode}
-        rangePreset={rangePreset}
-        timeGranularity={timeGranularity}
+        filterMode={effectiveFilterMode}
+        rangePreset={effectiveRangePreset}
+        timeGranularity={effectiveTimeGranularity}
         rawSeries={rawSeries}
         filteredRawData={filteredRawData}
         filteredLatestValues={filteredLatestValues}
@@ -1038,13 +1082,13 @@ export function DeviceDataChart<T extends string>({
   };
   const filterModalProps = {
     isOpen: isFilterOpen,
-    filterMode,
-    rangePreset,
+    filterMode: effectiveFilterMode,
+    rangePreset: effectiveRangePreset,
     rangeRefreshValue,
     rangeRefreshOptions,
-    timeGranularity,
-    timeStart,
-    timeEnd,
+    timeGranularity: effectiveTimeGranularity,
+    timeStart: effectiveTimeStart,
+    timeEnd: effectiveTimeEnd,
     timeDateInputType,
     timeDateStep,
     timeDateLabel,

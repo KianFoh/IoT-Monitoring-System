@@ -1,4 +1,8 @@
-import type { ChartFilterMode } from "../../DeviceDataChart/types/deviceDataChartTypes";
+import type {
+  ChartFilterMode,
+  ChartRangePreset,
+  LineGranularity,
+} from "../../DeviceDataChart/types/deviceDataChartTypes";
 
 export type DisplayOption<T extends string> = {
   value: T;
@@ -51,6 +55,16 @@ export type DeviceDataPanelProps<T extends string> = {
   rawTimestamp?: Date | null;
   filterMode: ChartFilterMode;
   onFilterModeChange: (value: ChartFilterMode) => void;
+  rangePreset: ChartRangePreset;
+  onRangePresetChange: (value: ChartRangePreset) => void;
+  rangeRefreshMs: number;
+  onRangeRefreshMsChange: (value: number) => void;
+  timeGranularity: LineGranularity;
+  onTimeGranularityChange: (value: LineGranularity) => void;
+  timeStart: string;
+  onTimeStartChange: (value: string) => void;
+  timeEnd: string;
+  onTimeEndChange: (value: string) => void;
   disabled?: boolean;
   readOnly?: boolean;
   subtitle: string;
