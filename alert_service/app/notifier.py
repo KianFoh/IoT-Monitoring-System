@@ -1,6 +1,6 @@
 import logging
 import smtplib
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
@@ -116,7 +116,8 @@ class NotificationService:
         return "" if value is None else str(value)
 
     def _format_alert_time(self) -> str:
-        return datetime.now().astimezone().strftime("%Y-%m-%d %I:%M:%S %p %z")
+        alert_time = datetime.now(timezone(timedelta(hours=8)))
+        return f"{alert_time:%Y-%m-%d} {alert_time.strftime('%I:%M:%S %p').lstrip('0')} (UTC+8)"
 
     def _send_email_smtp(self, to_email: str, subject: str, text_body: str, html_body: str) -> bool:
         try:
