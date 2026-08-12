@@ -188,6 +188,25 @@ class RollupService:
         set_ops: Dict[str, Any] = {}
         max_ops: Dict[str, Any] = {}
         min_ops: Dict[str, Any] = {}
+        existing_doc = collection.find_one(
+            {"device_id": device_id, "ts": bucket_ts},
+            {
+                "_id": 0,
+                "meta.num_last_ts": 1,
+            },
+        ) or {}
+        existing_meta = existing_doc.get("meta") if isinstance(existing_doc.get("meta"), dict) else {}
+
+        def is_latest_numeric_sample(field: str) -> bool:
+            last_ts = (existing_meta.get("num_last_ts") or {}).get(field)
+            if not isinstance(last_ts, datetime):
+                return True
+            normalized_last_ts = (
+                last_ts.replace(tzinfo=timezone.utc)
+                if last_ts.tzinfo is None or last_ts.tzinfo.utcoffset(last_ts) is None
+                else last_ts.astimezone(timezone.utc)
+            )
+            return timestamp >= normalized_last_ts
 
         for key, value in data.items():
             ftype = normalize_field_type(field_types.get(key))
@@ -233,7 +252,9 @@ class RollupService:
                 inc_ops[f"meta.num_count.{key}"] = inc_ops.get(f"meta.num_count.{key}", 0) + 1
                 min_ops[f"meta.num_min.{key}"] = numeric_value
                 max_ops[f"meta.num_max.{key}"] = numeric_value
-                set_ops[f"meta.num_last_value.{key}"] = numeric_value
+                if is_latest_numeric_sample(key):
+                    set_ops[f"data.{key}"] = numeric_value
+                    set_ops[f"meta.num_last_value.{key}"] = numeric_value
                 max_ops[f"meta.num_last_ts.{key}"] = timestamp
                 continue
 
@@ -289,7 +310,6 @@ class RollupService:
                     "$$REMOVE",
                 ]
             }
-            set_stage[f"data.{field}"] = avg_expr
             set_stage[f"meta.num_avg.{field}"] = avg_expr
 
         collection.update_one(
