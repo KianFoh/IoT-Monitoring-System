@@ -79,6 +79,8 @@ def _empty_bucket(device_id: str, ts: datetime) -> Dict[str, Any]:
             "num_min": {},
             "num_max": {},
             "num_avg": {},
+            "num_last_ts": {},
+            "num_last_value": {},
         },
     }
 
@@ -143,6 +145,10 @@ def _apply_value(bucket: Dict[str, Any], key: str, value: Any, field_type: str, 
         meta["num_max"][key] = max(meta["num_max"].get(key, numeric_value), numeric_value)
         avg = meta["num_sum"][key] / meta["num_count"][key]
         meta["num_avg"][key] = avg
+        last_ts = meta["num_last_ts"].get(key)
+        if not isinstance(last_ts, datetime) or source_ts >= last_ts:
+            meta["num_last_ts"][key] = source_ts
+            meta["num_last_value"][key] = numeric_value
         data[key] = avg
         return
 

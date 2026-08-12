@@ -154,7 +154,7 @@ def _rollup_metric_value(
             if isinstance(total, (int, float)) and isinstance(count, (int, float)) and count > 0:
                 return _truncate_two_decimals(total / count)
             return _truncate_two_decimals(source_data.get(field))
-        return num_last.get(field, source_data.get(field))
+        return num_last.get(field)
 
     if field_type == "boolean":
         if metric == "count":

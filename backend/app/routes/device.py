@@ -608,15 +608,6 @@ def fetch_device_data(
             tz_offset_minutes=tz_offset_minutes,
         )
     stage_started_at = mark("data_query_ms", stage_started_at)
-    if not aggregated:
-        timings["total_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
-        logger.info(
-            "device_data_timing uid=%s granularity=%s buckets=0 timings=%s",
-            device_uid,
-            selected_granularity,
-            timings,
-        )
-        return []
 
     state_fields = [
         field
@@ -638,6 +629,52 @@ def fetch_device_data(
             and field_metrics.get(field, "latest_list") == "latest_list"
         )
     ]
+    if not aggregated:
+        if start and state_fields:
+            seed_source = "raw"
+            if selected_granularity == "minute" and minute_rollup_ts and start >= minute_rollup_ts:
+                seed_source = "minute"
+            elif selected_granularity in {"hour", "day", "week", "month", "year"} and hour_rollup_ts and start >= hour_rollup_ts:
+                seed_source = "hour"
+            seed_values = device_data_crud.get_seed_values_before(
+                device_uid,
+                before=start,
+                fields=state_fields,
+                source=seed_source,
+            )
+            if seed_values:
+                response = [
+                    serialize_document(
+                        {
+                            "_id": {"seed": True, "bucket": start.isoformat()},
+                            "device_id": device_uid,
+                            "ts": start,
+                            "data": {},
+                            "seed": seed_values,
+                        }
+                    )
+                ]
+                timings["seed_query_ms"] = round((time.perf_counter() - stage_started_at) * 1000, 2)
+                timings["serialize_ms"] = 0
+                timings["total_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
+                logger.info(
+                    "device_data_timing uid=%s granularity=%s buckets=%s timings=%s",
+                    device_uid,
+                    selected_granularity,
+                    len(response),
+                    timings,
+                )
+                return response
+
+        timings["total_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
+        logger.info(
+            "device_data_timing uid=%s granularity=%s buckets=0 timings=%s",
+            device_uid,
+            selected_granularity,
+            timings,
+        )
+        return []
+
     if start and state_fields:
         seed_source = "raw"
         if selected_granularity == "minute" and minute_rollup_ts and start >= minute_rollup_ts:

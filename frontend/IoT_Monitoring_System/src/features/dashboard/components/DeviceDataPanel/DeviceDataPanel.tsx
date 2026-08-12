@@ -27,7 +27,11 @@ import {
   RESIZE_HANDLES,
 } from "./utils/deviceDataPanelConstants";
 import { useSectionModalState } from "./state/deviceDataPanelState";
-import type { DeviceDataPanelProps, PanelLayoutItem, PanelSection } from "./types/deviceDataPanelTypes";
+import type {
+  DeviceDataPanelProps,
+  PanelLayoutItem,
+  PanelSection,
+} from "./types/deviceDataPanelTypes";
 import type { LineGranularity } from "../DeviceDataChart/types/deviceDataChartTypes";
 import { useDeviceChartData } from "../DeviceDataChart/hooks/useDeviceChartData";
 import {
@@ -41,7 +45,11 @@ import {
   parseCustomRangeInputMs,
   usesDateOnlyCustomRangeInput,
 } from "../DeviceDataChart/utils/deviceDataChartUtils";
-import { getRangeGranularity } from "../DeviceDataChart/utils/deviceChartHelpers";
+import {
+  formatStatNumber,
+  formatStatUnitValue,
+  getRangeGranularity,
+} from "../DeviceDataChart/utils/deviceChartHelpers";
 import { useOutsideMenuClose } from "../../hooks/useOutsideMenuClose";
 import {
   buildListModalItems,
@@ -122,6 +130,18 @@ const getCountTotal = (value: unknown) => {
 const formatCountTotal = (count: number, unit: string) => {
   const display = Number.isInteger(count) ? String(count) : String(count);
   return unit ? `${display} ${unit}` : display;
+};
+
+const parsePanelNumber = (value: unknown) => {
+  if (typeof value === "boolean") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 };
 
 function DeviceDataCardContent({ label, labelColor, value }: DeviceDataCardContentProps) {
@@ -472,10 +492,15 @@ export function DeviceDataPanel<T extends string>({
       return label;
     }
     const displayValue = filterMode === "raw" ? getFieldValue(field) : (() => {
-      const value = getDisplayFormattedValue(field);
+      const rawValue = getDisplayRawValue(field);
       const unit = getFieldUnit(field);
+      const numericValue = parsePanelNumber(rawValue);
+      if (fieldType === "number" && numericValue !== null) {
+        return formatStatUnitValue(formatStatNumber(numericValue, 2), unit);
+      }
+      const value = getDisplayFormattedValue(field);
       if (!unit || value === "--") return value;
-      return `${value} ${unit}`;
+      return formatStatUnitValue(value, unit);
     })();
     if (fieldType !== "text") {
       return displayValue;
