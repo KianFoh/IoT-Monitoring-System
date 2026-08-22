@@ -20,6 +20,16 @@ export function useUserDeviceColumns(
         header: "Name",
       },
       {
+        accessorKey: "customer_name",
+        header: "Customer",
+        cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
+      },
+      {
+        accessorKey: "department_name",
+        header: "Department",
+        cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
+      },
+      {
         accessorKey: "machine",
         header: "Machine",
         cell: (info) => <>{info.getValue<string | null>() || "-"}</>,

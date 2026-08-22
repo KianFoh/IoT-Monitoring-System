@@ -21,13 +21,13 @@ export function useDeviceColumns(
         header: "Name",
       },
       {
-        accessorKey: "department_name",
-        header: "Department",
+        accessorKey: "customer_name",
+        header: "Customer",
         cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
       },
       {
-        accessorKey: "customer_name",
-        header: "Customer",
+        accessorKey: "department_name",
+        header: "Department",
         cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
       },
       {
