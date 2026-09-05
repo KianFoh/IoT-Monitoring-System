@@ -30,6 +30,24 @@ _field_config_cache: Dict[Tuple[str, str], Tuple[List[str], Dict[str, str], Dict
 _field_config_cache_lock = Lock()
 
 
+def _parse_id_list(value: str | None) -> list[int]:
+    if not value:
+        return []
+    ids: list[int] = []
+    for raw_item in value.split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        try:
+            ids.append(int(item))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Filter IDs must be comma-separated integers",
+            )
+    return list(dict.fromkeys(ids))
+
+
 def _normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
     if value is None:
         return None
@@ -174,16 +192,19 @@ def get_devices(
     search: Optional[str] = Query(None, description="Search by UID, device name, department or customer"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
+    distributor_ids: Optional[str] = Query(None, description="Comma-separated distributor IDs"),
+    customer_ids: Optional[str] = Query(None, description="Comma-separated customer IDs"),
+    department_ids: Optional[str] = Query(None, description="Comma-separated department IDs"),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get devices with pagination and search."""
+    """Get devices with pagination, search, and optional hierarchy filters."""
     require_role(current_user, [UserRole.superuser, UserRole.user])
 
-    department_ids = None
+    accessible_department_ids = None
     if current_user.role == UserRole.user:
-        department_ids = _user_department_ids(db, current_user)
-        if not department_ids:
+        accessible_department_ids = _user_department_ids(db, current_user)
+        if not accessible_department_ids:
             return DeviceListResponse(
                 items=[],
                 total=0,
@@ -200,7 +221,10 @@ def get_devices(
         search=search.strip() if search else None,
         page=page,
         page_size=page_size,
-        department_ids=department_ids,
+        department_ids=accessible_department_ids,
+        distributor_ids=_parse_id_list(distributor_ids),
+        customer_ids=_parse_id_list(customer_ids),
+        filter_department_ids=_parse_id_list(department_ids),
         include_customer_name=include_customer_name,
         include_department_name=include_department_name,
         include_machine_name=include_machine_name,

@@ -82,17 +82,30 @@ def get_devices(
     page_size: int = 10,
     department_id: Optional[int] = None,
     department_ids: Optional[list[int]] = None,
+    distributor_ids: Optional[list[int]] = None,
+    customer_ids: Optional[list[int]] = None,
+    filter_department_ids: Optional[list[int]] = None,
     include_customer_name: bool = True,
     include_department_name: bool = True,
     include_machine_name: bool = True,
 ):
     """Get devices with optional search and pagination, enriched with customer/department names."""
     query = _base_device_query(db)
+    distributor_ids = distributor_ids or []
+    customer_ids = customer_ids or []
+    filter_department_ids = filter_department_ids or []
 
     if department_ids is not None:
         query = query.filter(DeviceModel.department_id.in_(department_ids) if department_ids else false())
     elif department_id is not None:
         query = query.filter(DeviceModel.department_id == department_id)
+
+    if distributor_ids:
+        query = query.filter(CustomerModel.distributor_id.in_(distributor_ids))
+    if customer_ids:
+        query = query.filter(DepartmentModel.customer_id.in_(customer_ids))
+    if filter_department_ids:
+        query = query.filter(DeviceModel.department_id.in_(filter_department_ids))
 
     if search:
         like = f"%{search.lower()}%"

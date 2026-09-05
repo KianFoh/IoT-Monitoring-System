@@ -13,6 +13,23 @@ from app.utils.ws_events import broadcast_department_event
 
 router = APIRouter(prefix="/departments", tags=["departments"])
 
+def _parse_id_list(value: str | None) -> list[int]:
+    if not value:
+        return []
+    ids: list[int] = []
+    for raw_item in value.split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        try:
+            ids.append(int(item))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Filter IDs must be comma-separated integers",
+            )
+    return list(dict.fromkeys(ids))
+
 # ==================== Count ====================
 @router.get("/count", response_model=int)
 def count_departments(
@@ -70,10 +87,12 @@ def list_departments(
     search: str | None = Query(None, description="Search by department or customer name"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
+    distributor_ids: str | None = Query(None, description="Comma-separated distributor IDs"),
+    customer_ids: str | None = Query(None, description="Comma-separated customer IDs"),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all departments with pagination."""
+    """Get all departments with pagination and optional hierarchy filters."""
     require_role(current_user, [UserRole.superuser])
 
     items, total = department_crud.get_departments(
@@ -81,6 +100,8 @@ def list_departments(
         search=search.strip() if search else None,
         page=page,
         page_size=page_size,
+        distributor_ids=_parse_id_list(distributor_ids),
+        customer_ids=_parse_id_list(customer_ids),
     )
     return DepartmentListResponse(
         items=items,

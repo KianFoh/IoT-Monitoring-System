@@ -73,9 +73,24 @@ def _serialize_department_row(row) -> DepartmentOut:
         }
     )
 
-def get_departments(db: Session, search: Optional[str] = None, page: int = 1, page_size: int = 10):
-    """Get all departments with pagination and optional search."""
+def get_departments(
+    db: Session,
+    search: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+    distributor_ids: Optional[list[int]] = None,
+    customer_ids: Optional[list[int]] = None,
+):
+    """Get all departments with pagination, optional search, and hierarchy filters."""
     query = _base_department_query(db)
+    distributor_ids = distributor_ids or []
+    customer_ids = customer_ids or []
+
+    if distributor_ids:
+        query = query.filter(CustomerModel.distributor_id.in_(distributor_ids))
+    if customer_ids:
+        query = query.filter(DepartmentModel.customer_id.in_(customer_ids))
+
     if search:
         like = f"%{search.lower()}%"
         query = query.filter(

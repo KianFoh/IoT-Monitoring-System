@@ -4,9 +4,25 @@ import { buildDepartmentSearchParams, buildListParams, type ListParams } from ".
 
 const BASE_PATH = "/departments";
 
+export type DepartmentListParams = ListParams & {
+  distributor_ids?: number[];
+  customer_ids?: number[];
+};
+
+const buildDepartmentListParams = (params: DepartmentListParams) => {
+  const listParams = buildListParams(params);
+  if (params.distributor_ids?.length) {
+    listParams.distributor_ids = params.distributor_ids.join(",");
+  }
+  if (params.customer_ids?.length) {
+    listParams.customer_ids = params.customer_ids.join(",");
+  }
+  return listParams;
+};
+
 export const departmentsApi = {
-  async list(params: ListParams) {
-    return api.get<DepartmentListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
+  async list(params: DepartmentListParams) {
+    return api.get<DepartmentListResponse>(`${BASE_PATH}/`, { params: buildDepartmentListParams(params) });
   },
 
   async create(payload: { name: string; customer_id: number }) {

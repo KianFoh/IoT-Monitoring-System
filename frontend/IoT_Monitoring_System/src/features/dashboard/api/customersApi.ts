@@ -4,9 +4,21 @@ import { buildListParams, buildNameSearchParams, type ListParams } from "./apiHe
 
 const BASE_PATH = "/customers";
 
+export type CustomerListParams = ListParams & {
+  distributor_ids?: number[];
+};
+
+const buildCustomerListParams = (params: CustomerListParams) => {
+  const listParams = buildListParams(params);
+  if (params.distributor_ids?.length) {
+    listParams.distributor_ids = params.distributor_ids.join(",");
+  }
+  return listParams;
+};
+
 export const customersApi = {
-  async list(params: ListParams) {
-    return api.get<CustomerListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
+  async list(params: CustomerListParams) {
+    return api.get<CustomerListResponse>(`${BASE_PATH}/`, { params: buildCustomerListParams(params) });
   },
 
   async search({ name, limit = 10 }: { name: string; limit?: number }) {

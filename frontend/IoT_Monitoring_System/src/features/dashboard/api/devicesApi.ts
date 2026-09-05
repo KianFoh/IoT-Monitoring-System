@@ -4,9 +4,29 @@ import { buildListParams, type ListParams } from "./apiHelpers";
 
 const BASE_PATH = "/devices";
 
+export type DeviceListParams = ListParams & {
+  distributor_ids?: number[];
+  customer_ids?: number[];
+  department_ids?: number[];
+};
+
+const buildDeviceListParams = (params: DeviceListParams) => {
+  const listParams = buildListParams(params);
+  if (params.distributor_ids?.length) {
+    listParams.distributor_ids = params.distributor_ids.join(",");
+  }
+  if (params.customer_ids?.length) {
+    listParams.customer_ids = params.customer_ids.join(",");
+  }
+  if (params.department_ids?.length) {
+    listParams.department_ids = params.department_ids.join(",");
+  }
+  return listParams;
+};
+
 export const devicesApi = {
-  async list(params: ListParams) {
-    return api.get<DeviceListResponse>(`${BASE_PATH}/`, { params: buildListParams(params) });
+  async list(params: DeviceListParams) {
+    return api.get<DeviceListResponse>(`${BASE_PATH}/`, { params: buildDeviceListParams(params) });
   },
 
   async create(payload: {

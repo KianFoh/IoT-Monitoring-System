@@ -4,8 +4,17 @@ import type { CustomerListResponse } from "@/types/customer";
 import { customersApi } from "../../../api/customersApi";
 import { wsManager, type WSEvent } from "@/services/ws";
 
+export type CustomerTableFilters = {
+  distributorIds: number[];
+};
+
+const EMPTY_FILTERS: CustomerTableFilters = {
+  distributorIds: [],
+};
+
 export function useCustomersTable(initialPageSize = 5) {
   const [queryValue, setQueryValue] = useState("");
+  const [filters, setFiltersValue] = useState<CustomerTableFilters>(EMPTY_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const queryClient = useQueryClient();
@@ -15,14 +24,20 @@ export function useCustomersTable(initialPageSize = 5) {
     setQueryValue(value);
   };
 
+  const setFilters = (value: CustomerTableFilters) => {
+    setCurrentPage(1);
+    setFiltersValue(value);
+  };
+
   const { data, isPending, error } = useQuery<CustomerListResponse, Error>({
-    queryKey: ["customers", "list", { page: currentPage, pageSize, query: queryValue }],
+    queryKey: ["customers", "list", { page: currentPage, pageSize, query: queryValue, filters }],
     refetchOnMount: true,
     queryFn: async () =>
       customersApi.list({
         page: currentPage,
         page_size: pageSize,
         search: queryValue,
+        distributor_ids: filters.distributorIds,
       }),
     placeholderData: (prev) =>
       prev ?? { items: [], total: 0, page: currentPage, page_size: pageSize },
@@ -60,6 +75,8 @@ export function useCustomersTable(initialPageSize = 5) {
   return {
     query: queryValue,
     setQuery,
+    filters,
+    setFilters,
     currentPage,
     setCurrentPage,
     pageSize,

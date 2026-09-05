@@ -21,14 +21,177 @@
   flex-wrap: wrap;
 }
 
+.dashboard-search-filter-group {
+  flex: 0 1 472px;
+  width: min(100%, 472px);
+  min-width: min(100%, 280px);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .dashboard-search-wrapper {
-  flex: 1 1 auto;
+  flex: 1 1 424px;
   min-width: 220px;
+}
+
+.dashboard-search-wrapper > * {
+  width: 100%;
+}
+
+.dashboard-filter-container {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.dashboard-filter-button {
+  position: relative;
+  width: 40px;
+  height: var(--control-height-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary-100);
+  background: var(--color-overlay-white-extra-light);
+  border: 1px solid var(--color-overlay-white-medium);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.dashboard-filter-button:hover {
+  color: var(--text-white);
+  background: var(--color-primary-500);
+  border-color: var(--color-primary-500);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.dashboard-filter-button:focus-visible {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px var(--color-primary-shadow);
+}
+
+.dashboard-filter-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  color: var(--text-white);
+  background: var(--color-primary-500);
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.dashboard-filter-modal {
+  width: min(320px, calc(100vw - 32px));
+}
+
+.dashboard-filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-md);
+}
+
+.dashboard-filter-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-md);
+  margin: var(--spacing-md) 0;
+}
+
+.dashboard-filter-group {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.dashboard-filter-group h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.dashboard-filter-options {
+  min-height: 120px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding-right: var(--spacing-xs);
+  scrollbar-gutter: stable;
+}
+
+.dashboard-filter-option {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.dashboard-filter-option input {
+  flex: 0 0 auto;
+}
+
+.dashboard-filter-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.dashboard-filter-empty {
+  margin: 0;
+  padding: var(--spacing-sm);
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.dashboard-filter-options .dashboard-filter-empty {
+  color: #1e293b;
+}
+
+.dashboard-filter-clear {
+  min-height: 36px;
+  padding: 0 var(--spacing-md);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.dashboard-filter-clear:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
 }
 
 .dashboard-add-button-container {
   display: flex;
   align-items: center;
+  margin-left: auto;
 }
 
 .dashboard-add-button {
@@ -60,6 +223,15 @@
   .dashboard-search-and-action {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .dashboard-search-filter-group {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .dashboard-search-wrapper {
+    min-width: 0;
   }
 
   .dashboard-add-button-container {

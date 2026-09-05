@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FaFilter, FaPlus, FaTimes } from "react-icons/fa";
+import { FaFilter, FaPlus } from "react-icons/fa";
 import { DataTable } from "../../components/DataTable/DataTable";
 import Pagination from "../../components/Pagination/Pagination";
 import SearchFilter from "../../components/SearchFilter/SearchFilter";
 import PageSizeSelect from "../../components/PageSizeSelect/PageSizeSelect";
 import { Button } from "@/components/Button/Button";
+import { Modal } from "@/components/Modal/Modal";
 import { useUsersTable } from "./hooks/useUsersTable";
 import { useUserActions, type UserDepartmentAssignment } from "./hooks/useUserActions";
 import { useUserColumns } from "./hooks/useUserColumns";
@@ -54,6 +55,9 @@ const EMPTY_DEPARTMENT_DRAFT = {
 
 const toggleId = (ids: number[], id: number) =>
   ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
+
+const sortByName = <T extends { name: string }>(items: T[]) =>
+  [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
 export function UsersPage() {
   const {
@@ -116,9 +120,9 @@ export function UsersPage() {
     queryFn: () => departmentsApi.list({ page: 1, page_size: 100 }),
   });
 
-  const distributors: Distributor[] = distributorData?.items ?? [];
-  const customers: Customer[] = customerData?.items ?? [];
-  const departments: Department[] = departmentData?.items ?? [];
+  const distributors: Distributor[] = useMemo(() => sortByName(distributorData?.items ?? []), [distributorData]);
+  const customers: Customer[] = useMemo(() => sortByName(customerData?.items ?? []), [customerData]);
+  const departments: Department[] = useMemo(() => sortByName(departmentData?.items ?? []), [departmentData]);
 
   const visibleCustomers = useMemo(() => {
     if (!filters.distributorIds.length) return customers;
@@ -386,78 +390,29 @@ export function UsersPage() {
 
       <div className={styles["dashboard-devices-topbar"]}>
         <div className={styles["dashboard-search-and-action"]}>
-          <div className={styles["dashboard-search-wrapper"]}>
-            <SearchFilter
-              value={query}
-              onChange={setQuery}
-              placeholder="Search users by email, customer, or department..."
-            />
-          </div>
+          <div className={styles["dashboard-search-filter-group"]}>
+            <div className={styles["dashboard-search-wrapper"]}>
+              <SearchFilter
+                value={query}
+                onChange={setQuery}
+                placeholder="Search users by email, customer, or department..."
+              />
+            </div>
 
-          <div className={styles["dashboard-filter-container"]}>
-            <button
-              type="button"
-              className={styles["dashboard-filter-button"]}
-              onClick={() => setShowFilterOverlay((prev) => !prev)}
-              aria-label="Filter users"
-              aria-expanded={showFilterOverlay}
-            >
-              <FaFilter aria-hidden />
-              {activeFilterCount > 0 && (
-                <span className={styles["dashboard-filter-count"]}>{activeFilterCount}</span>
-              )}
-            </button>
-
-            {showFilterOverlay && (
-              <div className={styles["dashboard-filter-overlay"]} role="dialog" aria-label="User filters">
-                <div className={styles["dashboard-filter-header"]}>
-                  <strong>Filter users</strong>
-                  <button
-                    type="button"
-                    className={styles["dashboard-filter-close"]}
-                    onClick={() => setShowFilterOverlay(false)}
-                    aria-label="Close filters"
-                  >
-                    <FaTimes aria-hidden />
-                  </button>
-                </div>
-
-                <div className={styles["dashboard-filter-content"]}>
-                  <FilterGroup
-                    title="Distributor"
-                    items={distributors}
-                    selectedIds={filters.distributorIds}
-                    onToggle={handleDistributorFilterChange}
-                    emptyMessage="No distributors found"
-                  />
-                  <FilterGroup
-                    title="Customer"
-                    items={visibleCustomers}
-                    selectedIds={filters.customerIds}
-                    onToggle={handleCustomerFilterChange}
-                    emptyMessage="No customers found"
-                  />
-                  <FilterGroup
-                    title="Department"
-                    items={visibleDepartments}
-                    selectedIds={filters.departmentIds}
-                    onToggle={handleDepartmentFilterChange}
-                    emptyMessage="No departments found"
-                  />
-                </div>
-
-                <div className={styles["dashboard-filter-footer"]}>
-                  <button
-                    type="button"
-                    className={styles["dashboard-filter-clear"]}
-                    onClick={clearUserFilters}
-                    disabled={activeFilterCount === 0}
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className={styles["dashboard-filter-container"]}>
+              <button
+                type="button"
+                className={styles["dashboard-filter-button"]}
+                onClick={() => setShowFilterOverlay(true)}
+                aria-label="Filter users"
+                aria-expanded={showFilterOverlay}
+              >
+                <FaFilter aria-hidden />
+                {activeFilterCount > 0 && (
+                  <span className={styles["dashboard-filter-count"]}>{activeFilterCount}</span>
+                )}
+              </button>
+            </div>
           </div>
 
           <div className={styles["dashboard-add-button-container"]}>
@@ -476,7 +431,8 @@ export function UsersPage() {
 
       <DataTable
         data={users}
-        columns={columns}        emptyMessage={emptyMessage}
+        columns={columns}
+        emptyMessage={emptyMessage}
       />
 
       <div className={styles["dashboard-pagination-row"]}>
@@ -503,6 +459,49 @@ export function UsersPage() {
         departmentAutocomplete={departmentAutocomplete}
         actions={actions}
       />
+
+      <Modal
+        isOpen={showFilterOverlay}
+        onClose={() => setShowFilterOverlay(false)}
+        title="Filter users"
+        className={styles["dashboard-filter-modal"]}
+        footer={
+          <div className={styles["dashboard-filter-footer"]}>
+            <button
+              type="button"
+              className={styles["dashboard-filter-clear"]}
+              onClick={clearUserFilters}
+              disabled={activeFilterCount === 0}
+            >
+              Clear filters
+            </button>
+          </div>
+        }
+      >
+        <div className={styles["dashboard-filter-content"]}>
+          <FilterGroup
+            title="Distributor"
+            items={distributors}
+            selectedIds={filters.distributorIds}
+            onToggle={handleDistributorFilterChange}
+            emptyMessage="No distributors found"
+          />
+          <FilterGroup
+            title="Customer"
+            items={visibleCustomers}
+            selectedIds={filters.customerIds}
+            onToggle={handleCustomerFilterChange}
+            emptyMessage="No customers found"
+          />
+          <FilterGroup
+            title="Department"
+            items={visibleDepartments}
+            selectedIds={filters.departmentIds}
+            onToggle={handleDepartmentFilterChange}
+            emptyMessage="No departments found"
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

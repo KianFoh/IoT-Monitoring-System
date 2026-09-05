@@ -57,9 +57,20 @@ def get_customer_with_references(db: Session, customer_id: int):
         return None
     return _serialize_customer_row(row)
 
-def get_customers(db: Session, search: str | None = None, page: int = 1, page_size: int = 10):
-    """Get a list of customers with pagination and optional search (name or phone)."""
+def get_customers(
+    db: Session,
+    search: str | None = None,
+    page: int = 1,
+    page_size: int = 10,
+    distributor_ids: list[int] | None = None,
+):
+    """Get a list of customers with pagination, optional search, and distributor filters."""
     query = _base_customer_query(db)
+    distributor_ids = distributor_ids or []
+
+    if distributor_ids:
+        query = query.filter(CustomerModel.distributor_id.in_(distributor_ids))
+
     if search:
         like = f"%{search}%"
         query = query.filter(

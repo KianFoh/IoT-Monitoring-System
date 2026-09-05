@@ -7,9 +7,10 @@ type ModalProps = PropsWithChildren<{
   onClose: () => void;
   title?: string;
   footer?: ReactNode;
+  className?: string;
 }>;
 
-export function Modal({ isOpen, onClose, title, footer, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, footer, children, className }: ModalProps) {
   const mouseDownOnOverlay = useRef(false);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -32,7 +33,7 @@ export function Modal({ isOpen, onClose, title, footer, children }: ModalProps) 
 
   return (
     <div className={styles["gen-modal-overlay"]} role="dialog" aria-modal="true" onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}>
-      <div className={styles["gen-modal"]} onClick={stopPropagation}>
+      <div className={[styles["gen-modal"], className].filter(Boolean).join(" ")} onClick={stopPropagation}>
         <div className={styles["gen-modal-header"]}>
           {title && <h3 className={styles["gen-modal-title"]}>{title}</h3>}
           <button className={styles["gen-modal-close"]} aria-label="Close" onClick={onClose}>

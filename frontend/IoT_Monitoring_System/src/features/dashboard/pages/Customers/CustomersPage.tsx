@@ -1,17 +1,19 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { FaPlus } from "react-icons/fa";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { FaFilter, FaPlus } from "react-icons/fa";
 import { DataTable } from "../../components/DataTable/DataTable";
 import Pagination from "../../components/Pagination/Pagination";
 import SearchFilter from "../../components/SearchFilter/SearchFilter";
 import PageSizeSelect from "../../components/PageSizeSelect/PageSizeSelect";
 import { Button } from "@/components/Button/Button";
+import { Modal } from "@/components/Modal/Modal";
 import { useCustomersTable } from "./hooks/useCustomersTable";
 import { useCustomerActions } from "./hooks/useCustomerActions";
 import { useCustomerColumns } from "./hooks/useCustomerColumns";
 import { useSearchAutocomplete } from "../../hooks/useSearchAutocomplete";
 import { CustomersPageModals } from "./CustomersPageModals";
 import { distributorsApi } from "../../api/distributorsApi";
-import type { DistributorSearch } from "@/types/distributor";
+import type { Distributor, DistributorSearch } from "@/types/distributor";
 import styles from "./CustomersPage.module.css";
 
 const findDistributorId = (name: string, options: DistributorSearch[]) => {
@@ -21,10 +23,18 @@ const findDistributorId = (name: string, options: DistributorSearch[]) => {
   return match ? match.id : null;
 };
 
+const toggleId = (ids: number[], id: number) =>
+  ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
+
+const sortByName = <T extends { name: string }>(items: T[]) =>
+  [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
 export function CustomersPage() {
   const {
     query,
     setQuery,
+    filters,
+    setFilters,
     currentPage,
     setCurrentPage,
     pageSize,
@@ -54,6 +64,27 @@ export function CustomersPage() {
 
   const [addStep, setAddStep] = useState<"distributor" | "details">("distributor");
   const [addStepError, setAddStepError] = useState<string | null>(null);
+  const [showFilterOverlay, setShowFilterOverlay] = useState(false);
+
+  const { data: distributorData } = useQuery({
+    queryKey: ["customers", "filters", "distributors"],
+    queryFn: () => distributorsApi.list({ page: 1, page_size: 100 }),
+  });
+
+  const distributors: Distributor[] = useMemo(() => sortByName(distributorData?.items ?? []), [distributorData]);
+  const activeFilterCount = filters.distributorIds.length;
+
+  const handleDistributorFilterChange = (id: number) => {
+    setFilters({
+      distributorIds: toggleId(filters.distributorIds, id),
+    });
+  };
+
+  const clearCustomerFilters = () => {
+    setFilters({
+      distributorIds: [],
+    });
+  };
 
   const addDistributorAutocomplete = useSearchAutocomplete<DistributorSearch>({
     value: addForm.distributor_name,
@@ -114,12 +145,29 @@ export function CustomersPage() {
 
       <div className={styles["dashboard-devices-topbar"]}>
         <div className={styles["dashboard-search-and-action"]}>
-          <div className={styles["dashboard-search-wrapper"]}>
-            <SearchFilter
-              value={query}
-              onChange={(v) => setQuery(v)}
-              placeholder="Search customers by name, phone, or distributor..."
-            />
+          <div className={styles["dashboard-search-filter-group"]}>
+            <div className={styles["dashboard-search-wrapper"]}>
+              <SearchFilter
+                value={query}
+                onChange={(v) => setQuery(v)}
+                placeholder="Search customers by name, phone, or distributor..."
+              />
+            </div>
+
+            <div className={styles["dashboard-filter-container"]}>
+              <button
+                type="button"
+                className={styles["dashboard-filter-button"]}
+                onClick={() => setShowFilterOverlay(true)}
+                aria-label="Filter customers"
+                aria-expanded={showFilterOverlay}
+              >
+                <FaFilter aria-hidden />
+                {activeFilterCount > 0 && (
+                  <span className={styles["dashboard-filter-count"]}>{activeFilterCount}</span>
+                )}
+              </button>
+            </div>
           </div>
 
           <div className={styles["dashboard-add-button-container"]}>
@@ -136,7 +184,8 @@ export function CustomersPage() {
       {error && <p>{error}</p>}
       <DataTable
         data={customers}
-        columns={columns}        emptyMessage={loading ? "Loading customers..." : "No customers found"}
+        columns={columns}
+        emptyMessage={loading ? "Loading customers..." : "No customers found"}
       />
 
       <div className={styles["dashboard-pagination-row"]}>
@@ -183,6 +232,76 @@ export function CustomersPage() {
           onDelete: customerActions.handleDelete,
         }}
       />
+
+      <Modal
+        isOpen={showFilterOverlay}
+        onClose={() => setShowFilterOverlay(false)}
+        title="Filter customers"
+        className={styles["dashboard-filter-modal"]}
+        footer={
+          <div className={styles["dashboard-filter-footer"]}>
+            <button
+              type="button"
+              className={styles["dashboard-filter-clear"]}
+              onClick={clearCustomerFilters}
+              disabled={activeFilterCount === 0}
+            >
+              Clear filters
+            </button>
+          </div>
+        }
+      >
+        <div className={styles["dashboard-filter-content"]}>
+          <FilterGroup
+            title="Distributor"
+            items={distributors}
+            selectedIds={filters.distributorIds}
+            onToggle={handleDistributorFilterChange}
+            emptyMessage="No distributors found"
+          />
+        </div>
+      </Modal>
     </div>
+  );
+}
+
+type FilterItem = {
+  id: number;
+  name: string;
+};
+
+function FilterGroup({
+  title,
+  items,
+  selectedIds,
+  onToggle,
+  emptyMessage,
+}: {
+  title: string;
+  items: FilterItem[];
+  selectedIds: number[];
+  onToggle: (id: number) => void;
+  emptyMessage: string;
+}) {
+  return (
+    <section className={styles["dashboard-filter-group"]}>
+      <h2>{title}</h2>
+      <div className={styles["dashboard-filter-options"]}>
+        {items.length ? (
+          items.map((item) => (
+            <label key={item.id} className={styles["dashboard-filter-option"]}>
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(item.id)}
+                onChange={() => onToggle(item.id)}
+              />
+              <span>{item.name}</span>
+            </label>
+          ))
+        ) : (
+          <p className={styles["dashboard-filter-empty"]}>{emptyMessage}</p>
+        )}
+      </div>
+    </section>
   );
 }

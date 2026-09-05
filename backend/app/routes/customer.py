@@ -11,6 +11,23 @@ from app.schemas.customer import CustomerCreate, CustomerSearch, CustomerUpdate,
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
+def _parse_id_list(value: str | None) -> list[int]:
+    if not value:
+        return []
+    ids: list[int] = []
+    for raw_item in value.split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        try:
+            ids.append(int(item))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Filter IDs must be comma-separated integers",
+            )
+    return list(dict.fromkeys(ids))
+
 # ==================== Count ====================
 @router.get("/count", response_model=int)
 def count_customers(
@@ -71,10 +88,11 @@ def list_customers(
     search: str | None = Query(None, description="Search by name"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
+    distributor_ids: str | None = Query(None, description="Comma-separated distributor IDs"),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List all customers with pagination."""
+    """List all customers with pagination and optional distributor filters."""
     require_role(current_user, [UserRole.superuser])
 
     items, total = customer_crud.get_customers(
@@ -82,6 +100,7 @@ def list_customers(
         search=search.strip() if search else None,
         page=page,
         page_size=page_size,
+        distributor_ids=_parse_id_list(distributor_ids),
     )
     return CustomerListResponse(
         items=items,

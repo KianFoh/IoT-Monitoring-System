@@ -4,8 +4,19 @@ import type { DepartmentListResponse } from "@/types/department";
 import { departmentsApi } from "../../../api/departmentsApi";
 import { wsManager, type WSEvent } from "@/services/ws";
 
+export type DepartmentTableFilters = {
+  distributorIds: number[];
+  customerIds: number[];
+};
+
+const EMPTY_FILTERS: DepartmentTableFilters = {
+  distributorIds: [],
+  customerIds: [],
+};
+
 export function useDepartmentsTable(initialPageSize = 5) {
   const [queryValue, setQueryValue] = useState("");
+  const [filters, setFiltersValue] = useState<DepartmentTableFilters>(EMPTY_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const queryClient = useQueryClient();
@@ -15,14 +26,21 @@ export function useDepartmentsTable(initialPageSize = 5) {
     setQueryValue(value);
   };
 
+  const setFilters = (value: DepartmentTableFilters) => {
+    setCurrentPage(1);
+    setFiltersValue(value);
+  };
+
   const { data, isPending, error } = useQuery<DepartmentListResponse, Error>({
-    queryKey: ["departments", "list", { page: currentPage, pageSize, query: queryValue }],
+    queryKey: ["departments", "list", { page: currentPage, pageSize, query: queryValue, filters }],
     refetchOnMount: true,
     queryFn: async () =>
       departmentsApi.list({
         page: currentPage,
         page_size: pageSize,
         search: queryValue,
+        distributor_ids: filters.distributorIds,
+        customer_ids: filters.customerIds,
       }),
     placeholderData: (prev) =>
       prev ?? { items: [], total: 0, page: currentPage, page_size: pageSize },
@@ -53,6 +71,8 @@ export function useDepartmentsTable(initialPageSize = 5) {
   return {
     query: queryValue,
     setQuery,
+    filters,
+    setFilters,
     currentPage,
     setCurrentPage,
     pageSize,
