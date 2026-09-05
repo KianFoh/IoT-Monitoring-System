@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { FaPlus } from "react-icons/fa";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { FaFilter, FaPlus, FaTimes } from "react-icons/fa";
 import { DataTable } from "../../components/DataTable/DataTable";
 import Pagination from "../../components/Pagination/Pagination";
 import SearchFilter from "../../components/SearchFilter/SearchFilter";
@@ -11,6 +12,10 @@ import { useUserColumns } from "./hooks/useUserColumns";
 import { useSearchAutocomplete } from "../../hooks/useSearchAutocomplete";
 import { customersApi } from "../../api/customersApi";
 import { departmentsApi } from "../../api/departmentsApi";
+import { distributorsApi } from "../../api/distributorsApi";
+import type { Distributor } from "@/types/distributor";
+import type { Customer } from "@/types/customer";
+import type { Department } from "@/types/department";
 import type { CustomerSearch } from "@/types/customer";
 import type { DepartmentSearch } from "@/types/department";
 import type { UserRole } from "@/types/user";
@@ -47,10 +52,15 @@ const EMPTY_DEPARTMENT_DRAFT = {
   department_id: null as number | null,
 };
 
+const toggleId = (ids: number[], id: number) =>
+  ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
+
 export function UsersPage() {
   const {
     query,
     setQuery,
+    filters,
+    setFilters,
     currentPage,
     setCurrentPage,
     pageSize,
@@ -89,6 +99,78 @@ export function UsersPage() {
   const [departmentDraft, setDepartmentDraft] = useState(EMPTY_DEPARTMENT_DRAFT);
   const [departmentStepError, setDepartmentStepError] = useState<string | null>(null);
   const [showEditPassword, setShowEditPassword] = useState(false);
+  const [showFilterOverlay, setShowFilterOverlay] = useState(false);
+
+  const { data: distributorData } = useQuery({
+    queryKey: ["users", "filters", "distributors"],
+    queryFn: () => distributorsApi.list({ page: 1, page_size: 100 }),
+  });
+
+  const { data: customerData } = useQuery({
+    queryKey: ["users", "filters", "customers"],
+    queryFn: () => customersApi.list({ page: 1, page_size: 100 }),
+  });
+
+  const { data: departmentData } = useQuery({
+    queryKey: ["users", "filters", "departments"],
+    queryFn: () => departmentsApi.list({ page: 1, page_size: 100 }),
+  });
+
+  const distributors: Distributor[] = distributorData?.items ?? [];
+  const customers: Customer[] = customerData?.items ?? [];
+  const departments: Department[] = departmentData?.items ?? [];
+
+  const visibleCustomers = useMemo(() => {
+    if (!filters.distributorIds.length) return customers;
+    return customers.filter((customer) =>
+      customer.distributor_id != null && filters.distributorIds.includes(customer.distributor_id)
+    );
+  }, [customers, filters.distributorIds]);
+
+  const visibleDepartments = useMemo(() => {
+    if (filters.customerIds.length) {
+      return departments.filter((department) => filters.customerIds.includes(department.customer_id));
+    }
+    if (filters.distributorIds.length) {
+      const visibleCustomerIds = new Set(visibleCustomers.map((customer) => customer.id));
+      return departments.filter((department) => visibleCustomerIds.has(department.customer_id));
+    }
+    return departments;
+  }, [departments, filters.customerIds, filters.distributorIds, visibleCustomers]);
+
+  const activeFilterCount =
+    filters.distributorIds.length + filters.customerIds.length + filters.departmentIds.length;
+
+  const handleDistributorFilterChange = (id: number) => {
+    setFilters({
+      distributorIds: toggleId(filters.distributorIds, id),
+      customerIds: [],
+      departmentIds: [],
+    });
+  };
+
+  const handleCustomerFilterChange = (id: number) => {
+    setFilters({
+      ...filters,
+      customerIds: toggleId(filters.customerIds, id),
+      departmentIds: [],
+    });
+  };
+
+  const handleDepartmentFilterChange = (id: number) => {
+    setFilters({
+      ...filters,
+      departmentIds: toggleId(filters.departmentIds, id),
+    });
+  };
+
+  const clearUserFilters = () => {
+    setFilters({
+      distributorIds: [],
+      customerIds: [],
+      departmentIds: [],
+    });
+  };
 
   const resetDepartmentState = () => {
     setAddView("details");
@@ -312,6 +394,72 @@ export function UsersPage() {
             />
           </div>
 
+          <div className={styles["dashboard-filter-container"]}>
+            <button
+              type="button"
+              className={styles["dashboard-filter-button"]}
+              onClick={() => setShowFilterOverlay((prev) => !prev)}
+              aria-label="Filter users"
+              aria-expanded={showFilterOverlay}
+            >
+              <FaFilter aria-hidden />
+              {activeFilterCount > 0 && (
+                <span className={styles["dashboard-filter-count"]}>{activeFilterCount}</span>
+              )}
+            </button>
+
+            {showFilterOverlay && (
+              <div className={styles["dashboard-filter-overlay"]} role="dialog" aria-label="User filters">
+                <div className={styles["dashboard-filter-header"]}>
+                  <strong>Filter users</strong>
+                  <button
+                    type="button"
+                    className={styles["dashboard-filter-close"]}
+                    onClick={() => setShowFilterOverlay(false)}
+                    aria-label="Close filters"
+                  >
+                    <FaTimes aria-hidden />
+                  </button>
+                </div>
+
+                <div className={styles["dashboard-filter-content"]}>
+                  <FilterGroup
+                    title="Distributor"
+                    items={distributors}
+                    selectedIds={filters.distributorIds}
+                    onToggle={handleDistributorFilterChange}
+                    emptyMessage="No distributors found"
+                  />
+                  <FilterGroup
+                    title="Customer"
+                    items={visibleCustomers}
+                    selectedIds={filters.customerIds}
+                    onToggle={handleCustomerFilterChange}
+                    emptyMessage="No customers found"
+                  />
+                  <FilterGroup
+                    title="Department"
+                    items={visibleDepartments}
+                    selectedIds={filters.departmentIds}
+                    onToggle={handleDepartmentFilterChange}
+                    emptyMessage="No departments found"
+                  />
+                </div>
+
+                <div className={styles["dashboard-filter-footer"]}>
+                  <button
+                    type="button"
+                    className={styles["dashboard-filter-clear"]}
+                    onClick={clearUserFilters}
+                    disabled={activeFilterCount === 0}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className={styles["dashboard-add-button-container"]}>
             <Button
               icon={FaPlus}
@@ -356,5 +504,46 @@ export function UsersPage() {
         actions={actions}
       />
     </div>
+  );
+}
+
+type FilterItem = {
+  id: number;
+  name: string;
+};
+
+function FilterGroup({
+  title,
+  items,
+  selectedIds,
+  onToggle,
+  emptyMessage,
+}: {
+  title: string;
+  items: FilterItem[];
+  selectedIds: number[];
+  onToggle: (id: number) => void;
+  emptyMessage: string;
+}) {
+  return (
+    <section className={styles["dashboard-filter-group"]}>
+      <h2>{title}</h2>
+      <div className={styles["dashboard-filter-options"]}>
+        {items.length ? (
+          items.map((item) => (
+            <label key={item.id} className={styles["dashboard-filter-option"]}>
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(item.id)}
+                onChange={() => onToggle(item.id)}
+              />
+              <span>{item.name}</span>
+            </label>
+          ))
+        ) : (
+          <p className={styles["dashboard-filter-empty"]}>{emptyMessage}</p>
+        )}
+      </div>
+    </section>
   );
 }

@@ -4,8 +4,21 @@ import type { UserListResponse } from "@/types/user";
 import { usersApi } from "../../../api/usersApi";
 import { wsManager, type WSEvent } from "@/services/ws";
 
+export type UserTableFilters = {
+  distributorIds: number[];
+  customerIds: number[];
+  departmentIds: number[];
+};
+
+const EMPTY_FILTERS: UserTableFilters = {
+  distributorIds: [],
+  customerIds: [],
+  departmentIds: [],
+};
+
 export function useUsersTable(initialPageSize = 5) {
   const [queryValue, setQueryValue] = useState("");
+  const [filters, setFiltersValue] = useState<UserTableFilters>(EMPTY_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const queryClient = useQueryClient();
@@ -15,14 +28,22 @@ export function useUsersTable(initialPageSize = 5) {
     setQueryValue(value);
   };
 
+  const setFilters = (value: UserTableFilters) => {
+    setCurrentPage(1);
+    setFiltersValue(value);
+  };
+
   const { data, isPending, error } = useQuery<UserListResponse, Error>({
-    queryKey: ["users", "list", { page: currentPage, pageSize, query: queryValue }],
+    queryKey: ["users", "list", { page: currentPage, pageSize, query: queryValue, filters }],
     refetchOnMount: true,
     queryFn: async () =>
       usersApi.list({
         page: currentPage,
         page_size: pageSize,
         search: queryValue,
+        distributor_ids: filters.distributorIds,
+        customer_ids: filters.customerIds,
+        department_ids: filters.departmentIds,
       }),
     placeholderData: (prev) =>
       prev ?? { items: [], total: 0, page: currentPage, page_size: pageSize },
@@ -53,6 +74,8 @@ export function useUsersTable(initialPageSize = 5) {
   return {
     query: queryValue,
     setQuery,
+    filters,
+    setFilters,
     currentPage,
     setCurrentPage,
     pageSize,

@@ -25,6 +25,24 @@ AVATARS_DIR.mkdir(parents=True, exist_ok=True)
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
 
+def _parse_id_list(value: str | None) -> list[int]:
+    if not value:
+        return []
+    ids: list[int] = []
+    for raw_item in value.split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        try:
+            ids.append(int(item))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Filter IDs must be comma-separated integers",
+            )
+    return list(dict.fromkeys(ids))
+
+
 def _delete_avatar_file(profile_path: str | None) -> None:
     if not profile_path:
         return
@@ -104,6 +122,9 @@ def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     department_id: Optional[int] = Query(None),
+    distributor_ids: Optional[str] = Query(None, description="Comma-separated distributor IDs"),
+    customer_ids: Optional[str] = Query(None, description="Comma-separated customer IDs"),
+    department_ids: Optional[str] = Query(None, description="Comma-separated department IDs"),
     role: Optional[str] = Query(None),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -117,6 +138,9 @@ def list_users(
         page=page,
         page_size=page_size,
         department_id=department_id,
+        distributor_ids=_parse_id_list(distributor_ids),
+        customer_ids=_parse_id_list(customer_ids),
+        department_ids=_parse_id_list(department_ids),
         role=role
     )
     return UserListResponse(

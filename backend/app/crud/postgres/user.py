@@ -148,18 +148,28 @@ def get_users(
     page: int = 1,
     page_size: int = 10,
     department_id: Optional[int] = None,
+    distributor_ids: Optional[list[int]] = None,
+    customer_ids: Optional[list[int]] = None,
+    department_ids: Optional[list[int]] = None,
     role: Optional[str] = None
 ):
     """Get all users with optional filters and pagination."""
     query = _base_user_query(db)
+    distributor_ids = distributor_ids or []
+    customer_ids = customer_ids or []
+    department_ids = _normalize_department_ids(department_ids, department_id)
 
-    if department_id or search:
+    if distributor_ids or customer_ids or department_ids or search:
         query = _join_departments_for_filter(query)
-    if department_id:
+    if distributor_ids:
+        query = query.filter(CustomerModel.distributor_id.in_(distributor_ids))
+    if customer_ids:
+        query = query.filter(DepartmentModel.customer_id.in_(customer_ids))
+    if department_ids:
         query = query.filter(
             or_(
-                UserModel.department_id == department_id,
-                user_department_table.c.department_id == department_id,
+                UserModel.department_id.in_(department_ids),
+                user_department_table.c.department_id.in_(department_ids),
             )
         )
     if role:
