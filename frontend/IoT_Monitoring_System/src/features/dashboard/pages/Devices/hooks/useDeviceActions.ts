@@ -29,11 +29,15 @@ export function useDeviceActions() {
     department_id: null as number | null,
     uid: "",
     name: "",
+    machine_series_number: "",
+    installation_date: "",
     machine: "",
     data_interval: String(DEFAULT_DATA_INTERVAL),
   });
   const [editForm, setEditForm] = useState({
     name: "",
+    machine_series_number: "",
+    installation_date: "",
     machine: "",
     connectivity: "wifi" as DeviceConnectivity,
     mobile_number: "",
@@ -50,6 +54,8 @@ export function useDeviceActions() {
       department_id: null,
       uid: "",
       name: "",
+      machine_series_number: "",
+      installation_date: "",
       machine: "",
       data_interval: String(DEFAULT_DATA_INTERVAL),
     });
@@ -66,6 +72,8 @@ export function useDeviceActions() {
     setSelectedDevice(device);
     setEditForm({
       name: device.name || "",
+      machine_series_number: device.machine_series_number || "",
+      installation_date: device.installation_date || "",
       machine: device.machine || "",
       connectivity: device.connectivity || "wifi",
       mobile_number: device.mobile_number || "",
@@ -101,12 +109,16 @@ export function useDeviceActions() {
     mutationFn: ({
       name,
       uid,
+      machine_series_number,
+      installation_date,
       department_id,
       machine,
       data_interval,
     }: {
       name: string;
       uid: string;
+      machine_series_number?: string | null;
+      installation_date?: string | null;
       department_id: number;
       machine?: string | null;
       data_interval: number;
@@ -114,6 +126,8 @@ export function useDeviceActions() {
       devicesApi.create({
         name,
         uid,
+        machine_series_number,
+        installation_date,
         department_id,
         machine,
         data_interval,
@@ -131,6 +145,8 @@ export function useDeviceActions() {
       id: number;
       payload: {
         name?: string;
+        machine_series_number?: string | null;
+        installation_date?: string | null;
         machine?: string | null;
         data_interval?: number;
         is_active: boolean;
@@ -179,9 +195,13 @@ export function useDeviceActions() {
     try {
       setActionError(null);
       const machine = addForm.machine.trim();
+      const machineSeriesNumber = addForm.machine_series_number.trim();
+      const installationDate = addForm.installation_date.trim();
       await addMutation.mutateAsync({
         name: addForm.name.trim(),
         uid: addForm.uid.trim(),
+        machine_series_number: machineSeriesNumber ? machineSeriesNumber : null,
+        installation_date: installationDate ? installationDate : null,
         department_id: addForm.department_id,
         machine: machine ? machine : null,
         data_interval: intervalValue,
@@ -199,6 +219,8 @@ export function useDeviceActions() {
 
     const payload: {
       name?: string;
+      machine_series_number?: string | null;
+      installation_date?: string | null;
       machine?: string | null;
       data_interval?: number;
       is_active: boolean;
@@ -210,6 +232,12 @@ export function useDeviceActions() {
     };
 
     if (editForm.name.trim()) payload.name = editForm.name.trim();
+    payload.machine_series_number = editForm.machine_series_number.trim()
+      ? editForm.machine_series_number.trim()
+      : null;
+    payload.installation_date = editForm.installation_date.trim()
+      ? editForm.installation_date.trim()
+      : null;
     payload.machine = editForm.machine.trim() ? editForm.machine.trim() : null;
     payload.connectivity = editForm.connectivity;
     const mobileNumber = editForm.mobile_number.trim();

@@ -142,12 +142,16 @@ type DeviceAddForm = {
   department_id: number | null;
   uid: string;
   name: string;
+  machine_series_number: string;
+  installation_date: string;
   machine: string;
   data_interval: string;
 };
 
 type DeviceEditForm = {
   name: string;
+  machine_series_number: string;
+  installation_date: string;
   machine: string;
   connectivity: DeviceConnectivity;
   mobile_number: string;
@@ -278,10 +282,24 @@ export function SuperuserDevicesPageModals({
               />
               <Input
                 id="add-device-name"
-                label="Device Name"
-                placeholder="Enter device name"
+                label="Machine Model"
+                placeholder="Enter machine model"
                 value={addForm.name}
                 onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <Input
+                id="add-device-machine-series-number"
+                label="Machine Series Number"
+                placeholder="Enter machine series number"
+                value={addForm.machine_series_number}
+                onChange={(e) => setAddForm((prev) => ({ ...prev, machine_series_number: e.target.value }))}
+              />
+              <Input
+                id="add-device-installation-date"
+                label="Installation"
+                type="date"
+                value={addForm.installation_date}
+                onChange={(e) => setAddForm((prev) => ({ ...prev, installation_date: e.target.value }))}
               />
               <Input
                 id="add-device-interval"
@@ -317,10 +335,24 @@ export function SuperuserDevicesPageModals({
         <form className={formStyles["dashboard-modal-form"]} onSubmit={onEditSubmit}>
           <Input
             id="edit-device-name"
-            label="Device Name"
-            placeholder="Update device name"
+            label="Machine Model"
+            placeholder="Update machine model"
             value={editForm.name}
             onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+          />
+          <Input
+            id="edit-device-machine-series-number"
+            label="Machine Series Number"
+            placeholder="Update machine series number"
+            value={editForm.machine_series_number}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, machine_series_number: e.target.value }))}
+          />
+          <Input
+            id="edit-device-installation-date"
+            label="Installation"
+            type="date"
+            value={editForm.installation_date}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, installation_date: e.target.value }))}
           />
           <Input
             id="edit-device-interval"

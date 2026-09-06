@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, BigInteger, DateTime, String, ForeignKey, Boolean, Integer, Enum, Float, JSON
+from sqlalchemy import Column, BigInteger, Date, DateTime, String, ForeignKey, Boolean, Integer, Enum, Float, JSON
 from sqlalchemy.sql import func
 from app.core.postgresql import Base
 
@@ -16,6 +16,8 @@ class Device(Base):
     is_online = Column(Boolean, default=False, nullable=False)
     uid = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
+    machine_series_number = Column(String, nullable=True)
+    installation_date = Column(Date, nullable=True)
     department_id = Column(BigInteger, ForeignKey("department.id", ondelete="SET NULL"), nullable=False)
     connectivity = Column(
         Enum(DeviceConnectivity, name="device_connectivity"),

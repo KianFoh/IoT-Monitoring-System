@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, DateTime, String, ForeignKey, Boolean, Integer, JSON, Enum, Float
+from sqlalchemy import Column, BigInteger, Date, DateTime, String, ForeignKey, Boolean, Integer, JSON, Enum, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -11,6 +11,8 @@ class Device(Base):
     id = Column(BigInteger, primary_key=True)
     uid = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
+    machine_series_number = Column(String, nullable=True)
+    installation_date = Column(Date, nullable=True)
     department_id = Column(BigInteger, ForeignKey("department.id", ondelete="SET NULL"), nullable=True)
     is_online = Column(Boolean, default=False, nullable=False)
     machine = Column(String, nullable=True)

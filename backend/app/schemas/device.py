@@ -1,11 +1,13 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List
 from app.models.enum.device_connectivity import DeviceConnectivity
     
 class DeviceCreate(BaseModel):
     uid: str
     name: str
+    machine_series_number: Optional[str] = None
+    installation_date: Optional[date] = None
     department_id: int
     data_interval: float
     machine: Optional[str] = None
@@ -15,6 +17,8 @@ class DeviceCreate(BaseModel):
 
 class DeviceUpdate(BaseModel):
     name: Optional[str] = None
+    machine_series_number: Optional[str] = None
+    installation_date: Optional[date] = None
     machine: Optional[str] = None
     department_id: Optional[int] = None
     data_interval: Optional[float] = None
@@ -30,6 +34,8 @@ class DeviceOut(BaseModel):
     id: int
     uid: str
     name: str
+    machine_series_number: Optional[str] = None
+    installation_date: Optional[date] = None
     machine: Optional[str] = None
     connectivity: DeviceConnectivity
     mobile_number: Optional[str] = None

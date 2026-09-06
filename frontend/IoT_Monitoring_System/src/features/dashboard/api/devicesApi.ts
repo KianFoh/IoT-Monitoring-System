@@ -32,6 +32,8 @@ export const devicesApi = {
   async create(payload: {
     name: string;
     uid: string;
+    machine_series_number?: string | null;
+    installation_date?: string | null;
     department_id: number;
     machine?: string | null;
     data_interval: number;
@@ -46,6 +48,8 @@ export const devicesApi = {
     deviceId: number,
     payload: Partial<{
       name: string;
+      machine_series_number: string | null;
+      installation_date: string | null;
       machine: string | null;
       data_interval: number;
       department_id: number | null;

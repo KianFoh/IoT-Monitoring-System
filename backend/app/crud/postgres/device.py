@@ -14,6 +14,8 @@ def create_device(db: Session, device: DeviceCreate):
     db_device = DeviceModel(
         uid=device.uid,
         name=device.name,
+        machine_series_number=device.machine_series_number,
+        installation_date=device.installation_date,
         department_id=device.department_id,
         data_interval=device.data_interval,
         machine=device.machine,
@@ -62,6 +64,8 @@ def _serialize_device_row(row) -> DeviceOut:
             "id": device.id,
             "uid": device.uid,
             "name": device.name,
+            "machine_series_number": device.machine_series_number,
+            "installation_date": device.installation_date,
             "machine": device.machine,
             "connectivity": device.connectivity,
             "mobile_number": device.mobile_number,

@@ -105,6 +105,8 @@ export interface Device {
   id: number;
   name: string;
   uid: string;
+  machine_series_number?: string | null;
+  installation_date?: string | null;
   machine?: string | null;
   connectivity: DeviceConnectivity;
   mobile_number?: string | null;
@@ -115,6 +117,7 @@ export interface Device {
   department_name?: string | null;
   customer_name?: string | null;
   customer_mqtt_topic?: string | null;
+  distributor_name?: string | null;
   is_active: boolean;
   created_at: string;
 }
