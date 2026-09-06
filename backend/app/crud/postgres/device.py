@@ -48,6 +48,7 @@ def _base_device_query(db: Session):
             CustomerModel.name.label("customer_name"),
             CustomerModel.mqtt_topic.label("customer_mqtt_topic"),
             DistributorModel.name.label("distributor_name"),
+            DistributorModel.mqtt_topic.label("distributor_mqtt_topic"),
         )
         .outerjoin(DepartmentModel, DeviceModel.department_id == DepartmentModel.id)
         .outerjoin(CustomerModel, DepartmentModel.customer_id == CustomerModel.id)
@@ -55,10 +56,11 @@ def _base_device_query(db: Session):
     )
 
 def _serialize_device_row(row) -> DeviceOut:
-    device, department_name, customer_name, customer_mqtt_topic, distributor_name = row
+    device, department_name, customer_name, customer_mqtt_topic, distributor_name, distributor_mqtt_topic = row
     department_name = department_name or ""
     customer_name = customer_name or ""
     customer_mqtt_topic = customer_mqtt_topic or customer_name
+    distributor_mqtt_topic = distributor_mqtt_topic or distributor_name
     return DeviceOut.model_validate(
         {
             "id": device.id,
@@ -78,6 +80,7 @@ def _serialize_device_row(row) -> DeviceOut:
             "customer_name": customer_name,
             "customer_mqtt_topic": customer_mqtt_topic,
             "distributor_name": distributor_name,
+            "distributor_mqtt_topic": distributor_mqtt_topic,
             "created_at": device.created_at,
         }
     )
@@ -157,6 +160,15 @@ def get_devices_by_customer_id(db: Session, customer_id: int) -> list[DeviceOut]
     rows = (
         _base_device_query(db)
         .filter(DepartmentModel.customer_id == customer_id)
+        .all()
+    )
+    return [_serialize_device_row(row) for row in rows]
+
+def get_devices_by_distributor_id(db: Session, distributor_id: int) -> list[DeviceOut]:
+    """Get all devices under a distributor with topic routing metadata."""
+    rows = (
+        _base_device_query(db)
+        .filter(CustomerModel.distributor_id == distributor_id)
         .all()
     )
     return [_serialize_device_row(row) for row in rows]

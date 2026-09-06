@@ -5,12 +5,16 @@ from datetime import datetime
 
 class DistributorCreate(BaseModel):
     name: str
+    subdomain: Optional[str] = None
+    mqtt_topic: Optional[str] = None
     phone_no: Optional[str] = None
     logo_url: Optional[str] = None
 
 
 class DistributorUpdate(BaseModel):
     name: Optional[str] = None
+    subdomain: Optional[str] = None
+    mqtt_topic: Optional[str] = None
     phone_no: Optional[str] = None
     logo_url: Optional[str] = None
     is_active: Optional[bool] = None
@@ -24,6 +28,8 @@ class DistributorSearch(BaseModel):
 class DistributorOut(BaseModel):
     id: int
     name: str
+    subdomain: str
+    mqtt_topic: str
     phone_no: Optional[str] = None
     logo_url: Optional[str] = None
     is_active: bool

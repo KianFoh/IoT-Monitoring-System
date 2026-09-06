@@ -8,10 +8,10 @@ import { config } from "@/config";
 
 const getInitials = (name: string) => {
   const trimmed = name.trim();
-  if (!trimmed) return "D";
+  if (!trimmed) return "M";
   const parts = trimmed.split(/[\s@._-]+/).filter(Boolean);
   const letters = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "");
-  return letters.join("") || "D";
+  return letters.join("") || "M";
 };
 
 export function useDistributorColumns(
@@ -50,8 +50,18 @@ export function useDistributorColumns(
       },
       {
         accessorKey: "name",
-        header: "Name",
+        header: "Machine Maker",
         meta: { width: 220 },
+      },
+      {
+        accessorKey: "subdomain",
+        header: "Subdomain",
+        meta: { width: 180 },
+      },
+      {
+        accessorKey: "mqtt_topic",
+        header: "MQTT Topic",
+        meta: { width: 180 },
       },
       {
         accessorKey: "phone_no",
@@ -92,7 +102,7 @@ export function useDistributorColumns(
             onEdit={onEdit}
             onDelete={onDelete}
             disableDelete={!info.row.original.is_deletable}
-            deleteDisabledReason="Distributor is referenced by other records"
+            deleteDisabledReason="Machine maker is referenced by other records"
           />
         ),
       },

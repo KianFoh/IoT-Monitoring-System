@@ -25,6 +25,8 @@ def _serialize_distributor_row(row) -> DistributorOut:
         {
             "id": distributor.id,
             "name": distributor.name,
+            "subdomain": distributor.subdomain,
+            "mqtt_topic": distributor.mqtt_topic,
             "phone_no": distributor.phone_no,
             "logo_url": distributor.logo_url,
             "is_active": distributor.is_active,
@@ -56,6 +58,8 @@ def get_distributors(db: Session, search: str | None = None, page: int = 1, page
         query = query.filter(
             or_(
                 DistributorModel.name.ilike(like),
+                DistributorModel.subdomain.ilike(like),
+                DistributorModel.mqtt_topic.ilike(like),
                 DistributorModel.phone_no.ilike(like),
             )
         )
@@ -93,11 +97,44 @@ def get_distributor_by_name_ci(db: Session, name: str):
     return db.query(DistributorModel).filter(func.lower(DistributorModel.name) == name.lower()).first()
 
 
+def get_distributor_by_subdomain(db: Session, subdomain: str):
+    """Get a distributor by subdomain."""
+    return db.query(DistributorModel).filter(DistributorModel.subdomain == subdomain).first()
+
+
+def get_distributor_by_subdomain_ci(db: Session, subdomain: str):
+    """Get a distributor by subdomain (case-insensitive exact match)."""
+    return db.query(DistributorModel).filter(func.lower(DistributorModel.subdomain) == subdomain.lower()).first()
+
+
+def get_distributor_by_mqtt_topic(db: Session, mqtt_topic: str):
+    """Get a distributor by MQTT topic."""
+    return db.query(DistributorModel).filter(DistributorModel.mqtt_topic == mqtt_topic).first()
+
+
 def get_distributor_by_name_excluding_id(db: Session, name: str, exclude_id: int):
     """Get a distributor by name, excluding a specific ID (useful for update uniqueness checks)."""
     return (
         db.query(DistributorModel)
         .filter(DistributorModel.name == name, DistributorModel.id != exclude_id)
+        .first()
+    )
+
+
+def get_distributor_by_subdomain_excluding_id(db: Session, subdomain: str, exclude_id: int):
+    """Get a distributor by subdomain, excluding a specific ID."""
+    return (
+        db.query(DistributorModel)
+        .filter(DistributorModel.subdomain == subdomain, DistributorModel.id != exclude_id)
+        .first()
+    )
+
+
+def get_distributor_by_mqtt_topic_excluding_id(db: Session, mqtt_topic: str, exclude_id: int):
+    """Get a distributor by MQTT topic, excluding a specific ID."""
+    return (
+        db.query(DistributorModel)
+        .filter(DistributorModel.mqtt_topic == mqtt_topic, DistributorModel.id != exclude_id)
         .first()
     )
 
@@ -117,6 +154,8 @@ def create_distributor(db: Session, distributor: DistributorCreate):
     """Create a new distributor."""
     db_distributor = DistributorModel(
         name=distributor.name,
+        subdomain=(distributor.subdomain or distributor.name).strip(),
+        mqtt_topic=(distributor.mqtt_topic or distributor.name).strip(),
         phone_no=distributor.phone_no,
         logo_url=distributor.logo_url,
     )

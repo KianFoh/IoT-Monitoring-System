@@ -14,8 +14,8 @@ export function useDistributorActions() {
   const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const [addForm, setAddForm] = useState({ name: "", phone_no: "" });
-  const [editForm, setEditForm] = useState({ name: "", phone_no: "", is_active: true });
+  const [addForm, setAddForm] = useState({ name: "", subdomain: "", mqtt_topic: "", phone_no: "" });
+  const [editForm, setEditForm] = useState({ name: "", subdomain: "", mqtt_topic: "", phone_no: "", is_active: true });
   const [addLogoFile, setAddLogoFile] = useState<File | null>(null);
   const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
   const [addLogoPreview, setAddLogoPreview] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export function useDistributorActions() {
   };
 
   const openAddModal = () => {
-    setAddForm({ name: "", phone_no: "" });
+    setAddForm({ name: "", subdomain: "", mqtt_topic: "", phone_no: "" });
     if (addLogoObjectUrl) {
       URL.revokeObjectURL(addLogoObjectUrl);
       setAddLogoObjectUrl(null);
@@ -58,6 +58,8 @@ export function useDistributorActions() {
     setSelectedDistributor(distributor);
     setEditForm({
       name: distributor.name || "",
+      subdomain: distributor.subdomain || distributor.name || "",
+      mqtt_topic: distributor.mqtt_topic || distributor.name || "",
       phone_no: distributor.phone_no || "",
       is_active: !!distributor.is_active,
     });
@@ -148,8 +150,18 @@ export function useDistributorActions() {
   };
 
   const addMutation = useMutation({
-    mutationFn: ({ name, phone_no }: { name: string; phone_no?: string | null }) =>
-      distributorsApi.create({ name, phone_no }),
+    mutationFn: ({
+      name,
+      subdomain,
+      mqtt_topic,
+      phone_no,
+    }: {
+      name: string;
+      subdomain?: string | null;
+      mqtt_topic?: string | null;
+      phone_no?: string | null;
+    }) =>
+      distributorsApi.create({ name, subdomain, mqtt_topic, phone_no }),
     onSuccess: () => {
       closeAddModal();
     },
@@ -161,7 +173,13 @@ export function useDistributorActions() {
       payload,
     }: {
       id: number;
-      payload: { name?: string; phone_no?: string | null; is_active?: boolean };
+      payload: {
+        name?: string;
+        subdomain?: string | null;
+        mqtt_topic?: string | null;
+        phone_no?: string | null;
+        is_active?: boolean;
+      };
     }) => distributorsApi.update(id, payload),
     onSuccess: () => {
       closeEditModal();
@@ -183,10 +201,14 @@ export function useDistributorActions() {
     }
 
     const phone = addForm.phone_no.trim();
+    const subdomain = addForm.subdomain.trim() || addForm.name.trim();
+    const mqttTopic = addForm.mqtt_topic.trim() || addForm.name.trim();
     try {
       setActionError(null);
       const created = await addMutation.mutateAsync({
         name: addForm.name.trim(),
+        subdomain,
+        mqtt_topic: mqttTopic,
         phone_no: phone ? phone : null,
       });
       if (addLogoFile && created?.id) {
@@ -199,7 +221,7 @@ export function useDistributorActions() {
       }
       return true;
     } catch (err: unknown) {
-      setActionError(getApiErrorDetail(err, "Failed to add distributor"));
+      setActionError(getApiErrorDetail(err, "Failed to add machine maker"));
       return false;
     }
   };
@@ -208,17 +230,45 @@ export function useDistributorActions() {
     e?.preventDefault();
     if (!selectedDistributor) return false;
 
+    const name = editForm.name.trim();
+    if (!name) {
+      setActionError("Name is required");
+      return false;
+    }
+
     const phone = editForm.phone_no.trim();
-    const payload: { name?: string; phone_no?: string | null; is_active?: boolean } = {
+    const nextValues = {
+      name,
+      subdomain: editForm.subdomain.trim() || name,
+      mqtt_topic: editForm.mqtt_topic.trim() || name,
       phone_no: phone ? phone : null,
       is_active: editForm.is_active,
     };
-
-    if (editForm.name.trim()) payload.name = editForm.name.trim();
+    const currentValues = {
+      name: selectedDistributor.name || "",
+      subdomain: selectedDistributor.subdomain || selectedDistributor.name || "",
+      mqtt_topic: selectedDistributor.mqtt_topic || selectedDistributor.name || "",
+      phone_no: selectedDistributor.phone_no || null,
+      is_active: !!selectedDistributor.is_active,
+    };
+    const payload: {
+      name?: string;
+      subdomain?: string | null;
+      mqtt_topic?: string | null;
+      phone_no?: string | null;
+      is_active?: boolean;
+    } = {};
+    if (nextValues.name !== currentValues.name) payload.name = nextValues.name;
+    if (nextValues.subdomain !== currentValues.subdomain) payload.subdomain = nextValues.subdomain;
+    if (nextValues.mqtt_topic !== currentValues.mqtt_topic) payload.mqtt_topic = nextValues.mqtt_topic;
+    if (nextValues.phone_no !== currentValues.phone_no) payload.phone_no = nextValues.phone_no;
+    if (nextValues.is_active !== currentValues.is_active) payload.is_active = nextValues.is_active;
 
     try {
       setActionError(null);
-      await editMutation.mutateAsync({ id: selectedDistributor.id, payload });
+      if (Object.keys(payload).length) {
+        await editMutation.mutateAsync({ id: selectedDistributor.id, payload });
+      }
       if (editLogoFile) {
         setLogoUploading(true);
         try {
@@ -227,9 +277,12 @@ export function useDistributorActions() {
           setLogoUploading(false);
         }
       }
+      if (!Object.keys(payload).length || editLogoFile) {
+        closeEditModal();
+      }
       return true;
     } catch (err: unknown) {
-      setActionError(getApiErrorDetail(err, "Failed to update distributor"));
+      setActionError(getApiErrorDetail(err, "Failed to update machine maker"));
       return false;
     }
   };
@@ -237,7 +290,7 @@ export function useDistributorActions() {
   const handleDelete = async () => {
     if (!selectedDistributor) return false;
     if (!selectedDistributor.is_deletable) {
-      setActionError("Distributor is referenced by other records");
+      setActionError("Machine maker is referenced by other records");
       return false;
     }
     try {
@@ -245,7 +298,7 @@ export function useDistributorActions() {
       await deleteMutation.mutateAsync(selectedDistributor.id);
       return true;
     } catch (err: unknown) {
-      setActionError(getApiErrorDetail(err, "Failed to delete distributor"));
+      setActionError(getApiErrorDetail(err, "Failed to delete machine maker"));
       return false;
     }
   };

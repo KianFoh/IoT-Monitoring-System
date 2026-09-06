@@ -49,9 +49,11 @@ def _publish_alert_rule_event(request: Request, device, action: str) -> None:
             "uid": device.uid,
             "customer_name": device.customer_name,
             "customer_mqtt_topic": device.customer_mqtt_topic,
+            "distributor_name": device.distributor_name,
+            "distributor_mqtt_topic": device.distributor_mqtt_topic,
             "action": action,
         },
-        device.distributor_name,
+        device.distributor_mqtt_topic or device.distributor_name,
     )
 
 

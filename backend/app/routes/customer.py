@@ -185,10 +185,14 @@ async def update_customer(
         )
     previous_mqtt_topic = db_customer.mqtt_topic
     previous_distributor_id = db_customer.distributor_id
-    previous_distributor_name = None
+    previous_distributor_mqtt_topic = None
     if previous_distributor_id is not None:
         previous_distributor = distributor_crud.get_distributor(db, previous_distributor_id)
-        previous_distributor_name = previous_distributor.name if previous_distributor else None
+        previous_distributor_mqtt_topic = (
+            previous_distributor.mqtt_topic or previous_distributor.name
+            if previous_distributor
+            else None
+        )
     
     # Check if new name already exists (excluding current customer)
     if customer_update.name:
@@ -256,12 +260,13 @@ async def update_customer(
                     "customer_name": device_out.customer_name,
                     "customer_mqtt_topic": device_out.customer_mqtt_topic,
                     "distributor_name": device_out.distributor_name,
+                    "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
                     "department_name": device_out.department_name,
                     "data_interval": device_out.data_interval,
                     "is_active": device_out.is_active,
                     "restart_pipeline": True,
                 },
-                previous_distributor_name,
+                previous_distributor_mqtt_topic,
             )
     return customer_out
 

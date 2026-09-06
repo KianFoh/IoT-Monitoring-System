@@ -47,7 +47,7 @@ export function DistributorsPage() {
     distributorActions.openDeleteModal
   );
   const deleteDisabled = !!selectedDistributor && !selectedDistributor.is_deletable;
-  const emptyMessage = loading ? "Loading distributors..." : "No distributors found";
+  const emptyMessage = loading ? "Loading machine makers..." : "No machine makers found";
 
   const handlePageSizeChange = (value: number) => {
     setPageSize(value);
@@ -89,8 +89,8 @@ export function DistributorsPage() {
 
   return (
     <div className={styles["devices-container"]}>
-      <h1>Distributors</h1>
-      <p>Manage your distributors</p>
+      <h1>Machine Makers</h1>
+      <p>Manage your machine makers</p>
 
       <div className={styles["dashboard-devices-topbar"]}>
         <div className={styles["dashboard-search-and-action"]}>
@@ -98,7 +98,7 @@ export function DistributorsPage() {
             <SearchFilter
               value={query}
               onChange={setQuery}
-              placeholder="Search distributors by name or phone..."
+              placeholder="Search machine makers by name, subdomain, MQTT topic, or phone..."
             />
           </div>
 
@@ -108,7 +108,7 @@ export function DistributorsPage() {
               className={styles["dashboard-add-button"]}
               onClick={distributorActions.openAddModal}
             >
-              Add Distributor
+              Add Machine Maker
             </Button>
           </div>
         </div>

@@ -29,6 +29,7 @@ class DeviceRepository:
                     Customer.name,
                     Customer.mqtt_topic,
                     Distributor.name,
+                    Distributor.mqtt_topic,
                 )
                 .join(Department, Device.department_id == Department.id)
                 .join(Customer, Department.customer_id == Customer.id)
@@ -48,6 +49,7 @@ class DeviceRepository:
             customer_name,
             customer_mqtt_topic,
             distributor_name,
+            distributor_mqtt_topic,
         ) in rows:
             devices.append(
                 DeviceInfo(
@@ -56,6 +58,7 @@ class DeviceRepository:
                     customer_mqtt_topic=customer_mqtt_topic or customer_name,
                     department_name=department_name,
                     distributor_name=distributor_name,
+                    distributor_mqtt_topic=distributor_mqtt_topic or distributor_name,
                     data_interval=data_interval,
                     dashboard_config=dashboard_config,
                     is_active=is_active,
@@ -77,6 +80,7 @@ class DeviceRepository:
                     Customer.name,
                     Customer.mqtt_topic,
                     Distributor.name,
+                    Distributor.mqtt_topic,
                 )
                 .join(Department, Device.department_id == Department.id)
                 .join(Customer, Department.customer_id == Customer.id)
@@ -99,6 +103,7 @@ class DeviceRepository:
             customer_name,
             customer_mqtt_topic,
             distributor_name,
+            distributor_mqtt_topic,
         ) = row
 
         return DeviceInfo(
@@ -107,6 +112,7 @@ class DeviceRepository:
             customer_mqtt_topic=customer_mqtt_topic or customer_name,
             department_name=department_name,
             distributor_name=distributor_name,
+            distributor_mqtt_topic=distributor_mqtt_topic or distributor_name,
             data_interval=data_interval,
             dashboard_config=dashboard_config,
             is_active=is_active,
@@ -259,8 +265,14 @@ class DevicePipelineManager:
         is_active = coerce_bool(data.get("is_active"))
 
         distributor_name = data.get("distributor_name")
-        if not distributor_name:
+        distributor_mqtt_topic = data.get("distributor_mqtt_topic") or distributor_name
+        if not distributor_mqtt_topic:
             existing = self._pipelines.get(device_uid)
+            distributor_mqtt_topic = (
+                existing.device.distributor_mqtt_topic or existing.device.distributor_name
+                if existing
+                else None
+            )
             distributor_name = existing.device.distributor_name if existing else None
 
         restart_requested = data.get("restart_pipeline")

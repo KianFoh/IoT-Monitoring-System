@@ -178,11 +178,13 @@ async def create_device(
             "event_type": "add",
             "customer_name": device_out.customer_name,
             "customer_mqtt_topic": device_out.customer_mqtt_topic,
+            "distributor_name": device_out.distributor_name,
+            "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
             "department_name": device_out.department_name,
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
         },
-        device_out.distributor_name,
+        device_out.distributor_mqtt_topic or device_out.distributor_name,
     )
     return device_out
 
@@ -310,12 +312,14 @@ async def update_device(
                 "event_type": "update",
                 "customer_name": device_out.customer_name,
                 "customer_mqtt_topic": device_out.customer_mqtt_topic,
+                "distributor_name": device_out.distributor_name,
+                "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
                 "department_name": device_out.department_name,
                 "data_interval": device_out.data_interval,
                 "is_active": device_out.is_active,
                 "restart_pipeline": False,
             },
-            device_out.distributor_name,
+            device_out.distributor_mqtt_topic or device_out.distributor_name,
         )
         return device_out
 
@@ -356,12 +360,14 @@ async def update_device(
             "event_type": "update",
             "customer_name": device_out.customer_name,
             "customer_mqtt_topic": device_out.customer_mqtt_topic,
+            "distributor_name": device_out.distributor_name,
+            "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
             "department_name": device_out.department_name,
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
             "restart_pipeline": restart_pipeline,
         },
-        device_out.distributor_name,
+        device_out.distributor_mqtt_topic or device_out.distributor_name,
     )
     return device_out
 
@@ -403,11 +409,13 @@ async def delete_device(
             "event_type": "delete",
             "customer_name": display_customer_name,
             "customer_mqtt_topic": customer_name,
+            "distributor_name": device_out.distributor_name if device_out else None,
+            "distributor_mqtt_topic": device_out.distributor_mqtt_topic if device_out else None,
             "department_name": department_name,
             "data_interval": device_out.data_interval if device_out else None,
             "is_active": device_out.is_active if device_out else None,
         },
-        device_out.distributor_name if device_out else None,
+        (device_out.distributor_mqtt_topic or device_out.distributor_name) if device_out else None,
     )
 
 # ==================== Fetch Device Data =====================

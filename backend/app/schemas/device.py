@@ -46,6 +46,7 @@ class DeviceOut(BaseModel):
     customer_name: str
     customer_mqtt_topic: str
     distributor_name: Optional[str] = None
+    distributor_mqtt_topic: Optional[str] = None
     created_at: datetime
     is_online: bool
     is_active: bool

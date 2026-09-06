@@ -15,11 +15,27 @@ export const distributorsApi = {
     return api.get<DistributorSearch[]>(`${BASE_PATH}/search`, { params });
   },
 
-  async create(payload: { name: string; phone_no?: string | null; logo_url?: string | null }) {
+  async create(payload: {
+    name: string;
+    subdomain?: string | null;
+    mqtt_topic?: string | null;
+    phone_no?: string | null;
+    logo_url?: string | null;
+  }) {
     return api.post<Distributor>(`${BASE_PATH}/`, payload);
   },
 
-  async update(id: number, payload: { name?: string; phone_no?: string | null; logo_url?: string | null; is_active?: boolean }) {
+  async update(
+    id: number,
+    payload: {
+      name?: string;
+      subdomain?: string | null;
+      mqtt_topic?: string | null;
+      phone_no?: string | null;
+      logo_url?: string | null;
+      is_active?: boolean;
+    }
+  ) {
     return api.patch<Distributor>(`${BASE_PATH}/${id}`, payload);
   },
 

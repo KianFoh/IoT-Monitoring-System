@@ -58,7 +58,7 @@ def _normalize_subdomain(value: str | None) -> str | None:
 def _get_distributor_subdomain(db: Session, email: str) -> str | None:
     normalized_email = email.strip().lower()
     row = (
-        db.query(Distributor.name)
+        db.query(Distributor.subdomain)
         .select_from(UserModel)
         .outerjoin(user_department_table, UserModel.id == user_department_table.c.user_id)
         .outerjoin(Department, user_department_table.c.department_id == Department.id)
@@ -69,7 +69,7 @@ def _get_distributor_subdomain(db: Session, email: str) -> str | None:
     )
     if not row:
         row = (
-            db.query(Distributor.name)
+            db.query(Distributor.subdomain)
             .select_from(UserModel)
             .join(Department, UserModel.department_id == Department.id)
             .join(Customer, Department.customer_id == Customer.id)
@@ -77,8 +77,8 @@ def _get_distributor_subdomain(db: Session, email: str) -> str | None:
             .filter(func.lower(UserModel.email) == normalized_email)
             .first()
         )
-    distributor_name = row[0] if row else None
-    return _normalize_subdomain(distributor_name)
+    distributor_subdomain = row[0] if row else None
+    return _normalize_subdomain(distributor_subdomain)
 
 
 def _get_frontend_base() -> str | None:

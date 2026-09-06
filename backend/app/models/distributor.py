@@ -9,6 +9,8 @@ class Distributor(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
+    subdomain = Column(String, unique=True, nullable=False)
+    mqtt_topic = Column(String, unique=True, nullable=False)
     phone_no = Column(String, nullable=True)
     logo_url = Column(String, nullable=True)
 

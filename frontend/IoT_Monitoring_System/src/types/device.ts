@@ -118,6 +118,7 @@ export interface Device {
   customer_name?: string | null;
   customer_mqtt_topic?: string | null;
   distributor_name?: string | null;
+  distributor_mqtt_topic?: string | null;
   is_active: boolean;
   created_at: string;
 }

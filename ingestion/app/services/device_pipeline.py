@@ -20,6 +20,7 @@ class DeviceInfo:
     customer_mqtt_topic: str
     department_name: str
     distributor_name: Optional[str]
+    distributor_mqtt_topic: Optional[str]
     data_interval: float
     is_active: bool
     dashboard_config: Optional[Dict[str, Any]]
@@ -39,7 +40,8 @@ class DevicePipeline:
     @property
     def device_topic(self):
         customer = self._normalize_topic_value(self.device.customer_mqtt_topic or self.device.customer_name)
-        distributor = self._normalize_topic_value(self.device.distributor_name) if self.device.distributor_name else ""
+        distributor_value = self.device.distributor_mqtt_topic or self.device.distributor_name
+        distributor = self._normalize_topic_value(distributor_value) if distributor_value else ""
         if distributor:
             return f"{distributor}/{customer}/json/send/{self.device.uid}/"
         return f"{customer}/json/send/{self.device.uid}/"
@@ -197,7 +199,8 @@ class DevicePipeline:
     def _build_internal_topic(self, topic_type: str) -> str:
         customer = self._normalize_topic_value(self.device.customer_mqtt_topic or self.device.customer_name)
         department = self._normalize_topic_value(self.device.department_name)
-        distributor = self._normalize_topic_value(self.device.distributor_name) if self.device.distributor_name else ""
+        distributor_value = self.device.distributor_mqtt_topic or self.device.distributor_name
+        distributor = self._normalize_topic_value(distributor_value) if distributor_value else ""
         if distributor:
             return f"internal/devices/{topic_type}/{distributor}/{customer}/{department}/{self.device.uid}/"
         return f"internal/devices/{topic_type}/{customer}/{department}/{self.device.uid}/"

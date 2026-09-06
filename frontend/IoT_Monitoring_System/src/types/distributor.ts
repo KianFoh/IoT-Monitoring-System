@@ -1,6 +1,8 @@
 export interface Distributor {
   id: number;
   name: string;
+  subdomain: string;
+  mqtt_topic: string;
   phone_no: string | null;
   logo_url?: string | null;
   is_active: boolean;

@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from pathlib import Path
+import re
 from uuid import uuid4
 from app.core.database import get_db
 from app.core.config import get_settings
 from app.core.security import get_current_user, require_role
 from app.utils.ws_events import broadcast_distributor_event
 from app.crud.postgres import distributor as distributor_crud
+from app.crud.postgres import device as device_crud
+from app.utils.device_events import publish_device_event
 from app.models.user import User as UserModel
 from app.models.enum.user_role import UserRole
 from app.schemas.distributor import (
@@ -35,6 +38,33 @@ def _extract_subdomain(host: str) -> str | None:
     if len(labels) < 3:
         return None
     return labels[0]
+
+
+def _normalize_subdomain(value: str | None, fallback: str | None = None) -> str:
+    subdomain = (value if value is not None else fallback or "").strip().lower()
+    subdomain = re.sub(r"[^a-z0-9-]+", "-", subdomain)
+    subdomain = re.sub(r"-{2,}", "-", subdomain).strip("-")
+    if not subdomain:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Subdomain is required",
+        )
+    return subdomain
+
+
+def _normalize_mqtt_topic(value: str | None, fallback: str | None = None) -> str:
+    topic = (value if value is not None else fallback or "").strip()
+    if not topic:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MQTT topic is required",
+        )
+    if "/" in topic or "#" in topic or "+" in topic:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MQTT topic must be a single topic segment without '/', '#', or '+'",
+        )
+    return topic
 
 
 def _delete_logo_file(logo_path: str | None) -> None:
@@ -76,12 +106,28 @@ async def create_distributor(
             status_code=status.HTTP_409_CONFLICT,
             detail="Distributor name already exists",
         )
+    distributor.subdomain = _normalize_subdomain(distributor.subdomain, distributor.name)
+    existing_subdomain = distributor_crud.get_distributor_by_subdomain(db, distributor.subdomain)
+    if existing_subdomain:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Subdomain already exists",
+        )
+    distributor.mqtt_topic = _normalize_mqtt_topic(distributor.mqtt_topic, distributor.name)
+    existing_topic = distributor_crud.get_distributor_by_mqtt_topic(db, distributor.mqtt_topic)
+    if existing_topic:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="MQTT topic already exists",
+        )
 
     db_distributor = distributor_crud.create_distributor(db, distributor)
     distributor_out = distributor_crud.get_distributor_with_references(db, db_distributor.id) or DistributorOut.model_validate(
         {
             "id": db_distributor.id,
             "name": db_distributor.name,
+            "subdomain": db_distributor.subdomain,
+            "mqtt_topic": db_distributor.mqtt_topic,
             "phone_no": db_distributor.phone_no,
             "logo_url": db_distributor.logo_url,
             "is_active": db_distributor.is_active,
@@ -136,7 +182,7 @@ def get_distributor_branding(
             is_default=True,
         )
 
-    distributor = distributor_crud.get_distributor_by_name_ci(db, subdomain)
+    distributor = distributor_crud.get_distributor_by_subdomain_ci(db, subdomain)
     if not distributor or not distributor.logo_url:
         return DistributorBrandingOut(
             distributor_id=None,
@@ -192,6 +238,7 @@ def get_distributor(
 async def update_distributor(
     distributor_id: int,
     distributor_update: DistributorUpdate,
+    request: Request,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -204,6 +251,7 @@ async def update_distributor(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Distributor not found",
         )
+    previous_mqtt_topic = db_distributor.mqtt_topic
 
     if distributor_update.name:
         existing = distributor_crud.get_distributor_by_name_excluding_id(
@@ -216,12 +264,43 @@ async def update_distributor(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Distributor name already exists",
             )
+    if "subdomain" in distributor_update.model_fields_set:
+        distributor_update.subdomain = _normalize_subdomain(distributor_update.subdomain, db_distributor.name)
+        existing_subdomain = distributor_crud.get_distributor_by_subdomain_excluding_id(
+            db,
+            distributor_update.subdomain,
+            distributor_id,
+        )
+        if existing_subdomain:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Subdomain already exists",
+            )
+    if "mqtt_topic" in distributor_update.model_fields_set:
+        distributor_update.mqtt_topic = _normalize_mqtt_topic(distributor_update.mqtt_topic, db_distributor.name)
+        existing_topic = distributor_crud.get_distributor_by_mqtt_topic_excluding_id(
+            db,
+            distributor_update.mqtt_topic,
+            distributor_id,
+        )
+        if existing_topic:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="MQTT topic already exists",
+            )
+
+    should_restart_devices = (
+        "mqtt_topic" in distributor_update.model_fields_set
+        and distributor_update.mqtt_topic != previous_mqtt_topic
+    )
 
     updated = distributor_crud.update_distributor(db, distributor_id, distributor_update)
     distributor_out = distributor_crud.get_distributor_with_references(db, distributor_id) or DistributorOut.model_validate(
         {
             "id": updated.id,
             "name": updated.name,
+            "subdomain": updated.subdomain,
+            "mqtt_topic": updated.mqtt_topic,
             "phone_no": updated.phone_no,
             "logo_url": updated.logo_url,
             "is_active": updated.is_active,
@@ -230,6 +309,26 @@ async def update_distributor(
         }
     )
     await broadcast_distributor_event("update", distributor_out)
+    if should_restart_devices:
+        for device_out in device_crud.get_devices_by_distributor_id(db, distributor_id):
+            publish_device_event(
+                request,
+                device_out.customer_mqtt_topic,
+                device_out.department_name,
+                {
+                    "uid": device_out.uid,
+                    "event_type": "update",
+                    "customer_name": device_out.customer_name,
+                    "customer_mqtt_topic": device_out.customer_mqtt_topic,
+                    "distributor_name": device_out.distributor_name,
+                    "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
+                    "department_name": device_out.department_name,
+                    "data_interval": device_out.data_interval,
+                    "is_active": device_out.is_active,
+                    "restart_pipeline": True,
+                },
+                previous_mqtt_topic,
+            )
     return distributor_out
 
 
@@ -272,6 +371,8 @@ async def upload_distributor_logo(
         {
             "id": updated.id,
             "name": updated.name,
+            "subdomain": updated.subdomain,
+            "mqtt_topic": updated.mqtt_topic,
             "phone_no": updated.phone_no,
             "logo_url": updated.logo_url,
             "is_active": updated.is_active,
@@ -306,6 +407,8 @@ async def remove_distributor_logo(
         {
             "id": updated.id,
             "name": updated.name,
+            "subdomain": updated.subdomain,
+            "mqtt_topic": updated.mqtt_topic,
             "phone_no": updated.phone_no,
             "logo_url": updated.logo_url,
             "is_active": updated.is_active,

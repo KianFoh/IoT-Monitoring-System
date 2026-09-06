@@ -8,6 +8,8 @@ import formStyles from "../../components/DashboardForm/DashboardForm.module.css"
 
 type DistributorFormState = {
   name: string;
+  subdomain: string;
+  mqtt_topic: string;
   phone_no: string;
 };
 
@@ -75,7 +77,7 @@ function LogoPicker({ id, inputRef, preview, onChange, ariaLabel }: LogoPickerPr
           {preview ? (
             <img
               src={preview}
-              alt="Distributor logo preview"
+              alt="Machine maker logo preview"
               className={formStyles["dashboard-logo-preview-img"]}
             />
           ) : (
@@ -114,21 +116,42 @@ export function DistributorsPageModals({
 
   return (
     <>
-      <Modal isOpen={showAddModal} onClose={onCloseAdd} title="Add Distributor">
+      <Modal isOpen={showAddModal} onClose={onCloseAdd} title="Add Machine Maker">
         <form className={formStyles["dashboard-modal-form"]} onSubmit={onAddSubmit}>
           <LogoPicker
             id="add-distributor-logo"
             inputRef={addLogoInputRef}
             preview={addLogoPreview}
             onChange={onAddLogoChange}
-            ariaLabel="Upload distributor logo"
+            ariaLabel="Upload machine maker logo"
           />
           <Input
             id="add-distributor-name"
-            label="Distributor Name"
-            placeholder="Enter distributor name"
+            label="Machine Maker Name"
+            placeholder="Enter machine maker name"
             value={addForm.name}
-            onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
+            onChange={(e) =>
+              setAddForm((prev) => ({
+                ...prev,
+                name: e.target.value,
+                subdomain: prev.subdomain.trim() ? prev.subdomain : e.target.value,
+                mqtt_topic: prev.mqtt_topic.trim() ? prev.mqtt_topic : e.target.value,
+              }))
+            }
+          />
+          <Input
+            id="add-distributor-subdomain"
+            label="Subdomain"
+            placeholder="Enter subdomain"
+            value={addForm.subdomain}
+            onChange={(e) => setAddForm((prev) => ({ ...prev, subdomain: e.target.value }))}
+          />
+          <Input
+            id="add-distributor-mqtt-topic"
+            label="MQTT Topic"
+            placeholder="Enter MQTT topic"
+            value={addForm.mqtt_topic}
+            onChange={(e) => setAddForm((prev) => ({ ...prev, mqtt_topic: e.target.value }))}
           />
           <Input
             id="add-distributor-phone"
@@ -143,27 +166,41 @@ export function DistributorsPageModals({
               Cancel
             </Button>
             <Button type="submit" isLoading={actionLoading}>
-              Create Distributor
+              Create Machine Maker
             </Button>
           </div>
         </form>
       </Modal>
 
-      <Modal isOpen={showEditModal} onClose={onCloseEdit} title="Edit Distributor">
+      <Modal isOpen={showEditModal} onClose={onCloseEdit} title="Edit Machine Maker">
         <form className={formStyles["dashboard-modal-form"]} onSubmit={onEditSubmit}>
           <LogoPicker
             id="edit-distributor-logo"
             inputRef={editLogoInputRef}
             preview={editLogoPreview}
             onChange={onEditLogoChange}
-            ariaLabel="Change distributor logo"
+            ariaLabel="Change machine maker logo"
           />
           <Input
             id="edit-distributor-name"
-            label="Distributor Name"
-            placeholder="Update distributor name"
+            label="Machine Maker Name"
+            placeholder="Update machine maker name"
             value={editForm.name}
             onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+          />
+          <Input
+            id="edit-distributor-subdomain"
+            label="Subdomain"
+            placeholder="Update subdomain"
+            value={editForm.subdomain}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, subdomain: e.target.value }))}
+          />
+          <Input
+            id="edit-distributor-mqtt-topic"
+            label="MQTT Topic"
+            placeholder="Update MQTT topic"
+            value={editForm.mqtt_topic}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, mqtt_topic: e.target.value }))}
           />
           <Input
             id="edit-distributor-phone"
@@ -191,14 +228,14 @@ export function DistributorsPageModals({
         </form>
       </Modal>
 
-      <Modal isOpen={showDeleteModal} onClose={onCloseDelete} title="Delete Distributor">
+      <Modal isOpen={showDeleteModal} onClose={onCloseDelete} title="Delete Machine Maker">
         <div className={formStyles["dashboard-modal-form"]}>
           <p>
             Are you sure you want to delete{" "}
-            <strong>{selectedDistributor?.name || "this distributor"}</strong>? This action cannot be undone.
+            <strong>{selectedDistributor?.name || "this machine maker"}</strong>? This action cannot be undone.
           </p>
           {deleteDisabled && (
-            <p className={formStyles["dashboard-modal-error"]}>Distributor is referenced by other records.</p>
+            <p className={formStyles["dashboard-modal-error"]}>Machine maker is referenced by other records.</p>
           )}
           {actionError && <p className={formStyles["dashboard-modal-error"]}>{actionError}</p>}
           <div className={formStyles["dashboard-modal-actions"]}>
