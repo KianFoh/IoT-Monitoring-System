@@ -16,6 +16,11 @@ export function useDepartmentColumns(
         meta: { width: 200 },
       },
       {
+        accessorKey: "mqtt_topic",
+        header: "MQTT Topic",
+        meta: { width: 180 },
+      },
+      {
         accessorKey: "customer_name",
         header: "Customer",
         meta: { width: 200 },

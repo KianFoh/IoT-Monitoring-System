@@ -8,3 +8,4 @@ class Department(Base):
     id = Column(BigInteger, primary_key=True)
     customer_id = Column(BigInteger, ForeignKey("customer.id"), nullable=False)
     name = Column(String, nullable=False)
+    mqtt_topic = Column(String, nullable=False)

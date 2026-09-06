@@ -11,12 +11,14 @@ class Department(Base):
     id = Column(BigInteger, primary_key=True)
     customer_id = Column(BigInteger, ForeignKey("customer.id"), nullable=False)
     name = Column(String, nullable=False)
+    mqtt_topic = Column(String, nullable=False)
 
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         UniqueConstraint('customer_id', 'name', name='uq_customer_department'),
+        UniqueConstraint('customer_id', 'mqtt_topic', name='uq_customer_department_mqtt_topic'),
     )
 
     # Relationships

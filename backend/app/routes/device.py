@@ -172,7 +172,7 @@ async def create_device(
     publish_device_event(
         request,
         device_out.customer_mqtt_topic,
-        device_out.department_name,
+        device_out.department_mqtt_topic,
         {
             "uid": device_out.uid,
             "event_type": "add",
@@ -181,6 +181,7 @@ async def create_device(
             "distributor_name": device_out.distributor_name,
             "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
             "department_name": device_out.department_name,
+            "department_mqtt_topic": device_out.department_mqtt_topic,
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
         },
@@ -306,7 +307,7 @@ async def update_device(
         publish_device_event(
             request,
             device_out.customer_mqtt_topic,
-            device_out.department_name,
+            device_out.department_mqtt_topic,
             {
                 "uid": device_out.uid,
                 "event_type": "update",
@@ -315,6 +316,7 @@ async def update_device(
                 "distributor_name": device_out.distributor_name,
                 "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
                 "department_name": device_out.department_name,
+                "department_mqtt_topic": device_out.department_mqtt_topic,
                 "data_interval": device_out.data_interval,
                 "is_active": device_out.is_active,
                 "restart_pipeline": False,
@@ -354,7 +356,7 @@ async def update_device(
     publish_device_event(
         request,
         device_out.customer_mqtt_topic,
-        device_out.department_name,
+        device_out.department_mqtt_topic,
         {
             "uid": device_out.uid,
             "event_type": "update",
@@ -363,6 +365,7 @@ async def update_device(
             "distributor_name": device_out.distributor_name,
             "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
             "department_name": device_out.department_name,
+            "department_mqtt_topic": device_out.department_mqtt_topic,
             "data_interval": device_out.data_interval,
             "is_active": device_out.is_active,
             "restart_pipeline": restart_pipeline,
@@ -399,11 +402,12 @@ async def delete_device(
     customer_name = device_out.customer_mqtt_topic if device_out else ""
     display_customer_name = device_out.customer_name if device_out else ""
     department_name = device_out.department_name if device_out else ""
+    department_mqtt_topic = device_out.department_mqtt_topic if device_out else department_name
     uid = device_out.uid if device_out else device.uid
     publish_device_event(
         request,
         customer_name,
-        department_name,
+        department_mqtt_topic,
         {
             "uid": uid,
             "event_type": "delete",
@@ -412,6 +416,7 @@ async def delete_device(
             "distributor_name": device_out.distributor_name if device_out else None,
             "distributor_mqtt_topic": device_out.distributor_mqtt_topic if device_out else None,
             "department_name": department_name,
+            "department_mqtt_topic": department_mqtt_topic,
             "data_interval": device_out.data_interval if device_out else None,
             "is_active": device_out.is_active if device_out else None,
         },

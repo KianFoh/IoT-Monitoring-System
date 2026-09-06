@@ -1,6 +1,7 @@
 export interface Department {
   id: number;
   name: string;
+  mqtt_topic: string;
   customer_id: number;
   customer_name?: string | null;
   is_active: boolean;

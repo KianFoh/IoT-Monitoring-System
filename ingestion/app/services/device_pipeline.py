@@ -19,6 +19,7 @@ class DeviceInfo:
     customer_name: str
     customer_mqtt_topic: str
     department_name: str
+    department_mqtt_topic: str
     distributor_name: Optional[str]
     distributor_mqtt_topic: Optional[str]
     data_interval: float
@@ -198,7 +199,7 @@ class DevicePipeline:
 
     def _build_internal_topic(self, topic_type: str) -> str:
         customer = self._normalize_topic_value(self.device.customer_mqtt_topic or self.device.customer_name)
-        department = self._normalize_topic_value(self.device.department_name)
+        department = self._normalize_topic_value(self.device.department_mqtt_topic or self.device.department_name)
         distributor_value = self.device.distributor_mqtt_topic or self.device.distributor_name
         distributor = self._normalize_topic_value(distributor_value) if distributor_value else ""
         if distributor:

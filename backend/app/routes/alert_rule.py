@@ -43,7 +43,7 @@ def _publish_alert_rule_event(request: Request, device, action: str) -> None:
     publish_device_alert(
         request,
         device.customer_mqtt_topic,
-        device.department_name,
+        device.department_mqtt_topic,
         {
             "device_id": device.id,
             "uid": device.uid,
@@ -51,6 +51,8 @@ def _publish_alert_rule_event(request: Request, device, action: str) -> None:
             "customer_mqtt_topic": device.customer_mqtt_topic,
             "distributor_name": device.distributor_name,
             "distributor_mqtt_topic": device.distributor_mqtt_topic,
+            "department_name": device.department_name,
+            "department_mqtt_topic": device.department_mqtt_topic,
             "action": action,
         },
         device.distributor_mqtt_topic or device.distributor_name,

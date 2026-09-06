@@ -385,7 +385,7 @@ export function useDeviceDashboard(deviceUid?: string) {
 
   useEffect(() => {
     const customer = (device?.customer_mqtt_topic || device?.customer_name)?.trim().toLowerCase();
-    const department = device?.department_name?.trim().toLowerCase();
+    const department = (device?.department_mqtt_topic || device?.department_name)?.trim().toLowerCase();
     const uid = device?.uid;
     if (!access_token || !customer || !department || !uid) return;
     const streamKey = `device:${customer}/${department}/${uid}`;
@@ -431,6 +431,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     access_token,
     device?.customer_mqtt_topic,
     device?.customer_name,
+    device?.department_mqtt_topic,
     device?.department_name,
     device?.uid,
     liveListCountFields,

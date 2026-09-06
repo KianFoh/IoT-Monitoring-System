@@ -25,7 +25,7 @@ export const departmentsApi = {
     return api.get<DepartmentListResponse>(`${BASE_PATH}/`, { params: buildDepartmentListParams(params) });
   },
 
-  async create(payload: { name: string; customer_id: number }) {
+  async create(payload: { name: string; mqtt_topic?: string | null; customer_id: number }) {
     return api.post<Department>(`${BASE_PATH}/`, payload);
   },
 
@@ -35,7 +35,7 @@ export const departmentsApi = {
     return api.get<DepartmentSearch[]>(`${BASE_PATH}/search`, { params });
   },
 
-  async update(id: number, payload: { name?: string; is_active?: boolean }) {
+  async update(id: number, payload: { name?: string; mqtt_topic?: string | null; is_active?: boolean }) {
     return api.patch<Department>(`${BASE_PATH}/${id}`, payload);
   },
 

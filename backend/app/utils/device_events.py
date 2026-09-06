@@ -51,7 +51,8 @@ def publish_device_event(
     normalized_department = normalize_topic_name(department_name)
     payload_to_send.setdefault("customer_mqtt_topic", normalized_customer)
     payload_to_send.setdefault("customer_name", normalized_customer)
-    payload_to_send["department_name"] = normalized_department
+    payload_to_send.setdefault("department_mqtt_topic", normalized_department)
+    payload_to_send.setdefault("department_name", normalized_department)
     if distributor_name:
         normalized_distributor = normalize_topic_name(distributor_name)
         payload_to_send.setdefault("distributor_mqtt_topic", normalized_distributor)
@@ -82,7 +83,8 @@ def publish_device_alert(
     normalized_department = normalize_topic_name(department_name)
     payload_to_send.setdefault("customer_mqtt_topic", normalized_customer)
     payload_to_send.setdefault("customer_name", normalized_customer)
-    payload_to_send["department_name"] = normalized_department
+    payload_to_send.setdefault("department_mqtt_topic", normalized_department)
+    payload_to_send.setdefault("department_name", normalized_department)
     if distributor_name:
         normalized_distributor = normalize_topic_name(distributor_name)
         payload_to_send.setdefault("distributor_mqtt_topic", normalized_distributor)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -6,9 +6,11 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.crud.postgres import department as department_crud
 from app.crud.postgres import customer as customer_crud
+from app.crud.postgres import device as device_crud
 from app.models.user import User as UserModel
 from app.schemas.department import DepartmentCreate, DepartmentSearch, DepartmentUpdate, DepartmentOut, DepartmentListResponse
 from app.models.enum.user_role import UserRole
+from app.utils.device_events import publish_device_event
 from app.utils.ws_events import broadcast_department_event
 
 router = APIRouter(prefix="/departments", tags=["departments"])
@@ -30,6 +32,20 @@ def _parse_id_list(value: str | None) -> list[int]:
             )
     return list(dict.fromkeys(ids))
 
+def _normalize_mqtt_topic(value: str | None, fallback: str | None = None) -> str:
+    topic = (value if value is not None else fallback or "").strip()
+    if not topic:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MQTT topic is required",
+        )
+    if "/" in topic or "#" in topic or "+" in topic:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MQTT topic must be a single topic segment without '/', '#', or '+'",
+        )
+    return topic
+
 # ==================== Count ====================
 @router.get("/count", response_model=int)
 def count_departments(
@@ -49,6 +65,7 @@ async def create_department(
 ):
     """Create a new department"""
     require_role(current_user, [UserRole.superuser])
+    department.mqtt_topic = _normalize_mqtt_topic(department.mqtt_topic, department.name)
     
     # Check if department already exists
     unique_department = department_crud.check_department_name_unique(db, department.customer_id, department.name)
@@ -56,6 +73,12 @@ async def create_department(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Department with this name already exists"
+        )
+    existing_topic = department_crud.get_department_by_mqtt_topic(db, department.customer_id, department.mqtt_topic)
+    if existing_topic:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Department MQTT topic already exists for the customer",
         )
     
     customer = customer_crud.get_customer(db, department.customer_id)
@@ -70,6 +93,7 @@ async def create_department(
         {
             "id": db_department.id,
             "name": db_department.name,
+            "mqtt_topic": db_department.mqtt_topic,
             "customer_id": db_department.customer_id,
             "customer_name": None,
             "is_active": db_department.is_active,
@@ -149,6 +173,7 @@ def get_department(
 async def update_department(
     department_id: int,
     department_update: DepartmentUpdate,
+    request: Request,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -162,6 +187,7 @@ async def update_department(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Department not found"
         )
+    previous_mqtt_topic = existing_department.mqtt_topic
     if department_update.name is not None:
         unique_department = department_crud.check_department_name_unique(
             db,
@@ -174,12 +200,31 @@ async def update_department(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Department with this name already exists for the customer"
             )
+    if "mqtt_topic" in department_update.model_fields_set:
+        department_update.mqtt_topic = _normalize_mqtt_topic(department_update.mqtt_topic, existing_department.name)
+        existing_topic = department_crud.get_department_by_mqtt_topic_excluding_id(
+            db,
+            existing_department.customer_id,
+            department_update.mqtt_topic,
+            existing_department.id,
+        )
+        if existing_topic:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Department MQTT topic already exists for the customer",
+            )
+
+    should_restart_devices = (
+        "mqtt_topic" in department_update.model_fields_set
+        and department_update.mqtt_topic != previous_mqtt_topic
+    )
     
     updated_department = department_crud.update_department(db, department_id, department_update)
     department_out = department_crud.get_department_with_customer(db, department_id) or DepartmentOut.model_validate(
         {
             "id": updated_department.id,
             "name": updated_department.name,
+            "mqtt_topic": updated_department.mqtt_topic,
             "customer_id": updated_department.customer_id,
             "customer_name": None,
             "is_active": updated_department.is_active,
@@ -188,6 +233,27 @@ async def update_department(
         }
     )
     await broadcast_department_event("update", department_out)
+    if should_restart_devices:
+        for device_out in device_crud.get_devices_by_department_id(db, department_id):
+            publish_device_event(
+                request,
+                device_out.customer_mqtt_topic,
+                previous_mqtt_topic,
+                {
+                    "uid": device_out.uid,
+                    "event_type": "update",
+                    "customer_name": device_out.customer_name,
+                    "customer_mqtt_topic": device_out.customer_mqtt_topic,
+                    "distributor_name": device_out.distributor_name,
+                    "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
+                    "department_name": device_out.department_name,
+                    "department_mqtt_topic": device_out.department_mqtt_topic,
+                    "data_interval": device_out.data_interval,
+                    "is_active": device_out.is_active,
+                    "restart_pipeline": True,
+                },
+                device_out.distributor_mqtt_topic or device_out.distributor_name,
+            )
     return department_out
 
 

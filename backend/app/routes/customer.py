@@ -253,7 +253,7 @@ async def update_customer(
             publish_device_event(
                 request,
                 previous_mqtt_topic,
-                device_out.department_name,
+                device_out.department_mqtt_topic,
                 {
                     "uid": device_out.uid,
                     "event_type": "update",
@@ -262,6 +262,7 @@ async def update_customer(
                     "distributor_name": device_out.distributor_name,
                     "distributor_mqtt_topic": device_out.distributor_mqtt_topic,
                     "department_name": device_out.department_name,
+                    "department_mqtt_topic": device_out.department_mqtt_topic,
                     "data_interval": device_out.data_interval,
                     "is_active": device_out.is_active,
                     "restart_pipeline": True,

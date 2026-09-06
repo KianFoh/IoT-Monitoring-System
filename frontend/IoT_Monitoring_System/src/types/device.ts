@@ -115,6 +115,7 @@ export interface Device {
   dashboard_config?: DeviceDashboardConfig | null;
   is_online: boolean;
   department_name?: string | null;
+  department_mqtt_topic?: string | null;
   customer_name?: string | null;
   customer_mqtt_topic?: string | null;
   distributor_name?: string | null;

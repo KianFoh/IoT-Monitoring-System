@@ -26,6 +26,7 @@ class DeviceRepository:
                     Device.is_active,
                     Device.dashboard_config,
                     Department.name,
+                    Department.mqtt_topic,
                     Customer.name,
                     Customer.mqtt_topic,
                     Distributor.name,
@@ -46,6 +47,7 @@ class DeviceRepository:
             is_active,
             dashboard_config,
             department_name,
+            department_mqtt_topic,
             customer_name,
             customer_mqtt_topic,
             distributor_name,
@@ -57,6 +59,7 @@ class DeviceRepository:
                     customer_name=customer_name,
                     customer_mqtt_topic=customer_mqtt_topic or customer_name,
                     department_name=department_name,
+                    department_mqtt_topic=department_mqtt_topic or department_name,
                     distributor_name=distributor_name,
                     distributor_mqtt_topic=distributor_mqtt_topic or distributor_name,
                     data_interval=data_interval,
@@ -77,6 +80,7 @@ class DeviceRepository:
                     Device.is_active,
                     Device.dashboard_config,
                     Department.name,
+                    Department.mqtt_topic,
                     Customer.name,
                     Customer.mqtt_topic,
                     Distributor.name,
@@ -100,6 +104,7 @@ class DeviceRepository:
             is_active,
             dashboard_config,
             department_name,
+            department_mqtt_topic,
             customer_name,
             customer_mqtt_topic,
             distributor_name,
@@ -111,6 +116,7 @@ class DeviceRepository:
             customer_name=customer_name,
             customer_mqtt_topic=customer_mqtt_topic or customer_name,
             department_name=department_name,
+            department_mqtt_topic=department_mqtt_topic or department_name,
             distributor_name=distributor_name,
             distributor_mqtt_topic=distributor_mqtt_topic or distributor_name,
             data_interval=data_interval,
@@ -250,7 +256,8 @@ class DevicePipelineManager:
         customer_name = data.get("customer_name")
         customer_mqtt_topic = data.get("customer_mqtt_topic") or customer_name
         department_name = data.get("department_name")
-        if not event_type or not device_uid or not customer_mqtt_topic or not department_name:
+        department_mqtt_topic = data.get("department_mqtt_topic") or department_name
+        if not event_type or not device_uid or not customer_mqtt_topic or not department_mqtt_topic:
             logger.warning("Device event missing required fields")
             return
 

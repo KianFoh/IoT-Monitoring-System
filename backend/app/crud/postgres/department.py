@@ -13,6 +13,7 @@ def create_department(db: Session, department: DepartmentCreate):
     """Create new department"""
     db_department = DepartmentModel(
         name=department.name,
+        mqtt_topic=department.mqtt_topic or department.name,
         customer_id=department.customer_id
     )
     db.add(db_department)
@@ -34,6 +35,31 @@ def get_departments_by_ids(db: Session, department_ids: list[int]):
 def get_department_by_name(db: Session, name: str):
     """Get department by name"""
     return db.query(DepartmentModel).filter(DepartmentModel.name == name).first()
+
+def get_department_by_mqtt_topic(db: Session, customer_id: int, mqtt_topic: str):
+    """Get department by MQTT topic within a customer."""
+    return (
+        db.query(DepartmentModel)
+        .filter(DepartmentModel.customer_id == customer_id, DepartmentModel.mqtt_topic == mqtt_topic)
+        .first()
+    )
+
+def get_department_by_mqtt_topic_excluding_id(
+    db: Session,
+    customer_id: int,
+    mqtt_topic: str,
+    exclude_department_id: int,
+):
+    """Get department by MQTT topic within a customer, excluding one department."""
+    return (
+        db.query(DepartmentModel)
+        .filter(
+            DepartmentModel.customer_id == customer_id,
+            DepartmentModel.mqtt_topic == mqtt_topic,
+            DepartmentModel.id != exclude_department_id,
+        )
+        .first()
+    )
 
 
 def _base_department_query(db: Session):
@@ -65,6 +91,7 @@ def _serialize_department_row(row) -> DepartmentOut:
         {
             "id": department.id,
             "name": department.name,
+            "mqtt_topic": department.mqtt_topic,
             "customer_id": department.customer_id,
             "customer_name": customer_name,
             "is_active": department.is_active,
@@ -96,6 +123,7 @@ def get_departments(
         query = query.filter(
             or_(
                 func.lower(DepartmentModel.name).like(like),
+                func.lower(DepartmentModel.mqtt_topic).like(like),
                 func.lower(CustomerModel.name).like(like),
             )
         )
@@ -138,7 +166,9 @@ def department_has_references(db: Session, department_id: int) -> bool:
 def search_departments_by_name(db: Session, name: str, limit: int = 10, customer_id: Optional[int] = None):
     """Simple autocomplete search by name, optionally scoped by customer."""
     pattern = f"%{name}%"
-    query = db.query(DepartmentModel.id, DepartmentModel.name).filter(DepartmentModel.name.ilike(pattern))
+    query = db.query(DepartmentModel.id, DepartmentModel.name).filter(
+        or_(DepartmentModel.name.ilike(pattern), DepartmentModel.mqtt_topic.ilike(pattern))
+    )
     if customer_id is not None:
         query = query.filter(DepartmentModel.customer_id == customer_id)
     rows = (

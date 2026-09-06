@@ -45,6 +45,7 @@ def _base_device_query(db: Session):
         db.query(
             DeviceModel,
             DepartmentModel.name.label("department_name"),
+            DepartmentModel.mqtt_topic.label("department_mqtt_topic"),
             CustomerModel.name.label("customer_name"),
             CustomerModel.mqtt_topic.label("customer_mqtt_topic"),
             DistributorModel.name.label("distributor_name"),
@@ -56,8 +57,9 @@ def _base_device_query(db: Session):
     )
 
 def _serialize_device_row(row) -> DeviceOut:
-    device, department_name, customer_name, customer_mqtt_topic, distributor_name, distributor_mqtt_topic = row
+    device, department_name, department_mqtt_topic, customer_name, customer_mqtt_topic, distributor_name, distributor_mqtt_topic = row
     department_name = department_name or ""
+    department_mqtt_topic = department_mqtt_topic or department_name
     customer_name = customer_name or ""
     customer_mqtt_topic = customer_mqtt_topic or customer_name
     distributor_mqtt_topic = distributor_mqtt_topic or distributor_name
@@ -77,6 +79,7 @@ def _serialize_device_row(row) -> DeviceOut:
             "is_online": device.is_online,
             "is_active": device.is_active,
             "department_name": department_name,
+            "department_mqtt_topic": department_mqtt_topic,
             "customer_name": customer_name,
             "customer_mqtt_topic": customer_mqtt_topic,
             "distributor_name": distributor_name,
@@ -173,6 +176,15 @@ def get_devices_by_distributor_id(db: Session, distributor_id: int) -> list[Devi
     )
     return [_serialize_device_row(row) for row in rows]
 
+def get_devices_by_department_id(db: Session, department_id: int) -> list[DeviceOut]:
+    """Get all devices for a department with topic routing metadata."""
+    rows = (
+        _base_device_query(db)
+        .filter(DeviceModel.department_id == department_id)
+        .all()
+    )
+    return [_serialize_device_row(row) for row in rows]
+
 # ==================== Update ====================
 def update_device(db: Session, db_device: DeviceModel, device_update: DeviceUpdate):
     """Update device"""
@@ -213,6 +225,7 @@ def get_recent_devices(db: Session, limit: int = 5):
         db.query(
             DeviceModel,
             DepartmentModel.name.label("department_name"),
+            DepartmentModel.mqtt_topic.label("department_mqtt_topic"),
             CustomerModel.name.label("customer_name"),
             CustomerModel.mqtt_topic.label("customer_mqtt_topic"),
         )
@@ -224,7 +237,7 @@ def get_recent_devices(db: Session, limit: int = 5):
     )
 
     results = []
-    for device, department_name, customer_name, customer_mqtt_topic in rows:
+    for device, department_name, department_mqtt_topic, customer_name, customer_mqtt_topic in rows:
         results.append(
             DeviceRecentOut.model_validate(
                 {
@@ -233,6 +246,7 @@ def get_recent_devices(db: Session, limit: int = 5):
                     "name": device.name,
                     "is_online": device.is_online,
                     "department_name": department_name or "",
+                    "department_mqtt_topic": department_mqtt_topic or department_name or "",
                     "customer_name": customer_name or "",
                     "customer_mqtt_topic": customer_mqtt_topic or customer_name or "",
                 }

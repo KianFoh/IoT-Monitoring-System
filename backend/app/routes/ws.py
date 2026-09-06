@@ -161,6 +161,7 @@ def _user_device_scopes(db, user: User) -> list[dict[str, str | None]]:
     rows = (
         db.query(
             Department.name.label("department_name"),
+            Department.mqtt_topic.label("department_mqtt_topic"),
             Customer.name.label("customer_name"),
             Customer.mqtt_topic.label("customer_mqtt_topic"),
             Distributor.name.label("distributor_name"),
@@ -173,13 +174,13 @@ def _user_device_scopes(db, user: User) -> list[dict[str, str | None]]:
     )
     return [
         {
-            "department": (department_name or "").strip().lower(),
+            "department": (department_mqtt_topic or department_name or "").strip().lower(),
             "customer": (customer_mqtt_topic or customer_name or "").strip().lower(),
             "distributor": (distributor_mqtt_topic or distributor_name or "").strip().lower()
             if distributor_mqtt_topic or distributor_name
             else None,
         }
-        for department_name, customer_name, customer_mqtt_topic, distributor_name, distributor_mqtt_topic in rows
+        for department_name, department_mqtt_topic, customer_name, customer_mqtt_topic, distributor_name, distributor_mqtt_topic in rows
     ]
 
 
@@ -266,7 +267,7 @@ async def device_stream_websocket(
 
     distributor = (device.distributor_mqtt_topic or device.distributor_name or "").strip().lower()
     customer = (device.customer_mqtt_topic or device.customer_name or "").strip().lower()
-    department = (device.department_name or "").strip().lower()
+    department = (device.department_mqtt_topic or device.department_name or "").strip().lower()
     if distributor:
         topic = f"internal/devices/processed/{distributor}/{customer}/{department}/{device_uid}/"
     else:

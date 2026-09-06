@@ -43,6 +43,7 @@ class DeviceOut(BaseModel):
     data_interval: float
     dashboard_config: Optional[dict] = None
     department_name: str
+    department_mqtt_topic: str
     customer_name: str
     customer_mqtt_topic: str
     distributor_name: Optional[str] = None
@@ -66,6 +67,7 @@ class DeviceRecentOut(BaseModel):
     uid: str
     name: str
     department_name: str
+    department_mqtt_topic: str
     customer_name: str
     customer_mqtt_topic: str
     is_online: bool

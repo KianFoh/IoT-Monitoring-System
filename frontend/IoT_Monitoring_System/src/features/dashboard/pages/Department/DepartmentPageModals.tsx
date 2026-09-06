@@ -20,12 +20,14 @@ type CustomerAutocomplete = {
 
 type DepartmentFormState = {
   name: string;
+  mqtt_topic: string;
   customer_name: string;
   customer_id: number | null;
 };
 
 type DepartmentEditFormState = {
   name: string;
+  mqtt_topic: string;
   is_active: boolean;
 };
 
@@ -90,7 +92,20 @@ export function DepartmentPageModals({
             label="Department Name"
             placeholder="Enter department name"
             value={addForm.name}
-            onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
+            onChange={(e) =>
+              setAddForm((prev) => ({
+                ...prev,
+                name: e.target.value,
+                mqtt_topic: prev.mqtt_topic.trim() ? prev.mqtt_topic : e.target.value,
+              }))
+            }
+          />
+          <Input
+            id="add-department-mqtt-topic"
+            label="MQTT Topic"
+            placeholder="Enter MQTT topic"
+            value={addForm.mqtt_topic}
+            onChange={(e) => setAddForm((prev) => ({ ...prev, mqtt_topic: e.target.value }))}
           />
           <div className={autocompleteStyles["dashboard-autocomplete"]}>
             <Input
@@ -155,6 +170,13 @@ export function DepartmentPageModals({
             placeholder="Update department name"
             value={editForm.name}
             onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+          />
+          <Input
+            id="edit-department-mqtt-topic"
+            label="MQTT Topic"
+            placeholder="Update MQTT topic"
+            value={editForm.mqtt_topic}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, mqtt_topic: e.target.value }))}
           />
           <div className={formStyles["dashboard-checkbox-row"]}>
             <Switch

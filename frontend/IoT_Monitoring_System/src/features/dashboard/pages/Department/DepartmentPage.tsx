@@ -134,7 +134,7 @@ export function DepartmentPage() {
               <SearchFilter
                 value={query}
                 onChange={(v) => setQuery(v)}
-                placeholder="Search departments by name or customer..."
+                placeholder="Search departments by name, MQTT topic, or customer..."
               />
             </div>
 

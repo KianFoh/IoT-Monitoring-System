@@ -5,10 +5,12 @@ from datetime import datetime
 class DepartmentCreate(BaseModel):
     customer_id: int
     name: str
+    mqtt_topic: Optional[str] = None
 
 
 class DepartmentUpdate(BaseModel):
     name: Optional[str] = None
+    mqtt_topic: Optional[str] = None
     is_active: Optional[bool] = None
 
 class DepartmentSearch(BaseModel):
@@ -18,6 +20,7 @@ class DepartmentSearch(BaseModel):
 class DepartmentOut(BaseModel):
     id: int
     name: str
+    mqtt_topic: str
     customer_id: int
     customer_name: Optional[str] = None
     is_active: bool

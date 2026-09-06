@@ -13,11 +13,11 @@ export function useDepartmentActions() {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const [addForm, setAddForm] = useState({ name: "", customer_name: "", customer_id: null as number | null });
-  const [editForm, setEditForm] = useState({ name: "", is_active: true });
+  const [addForm, setAddForm] = useState({ name: "", mqtt_topic: "", customer_name: "", customer_id: null as number | null });
+  const [editForm, setEditForm] = useState({ name: "", mqtt_topic: "", is_active: true });
 
   const openAddModal = () => {
-    setAddForm({ name: "", customer_name: "", customer_id: null });
+    setAddForm({ name: "", mqtt_topic: "", customer_name: "", customer_id: null });
     setActionError(null);
     setShowAddModal(true);
   };
@@ -31,6 +31,7 @@ export function useDepartmentActions() {
     setSelectedDepartment(department);
     setEditForm({
       name: department.name || "",
+      mqtt_topic: department.mqtt_topic || department.name || "",
       is_active: !!department.is_active,
     });
     setActionError(null);
@@ -56,15 +57,15 @@ export function useDepartmentActions() {
   };
 
   const addMutation = useMutation({
-    mutationFn: ({ name, customer_id }: { name: string; customer_id: number }) =>
-      departmentsApi.create({ name, customer_id }),
+    mutationFn: ({ name, mqtt_topic, customer_id }: { name: string; mqtt_topic?: string | null; customer_id: number }) =>
+      departmentsApi.create({ name, mqtt_topic, customer_id }),
     onSuccess: () => {
       closeAddModal();
     },
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; is_active?: boolean } }) =>
+    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; mqtt_topic?: string | null; is_active?: boolean } }) =>
       departmentsApi.update(id, payload),
     onSuccess: () => {
       closeEditModal();
@@ -93,6 +94,7 @@ export function useDepartmentActions() {
       setActionError(null);
       await addMutation.mutateAsync({
         name: addForm.name.trim(),
+        mqtt_topic: addForm.mqtt_topic.trim() || addForm.name.trim(),
         customer_id: addForm.customer_id,
       });
       return true;
@@ -106,11 +108,26 @@ export function useDepartmentActions() {
     e?.preventDefault();
     if (!selectedDepartment) return false;
 
-    const payload: { name?: string; is_active?: boolean } = {
+    const nextValues = {
+      name: editForm.name.trim(),
+      mqtt_topic: editForm.mqtt_topic.trim() || editForm.name.trim(),
       is_active: editForm.is_active,
     };
+    const currentValues = {
+      name: selectedDepartment.name || "",
+      mqtt_topic: selectedDepartment.mqtt_topic || selectedDepartment.name || "",
+      is_active: !!selectedDepartment.is_active,
+    };
+    const payload: { name?: string; mqtt_topic?: string | null; is_active?: boolean } = {};
 
-    if (editForm.name.trim()) payload.name = editForm.name.trim();
+    if (nextValues.name && nextValues.name !== currentValues.name) payload.name = nextValues.name;
+    if (nextValues.mqtt_topic !== currentValues.mqtt_topic) payload.mqtt_topic = nextValues.mqtt_topic;
+    if (nextValues.is_active !== currentValues.is_active) payload.is_active = nextValues.is_active;
+
+    if (Object.keys(payload).length === 0) {
+      closeEditModal();
+      return true;
+    }
 
     try {
       setActionError(null);
