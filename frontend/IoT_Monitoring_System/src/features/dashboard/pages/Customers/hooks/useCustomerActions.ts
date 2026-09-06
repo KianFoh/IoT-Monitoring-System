@@ -15,12 +15,14 @@ export function useCustomerActions() {
 
   const [addForm, setAddForm] = useState({
     name: "",
+    mqtt_topic: "",
     phone_no: "",
     distributor_name: "",
     distributor_id: null as number | null,
   });
   const [editForm, setEditForm] = useState({
     name: "",
+    mqtt_topic: "",
     phone_no: "",
     distributor_name: "",
     distributor_id: null as number | null,
@@ -28,7 +30,7 @@ export function useCustomerActions() {
   });
 
   const openAddModal = () => {
-    setAddForm({ name: "", phone_no: "", distributor_name: "", distributor_id: null });
+    setAddForm({ name: "", mqtt_topic: "", phone_no: "", distributor_name: "", distributor_id: null });
     setActionError(null);
     setShowAddModal(true);
   };
@@ -42,6 +44,7 @@ export function useCustomerActions() {
     setSelectedCustomer(customer);
     setEditForm({
       name: customer.name || "",
+      mqtt_topic: customer.mqtt_topic || customer.name || "",
       phone_no: customer.phone_no || "",
       distributor_name: customer.distributor_name || "",
       distributor_id: customer.distributor_id ?? null,
@@ -72,14 +75,16 @@ export function useCustomerActions() {
   const addMutation = useMutation({
     mutationFn: ({
       name,
+      mqtt_topic,
       phone_no,
       distributor_id,
     }: {
       name: string;
+      mqtt_topic?: string | null;
       phone_no?: string | null;
       distributor_id?: number | null;
     }) =>
-      customersApi.create({ name, phone_no, distributor_id }),
+      customersApi.create({ name, mqtt_topic, phone_no, distributor_id }),
     onSuccess: () => {
       closeAddModal();
     },
@@ -91,7 +96,7 @@ export function useCustomerActions() {
       payload,
     }: {
       id: number;
-      payload: { name?: string; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null };
+      payload: { name?: string; mqtt_topic?: string | null; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null };
     }) =>
       customersApi.update(id, payload),
     onSuccess: () => {
@@ -114,10 +119,12 @@ export function useCustomerActions() {
     }
 
     const phone = addForm.phone_no.trim();
+    const mqttTopic = addForm.mqtt_topic.trim() || addForm.name.trim();
     try {
       setActionError(null);
       await addMutation.mutateAsync({
         name: addForm.name.trim(),
+        mqtt_topic: mqttTopic,
         phone_no: phone ? phone : null,
         distributor_id: addForm.distributor_id ?? null,
       });
@@ -132,14 +139,40 @@ export function useCustomerActions() {
     e?.preventDefault();
     if (!selectedCustomer) return false;
 
+    const name = editForm.name.trim();
+    if (!name) {
+      setActionError("Name is required");
+      return false;
+    }
+
     const phone = editForm.phone_no.trim();
-    const payload: { name?: string; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null } = {
+    const mqttTopic = editForm.mqtt_topic.trim();
+    const nextValues = {
+      name,
+      mqtt_topic: mqttTopic || name,
       phone_no: phone ? phone : null,
       is_active: editForm.is_active,
       distributor_id: editForm.distributor_id ?? null,
     };
+    const currentValues = {
+      name: selectedCustomer.name || "",
+      mqtt_topic: selectedCustomer.mqtt_topic || selectedCustomer.name || "",
+      phone_no: selectedCustomer.phone_no || null,
+      is_active: !!selectedCustomer.is_active,
+      distributor_id: selectedCustomer.distributor_id ?? null,
+    };
 
-    if (editForm.name.trim()) payload.name = editForm.name.trim();
+    const payload: { name?: string; mqtt_topic?: string | null; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null } = {};
+    if (nextValues.name !== currentValues.name) payload.name = nextValues.name;
+    if (nextValues.mqtt_topic !== currentValues.mqtt_topic) payload.mqtt_topic = nextValues.mqtt_topic;
+    if (nextValues.phone_no !== currentValues.phone_no) payload.phone_no = nextValues.phone_no;
+    if (nextValues.is_active !== currentValues.is_active) payload.is_active = nextValues.is_active;
+    if (nextValues.distributor_id !== currentValues.distributor_id) payload.distributor_id = nextValues.distributor_id;
+
+    if (!Object.keys(payload).length) {
+      closeEditModal();
+      return true;
+    }
 
     try {
       setActionError(null);

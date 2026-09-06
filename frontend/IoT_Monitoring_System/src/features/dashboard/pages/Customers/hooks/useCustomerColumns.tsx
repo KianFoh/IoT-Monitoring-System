@@ -22,6 +22,11 @@ export function useCustomerColumns(
         cell: (info) => info.getValue<string | null>() || "-",
       },
       {
+        accessorKey: "mqtt_topic",
+        header: "MQTT Topic",
+        meta: { width: 180 },
+      },
+      {
         accessorKey: "phone_no",
         header: "Phone",
         meta: { width: 180 },

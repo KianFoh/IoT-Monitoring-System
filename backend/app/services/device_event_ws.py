@@ -35,7 +35,7 @@ class DeviceEventConnectionManager:
         return normalized or None
 
     def _extract_scope(self, payload: dict) -> Optional[dict[str, Optional[str]]]:
-        customer = self._normalize(payload.get("customer_name"))
+        customer = self._normalize(payload.get("customer_mqtt_topic") or payload.get("customer_name"))
         department = self._normalize(payload.get("department_name"))
         distributor = self._normalize(payload.get("distributor_name"))
         if not customer or not department:

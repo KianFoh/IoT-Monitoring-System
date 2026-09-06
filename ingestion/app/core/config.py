@@ -34,10 +34,10 @@ class Settings(BaseSettings):
     MONGO_AUTH_SOURCE: str = "admin"
     # Maximum period in seconds between communications with the broker before the broker considers the client disconnected
     MQTT_KEEPALIVE: int = 60
-    MQTT_DEVICE_RAW_DATA_TOPIC: str = "{customer_name}/json/send/{device_uid}/"
-    MQTT_DEVICE_PROCESSED_DATA_TOPIC: str = "internal/devices/processed/{customer_name}/{department_name}/{device_uid}/"
-    MQTT_DEVICE_EVENT_TOPIC: str = "internal/devices/events/{customer_name}/{department_name}/{device_uid}/"
-    MQTT_DEVICE_STATUS_TOPIC: str = "internal/devices/status/{customer_name}/{department_name}/{device_uid}/"
+    MQTT_DEVICE_RAW_DATA_TOPIC: str = "{customer_mqtt_topic}/json/send/{device_uid}/"
+    MQTT_DEVICE_PROCESSED_DATA_TOPIC: str = "internal/devices/processed/{customer_mqtt_topic}/{department_name}/{device_uid}/"
+    MQTT_DEVICE_EVENT_TOPIC: str = "internal/devices/events/{customer_mqtt_topic}/{department_name}/{device_uid}/"
+    MQTT_DEVICE_STATUS_TOPIC: str = "internal/devices/status/{customer_mqtt_topic}/{department_name}/{device_uid}/"
 
     # Monitoring / logging
     LOG_LEVEL: str = "INFO"

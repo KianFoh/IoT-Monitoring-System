@@ -8,6 +8,7 @@ class Customer(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
+    mqtt_topic = Column(String, unique=True, nullable=False)
     phone_no = Column(String, nullable=True)
     distributor_id = Column(BigInteger, ForeignKey("distributor.id", ondelete="SET NULL"), nullable=True)
 

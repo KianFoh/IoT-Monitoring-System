@@ -114,6 +114,7 @@ export interface Device {
   is_online: boolean;
   department_name?: string | null;
   customer_name?: string | null;
+  customer_mqtt_topic?: string | null;
   is_active: boolean;
   created_at: string;
 }

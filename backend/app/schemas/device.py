@@ -38,6 +38,7 @@ class DeviceOut(BaseModel):
     dashboard_config: Optional[dict] = None
     department_name: str
     customer_name: str
+    customer_mqtt_topic: str
     distributor_name: Optional[str] = None
     created_at: datetime
     is_online: bool
@@ -59,6 +60,7 @@ class DeviceRecentOut(BaseModel):
     name: str
     department_name: str
     customer_name: str
+    customer_mqtt_topic: str
     is_online: bool
 
     class Config:

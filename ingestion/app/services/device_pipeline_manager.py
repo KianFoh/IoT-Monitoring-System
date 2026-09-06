@@ -27,6 +27,7 @@ class DeviceRepository:
                     Device.dashboard_config,
                     Department.name,
                     Customer.name,
+                    Customer.mqtt_topic,
                     Distributor.name,
                 )
                 .join(Department, Device.department_id == Department.id)
@@ -38,11 +39,21 @@ class DeviceRepository:
             session.close()
 
         devices: List[DeviceInfo] = []
-        for uid, data_interval, is_active, dashboard_config, department_name, customer_name, distributor_name in rows:
+        for (
+            uid,
+            data_interval,
+            is_active,
+            dashboard_config,
+            department_name,
+            customer_name,
+            customer_mqtt_topic,
+            distributor_name,
+        ) in rows:
             devices.append(
                 DeviceInfo(
                     uid=uid,
                     customer_name=customer_name,
+                    customer_mqtt_topic=customer_mqtt_topic or customer_name,
                     department_name=department_name,
                     distributor_name=distributor_name,
                     data_interval=data_interval,
@@ -64,6 +75,7 @@ class DeviceRepository:
                     Device.dashboard_config,
                     Department.name,
                     Customer.name,
+                    Customer.mqtt_topic,
                     Distributor.name,
                 )
                 .join(Department, Device.department_id == Department.id)
@@ -85,12 +97,14 @@ class DeviceRepository:
             dashboard_config,
             department_name,
             customer_name,
+            customer_mqtt_topic,
             distributor_name,
         ) = row
 
         return DeviceInfo(
             uid=device_uid,
             customer_name=customer_name,
+            customer_mqtt_topic=customer_mqtt_topic or customer_name,
             department_name=department_name,
             distributor_name=distributor_name,
             data_interval=data_interval,
@@ -228,8 +242,9 @@ class DevicePipelineManager:
         event_type = str(data.get("event_type", "")).lower()
         device_uid = data.get("uid")
         customer_name = data.get("customer_name")
+        customer_mqtt_topic = data.get("customer_mqtt_topic") or customer_name
         department_name = data.get("department_name")
-        if not event_type or not device_uid or not customer_name or not department_name:
+        if not event_type or not device_uid or not customer_mqtt_topic or not department_name:
             logger.warning("Device event missing required fields")
             return
 

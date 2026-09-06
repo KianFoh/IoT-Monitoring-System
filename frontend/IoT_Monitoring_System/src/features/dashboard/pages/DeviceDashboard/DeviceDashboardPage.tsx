@@ -43,7 +43,7 @@ export function DeviceDashboardPage() {
   const handleOutputSend = useCallback(
     (field: string, value: string | number | boolean) => {
       if (!canControlOutput || !device) return;
-      const customer = device.customer_name?.trim().toLowerCase() || "";
+      const customer = (device.customer_mqtt_topic || device.customer_name)?.trim().toLowerCase() || "";
       const department = device.department_name?.trim().toLowerCase() || "";
       const uid = device.uid?.trim() || "";
       const key = field.trim();
@@ -52,7 +52,7 @@ export function DeviceDashboardPage() {
       const payloadValue = typeof value === "boolean" ? (value ? "true" : "false") : value;
       wsManager.sendStream(receiveKey, { [key]: payloadValue });
     },
-    [canControlOutput, device?.customer_name, device?.department_name, device?.uid]
+    [canControlOutput, device?.customer_mqtt_topic, device?.customer_name, device?.department_name, device?.uid]
   );
   const getChartRawValue = useCallback(
     (field: string) => {

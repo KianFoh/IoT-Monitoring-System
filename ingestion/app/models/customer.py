@@ -7,4 +7,5 @@ class Customer(Base):
 
     id = Column(BigInteger, primary_key=True)
     name = Column(String, unique=True, nullable=False)
+    mqtt_topic = Column(String, unique=True, nullable=False)
     distributor_id = Column(BigInteger, ForeignKey("distributor.id"), nullable=True)

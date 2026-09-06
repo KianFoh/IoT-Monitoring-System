@@ -42,11 +42,13 @@ def _ensure_device_exists(db: Session, device_id: int) -> None:
 def _publish_alert_rule_event(request: Request, device, action: str) -> None:
     publish_device_alert(
         request,
-        device.customer_name,
+        device.customer_mqtt_topic,
         device.department_name,
         {
             "device_id": device.id,
             "uid": device.uid,
+            "customer_name": device.customer_name,
+            "customer_mqtt_topic": device.customer_mqtt_topic,
             "action": action,
         },
         device.distributor_name,

@@ -44,6 +44,7 @@ def _base_device_query(db: Session):
             DeviceModel,
             DepartmentModel.name.label("department_name"),
             CustomerModel.name.label("customer_name"),
+            CustomerModel.mqtt_topic.label("customer_mqtt_topic"),
             DistributorModel.name.label("distributor_name"),
         )
         .outerjoin(DepartmentModel, DeviceModel.department_id == DepartmentModel.id)
@@ -52,9 +53,10 @@ def _base_device_query(db: Session):
     )
 
 def _serialize_device_row(row) -> DeviceOut:
-    device, department_name, customer_name, distributor_name = row
+    device, department_name, customer_name, customer_mqtt_topic, distributor_name = row
     department_name = department_name or ""
     customer_name = customer_name or ""
+    customer_mqtt_topic = customer_mqtt_topic or customer_name
     return DeviceOut.model_validate(
         {
             "id": device.id,
@@ -70,6 +72,7 @@ def _serialize_device_row(row) -> DeviceOut:
             "is_active": device.is_active,
             "department_name": department_name,
             "customer_name": customer_name,
+            "customer_mqtt_topic": customer_mqtt_topic,
             "distributor_name": distributor_name,
             "created_at": device.created_at,
         }
@@ -145,6 +148,15 @@ def get_device_with_relations_by_uid(db: Session, device_uid: str):
         return None
     return _serialize_device_row(row)
 
+def get_devices_by_customer_id(db: Session, customer_id: int) -> list[DeviceOut]:
+    """Get all devices for a customer with topic routing metadata."""
+    rows = (
+        _base_device_query(db)
+        .filter(DepartmentModel.customer_id == customer_id)
+        .all()
+    )
+    return [_serialize_device_row(row) for row in rows]
+
 # ==================== Update ====================
 def update_device(db: Session, db_device: DeviceModel, device_update: DeviceUpdate):
     """Update device"""
@@ -186,6 +198,7 @@ def get_recent_devices(db: Session, limit: int = 5):
             DeviceModel,
             DepartmentModel.name.label("department_name"),
             CustomerModel.name.label("customer_name"),
+            CustomerModel.mqtt_topic.label("customer_mqtt_topic"),
         )
         .outerjoin(DepartmentModel, DeviceModel.department_id == DepartmentModel.id)
         .outerjoin(CustomerModel, DepartmentModel.customer_id == CustomerModel.id)
@@ -195,7 +208,7 @@ def get_recent_devices(db: Session, limit: int = 5):
     )
 
     results = []
-    for device, department_name, customer_name in rows:
+    for device, department_name, customer_name, customer_mqtt_topic in rows:
         results.append(
             DeviceRecentOut.model_validate(
                 {
@@ -205,6 +218,7 @@ def get_recent_devices(db: Session, limit: int = 5):
                     "is_online": device.is_online,
                     "department_name": department_name or "",
                     "customer_name": customer_name or "",
+                    "customer_mqtt_topic": customer_mqtt_topic or customer_name or "",
                 }
             )
         )

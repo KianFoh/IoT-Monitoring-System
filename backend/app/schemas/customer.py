@@ -4,11 +4,13 @@ from datetime import datetime
     
 class CustomerCreate(BaseModel):
     name: str
+    mqtt_topic: Optional[str] = None
     phone_no: Optional[str] = None
     distributor_id: Optional[int] = None
 
 class CustomerUpdate(BaseModel):
     name: Optional[str] = None
+    mqtt_topic: Optional[str] = None
     phone_no: Optional[str] = None
     is_active: Optional[bool] = None
     distributor_id: Optional[int] = None
@@ -20,6 +22,7 @@ class CustomerSearch(BaseModel):
 class CustomerOut(BaseModel):
     id: int
     name: str
+    mqtt_topic: str
     phone_no: Optional[str] = None
     distributor_id: Optional[int] = None
     distributor_name: Optional[str] = None

@@ -49,10 +49,11 @@ def publish_device_event(
     payload_to_send = dict(payload)
     normalized_customer = normalize_topic_name(customer_name)
     normalized_department = normalize_topic_name(department_name)
-    payload_to_send["customer_name"] = normalized_customer
+    payload_to_send.setdefault("customer_mqtt_topic", normalized_customer)
+    payload_to_send.setdefault("customer_name", normalized_customer)
     payload_to_send["department_name"] = normalized_department
     if distributor_name:
-        payload_to_send["distributor_name"] = normalize_topic_name(distributor_name)
+        payload_to_send.setdefault("distributor_name", normalize_topic_name(distributor_name))
     mqtt_client.publish(
         build_device_event_topic(
             normalized_customer,
@@ -77,10 +78,11 @@ def publish_device_alert(
     payload_to_send = dict(payload)
     normalized_customer = normalize_topic_name(customer_name)
     normalized_department = normalize_topic_name(department_name)
-    payload_to_send["customer_name"] = normalized_customer
+    payload_to_send.setdefault("customer_mqtt_topic", normalized_customer)
+    payload_to_send.setdefault("customer_name", normalized_customer)
     payload_to_send["department_name"] = normalized_department
     if distributor_name:
-        payload_to_send["distributor_name"] = normalize_topic_name(distributor_name)
+        payload_to_send.setdefault("distributor_name", normalize_topic_name(distributor_name))
     mqtt_client.publish(
         build_device_alert_topic(
             normalized_customer,

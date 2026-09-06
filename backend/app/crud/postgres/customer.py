@@ -36,6 +36,7 @@ def _serialize_customer_row(row) -> CustomerOut:
         {
             "id": customer.id,
             "name": customer.name,
+            "mqtt_topic": customer.mqtt_topic,
             "phone_no": customer.phone_no,
             "distributor_id": distributor_id,
             "distributor_name": distributor_name,
@@ -76,6 +77,7 @@ def get_customers(
         query = query.filter(
             or_(
                 CustomerModel.name.ilike(like),
+                CustomerModel.mqtt_topic.ilike(like),
                 CustomerModel.phone_no.ilike(like),
                 DistributorModel.name.ilike(like),
             )
@@ -106,11 +108,23 @@ def get_customer_by_name(db: Session, name: str):
     """Get a customer by name."""
     return db.query(CustomerModel).filter(CustomerModel.name == name).first()
 
+def get_customer_by_mqtt_topic(db: Session, mqtt_topic: str):
+    """Get a customer by MQTT topic segment."""
+    return db.query(CustomerModel).filter(CustomerModel.mqtt_topic == mqtt_topic).first()
+
 def get_customer_by_name_excluding_id(db: Session, name: str, exclude_id: int):
     """Get a customer by name, excluding a specific ID (useful for update uniqueness checks)."""
     return (
         db.query(CustomerModel)
         .filter(CustomerModel.name == name, CustomerModel.id != exclude_id)
+        .first()
+    )
+
+def get_customer_by_mqtt_topic_excluding_id(db: Session, mqtt_topic: str, exclude_id: int):
+    """Get a customer by MQTT topic segment, excluding a specific ID."""
+    return (
+        db.query(CustomerModel)
+        .filter(CustomerModel.mqtt_topic == mqtt_topic, CustomerModel.id != exclude_id)
         .first()
     )
 
@@ -135,8 +149,10 @@ def customer_has_references(db: Session, customer_id: int) -> bool:
 # ==================== Create ====================
 def create_customer(db: Session, customer: CustomerCreate):
     """Create a new customer."""
+    mqtt_topic = (customer.mqtt_topic or customer.name).strip()
     db_customer = CustomerModel(
         name=customer.name,
+        mqtt_topic=mqtt_topic,
         phone_no=customer.phone_no,
         distributor_id=customer.distributor_id,
     )

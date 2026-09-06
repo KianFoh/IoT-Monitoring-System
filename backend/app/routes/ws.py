@@ -162,6 +162,7 @@ def _user_device_scopes(db, user: User) -> list[dict[str, str | None]]:
         db.query(
             Department.name.label("department_name"),
             Customer.name.label("customer_name"),
+            Customer.mqtt_topic.label("customer_mqtt_topic"),
             Distributor.name.label("distributor_name"),
         )
         .join(Customer, Department.customer_id == Customer.id)
@@ -172,10 +173,10 @@ def _user_device_scopes(db, user: User) -> list[dict[str, str | None]]:
     return [
         {
             "department": (department_name or "").strip().lower(),
-            "customer": (customer_name or "").strip().lower(),
+            "customer": (customer_mqtt_topic or customer_name or "").strip().lower(),
             "distributor": (distributor_name or "").strip().lower() if distributor_name else None,
         }
-        for department_name, customer_name, distributor_name in rows
+        for department_name, customer_name, customer_mqtt_topic, distributor_name in rows
     ]
 
 
@@ -261,7 +262,7 @@ async def device_stream_websocket(
             return
 
     distributor = (device.distributor_name or "").strip().lower()
-    customer = (device.customer_name or "").strip().lower()
+    customer = (device.customer_mqtt_topic or device.customer_name or "").strip().lower()
     department = (device.department_name or "").strip().lower()
     if distributor:
         topic = f"internal/devices/processed/{distributor}/{customer}/{department}/{device_uid}/"
@@ -314,7 +315,7 @@ async def device_response_websocket(
             return
 
     topic = _build_device_response_topic(
-        device.customer_name or "",
+        device.customer_mqtt_topic or device.customer_name or "",
         device_record.uid,
         device.distributor_name,
     )
@@ -366,7 +367,7 @@ async def device_command_websocket(
             return
 
     topic = _build_device_command_topic(
-        device.customer_name or "",
+        device.customer_mqtt_topic or device.customer_name or "",
         device_record.uid,
         device.distributor_name,
     )
@@ -430,7 +431,7 @@ async def device_receive_websocket(
             return
 
     topic = _build_device_receive_topic(
-        device.customer_name or "",
+        device.customer_mqtt_topic or device.customer_name or "",
         device_record.uid,
         device.distributor_name,
     )

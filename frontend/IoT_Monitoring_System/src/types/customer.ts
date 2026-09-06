@@ -1,6 +1,7 @@
 export interface Customer {
   id: number;
   name: string;
+  mqtt_topic: string;
   phone_no: string | null;
   distributor_id?: number | null;
   distributor_name?: string | null;

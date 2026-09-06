@@ -27,13 +27,13 @@ export const customersApi = {
     return api.get<CustomerSearch[]>(`${BASE_PATH}/search`, { params });
   },
 
-  async create(payload: { name: string; phone_no?: string | null; distributor_id?: number | null }) {
+  async create(payload: { name: string; mqtt_topic?: string | null; phone_no?: string | null; distributor_id?: number | null }) {
     return api.post<Customer>(`${BASE_PATH}/`, payload);
   },
 
   async update(
     id: number,
-    payload: { name?: string; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null }
+    payload: { name?: string; mqtt_topic?: string | null; phone_no?: string | null; is_active?: boolean; distributor_id?: number | null }
   ) {
     return api.patch<Customer>(`${BASE_PATH}/${id}`, payload);
   },

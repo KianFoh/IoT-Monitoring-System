@@ -270,7 +270,7 @@ export function useDeviceActions() {
     if (!selectedDevice) {
       throw new Error("Device not selected");
     }
-    const customer = selectedDevice.customer_name?.trim().toLowerCase();
+    const customer = (selectedDevice.customer_mqtt_topic || selectedDevice.customer_name)?.trim().toLowerCase();
     const department = selectedDevice.department_name?.trim().toLowerCase();
     const uid = selectedDevice.uid?.trim();
     if (!customer || !department || !uid) {

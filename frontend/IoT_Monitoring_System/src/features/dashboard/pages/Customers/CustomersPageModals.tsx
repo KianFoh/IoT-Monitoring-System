@@ -21,6 +21,7 @@ type DistributorAutocomplete = {
 
 type CustomerFormState = {
   name: string;
+  mqtt_topic: string;
   phone_no: string;
   distributor_name: string;
   distributor_id: number | null;
@@ -150,7 +151,20 @@ export function CustomersPageModals({
                 label="Customer Name"
                 placeholder="Enter customer name"
                 value={addForm.name}
-                onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setAddForm((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                    mqtt_topic: prev.mqtt_topic.trim() ? prev.mqtt_topic : e.target.value,
+                  }))
+                }
+              />
+              <Input
+                id="add-customer-mqtt-topic"
+                label="MQTT Topic"
+                placeholder="Enter MQTT topic segment"
+                value={addForm.mqtt_topic}
+                onChange={(e) => setAddForm((prev) => ({ ...prev, mqtt_topic: e.target.value }))}
               />
               <Input
                 id="add-customer-phone"
@@ -224,6 +238,13 @@ export function CustomersPageModals({
             placeholder="Update customer name"
             value={editForm.name}
             onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+          />
+          <Input
+            id="edit-customer-mqtt-topic"
+            label="MQTT Topic"
+            placeholder="Update MQTT topic segment"
+            value={editForm.mqtt_topic}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, mqtt_topic: e.target.value }))}
           />
           <Input
             id="edit-customer-phone"

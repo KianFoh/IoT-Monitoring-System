@@ -17,6 +17,7 @@ from app.utils.time import utc_now
 class DeviceInfo:
     uid: str
     customer_name: str
+    customer_mqtt_topic: str
     department_name: str
     distributor_name: Optional[str]
     data_interval: float
@@ -37,7 +38,7 @@ class DevicePipeline:
         
     @property
     def device_topic(self):
-        customer = self._normalize_topic_value(self.device.customer_name)
+        customer = self._normalize_topic_value(self.device.customer_mqtt_topic or self.device.customer_name)
         distributor = self._normalize_topic_value(self.device.distributor_name) if self.device.distributor_name else ""
         if distributor:
             return f"{distributor}/{customer}/json/send/{self.device.uid}/"
@@ -184,12 +185,17 @@ class DevicePipeline:
         self.status = new_status
         self.mqtt.publish(
             self._build_internal_topic("status"),
-            new_status,
+            json.dumps(
+                {
+                    "device_id": self.device.uid,
+                    "status": new_status,
+                }
+            ),
         )
         self._update_device_status(new_status == "online")
 
     def _build_internal_topic(self, topic_type: str) -> str:
-        customer = self._normalize_topic_value(self.device.customer_name)
+        customer = self._normalize_topic_value(self.device.customer_mqtt_topic or self.device.customer_name)
         department = self._normalize_topic_value(self.device.department_name)
         distributor = self._normalize_topic_value(self.device.distributor_name) if self.device.distributor_name else ""
         if distributor:
