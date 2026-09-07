@@ -94,6 +94,8 @@
 
 .dashboard-filter-modal {
   width: min(320px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
 }
 
 .dashboard-filter-footer {
@@ -125,8 +127,8 @@
 }
 
 .dashboard-filter-options {
-  min-height: 120px;
-  max-height: 220px;
+  height: 220px;
+  flex-shrink: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
