@@ -31,6 +31,24 @@ def create_device(db: Session, device: DeviceCreate):
     return db_device
 
 # ==================== Read ====================
+def get_device_filter_options(db: Session, department_ids: Optional[list[int]] = None):
+    """Return hierarchy labels, restricted to assigned departments when supplied."""
+    departments = db.query(DepartmentModel.id, DepartmentModel.name, DepartmentModel.customer_id)
+    customers = db.query(CustomerModel.id, CustomerModel.name, CustomerModel.distributor_id)
+    distributors = db.query(DistributorModel.id, DistributorModel.name)
+    if department_ids is not None:
+        departments = departments.filter(DepartmentModel.id.in_(department_ids))
+        customer_ids = db.query(DepartmentModel.customer_id).filter(DepartmentModel.id.in_(department_ids))
+        customers = customers.filter(CustomerModel.id.in_(customer_ids))
+        distributor_ids = db.query(CustomerModel.distributor_id).filter(CustomerModel.id.in_(customer_ids))
+        distributors = distributors.filter(DistributorModel.id.in_(distributor_ids))
+    return {
+        "distributors": [dict(row._mapping) for row in distributors.order_by(DistributorModel.name).all()],
+        "customers": [dict(row._mapping) for row in customers.order_by(CustomerModel.name).all()],
+        "departments": [dict(row._mapping) for row in departments.order_by(DepartmentModel.name).all()],
+    }
+
+
 def get_device(db: Session, device_id: int):
     """Get device by ID"""
     return db.query(DeviceModel).filter(DeviceModel.id == device_id).first()

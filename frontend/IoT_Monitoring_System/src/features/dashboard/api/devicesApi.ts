@@ -25,6 +25,14 @@ const buildDeviceListParams = (params: DeviceListParams) => {
 };
 
 export const devicesApi = {
+  async filterOptions() {
+    return api.get<{
+      distributors: Array<{ id: number; name: string }>;
+      customers: Array<{ id: number; name: string; distributor_id: number | null }>;
+      departments: Array<{ id: number; name: string; customer_id: number }>;
+    }>(`${BASE_PATH}/filter-options`);
+  },
+
   async list(params: DeviceListParams) {
     return api.get<DeviceListResponse>(`${BASE_PATH}/`, { params: buildDeviceListParams(params) });
   },

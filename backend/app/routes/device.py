@@ -191,6 +191,17 @@ async def create_device(
 
 
 # ==================== Read (List) ====================
+@router.get("/filter-options")
+def get_device_filter_options(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List permitted hierarchy options independently of device pagination."""
+    require_role(current_user, [UserRole.superuser, UserRole.user])
+    department_ids = _user_department_ids(db, current_user) if current_user.role == UserRole.user else None
+    return device_crud.get_device_filter_options(db, department_ids=department_ids)
+
+
 @router.get("/", response_model=DeviceListResponse)
 def get_devices(
     search: Optional[str] = Query(None, description="Search by UID, device name, department or customer"),
