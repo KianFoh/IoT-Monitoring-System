@@ -20,6 +20,13 @@ const DATA_FIELD_TYPE_OPTIONS: Array<{ value: "number" | "text" | "list" | "bool
   { value: "boolean", label: "Boolean" },
 ];
 
+const formatInstallationDate = (value?: string | null) => {
+  if (!value) return "--";
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+};
+
 export function DeviceDashboardPage() {
   const { deviceUid } = useParams<{ deviceUid: string }>();
   const { user } = useAuth();
@@ -84,24 +91,23 @@ export function DeviceDashboardPage() {
     "--"
   );
   const metaItems = device
-    ? isReadOnly
-      ? [
-          { label: "UID", value: device.uid },
-          { label: "Device Name", value: device.name || "Unknown" },
+    ? [
+        { label: "Machine Maker", value: device.distributor_name || "--" },
+        { label: "Machine Model", value: device.name || "--" },
+        { label: "Serial Number", value: device.machine_series_number || "--" },
+        { label: "UID", value: device.uid },
+        { label: "Installation Date", value: formatInstallationDate(device.installation_date) },
+        ...(isReadOnly ? [
           { label: "Machine", value: device.machine || "Unknown" },
-          { label: "Status", value: statusBadge },
-          { label: "Data Interval", value: `${device.data_interval}s` },
-          { label: "Last Update", value: lastUpdateLabel },
-        ]
-      : [
+        ] : [
           { label: "Customer", value: device.customer_name || "Unknown" },
           { label: "Department", value: device.department_name || "Unknown" },
-          { label: "UID", value: device.uid },
-          { label: "Status", value: statusBadge },
-          { label: "Data Interval", value: `${device.data_interval}s` },
-          { label: "Last Update", value: lastUpdateLabel },
-        ]
-      : [];
+        ]),
+        { label: "Status", value: statusBadge },
+        { label: "Data Interval", value: `${device.data_interval}s` },
+        { label: "Last Update", value: lastUpdateLabel },
+      ]
+    : [];
 
   const panelProps = {
     displayMode,

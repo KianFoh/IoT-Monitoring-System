@@ -110,9 +110,16 @@ def main() -> None:
     username = _get_env("MQTT_USERNAME")
     password = _get_env("MQTT_PASSWORD")
     device_id = _get_env("TEST_DEVICE_ID")
-    topic = _get_env("TEST_PUBLISH_TOPIC")
-    customer = _get_env("TEST_CUSTOMER_NAME")
-    receive_topic = f"{customer}/json/receive/{device_id}/" if customer and device_id else None
+    # Use the MQTT topic values configured for the customer and optional distributor.
+    customer = (_get_env("TEST_CUSTOMER_NAME") or "").strip().lower()
+    distributor = (_get_env("TEST_DISTRIBUTOR_NAME") or "").strip().lower()
+    prefix = f"{distributor}/{customer}" if distributor else customer
+    if not device_id:
+        raise ValueError("TEST_DEVICE_ID is required")
+    if not customer:
+        raise ValueError("TEST_CUSTOMER_NAME is required")
+    topic = f"{prefix}/json/send/{device_id}/"
+    receive_topic = f"{prefix}/json/receive/{device_id}/"
 
     state_lock = Lock()
     output_state = {

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Device } from "@/types/device";
+import { getDeviceMqttTopic } from "../deviceMqttTopic";
 import { TableActions } from "../../../components/TableActions/TableActions";
 import styles from "../../../styles/StatusBadge.module.css";
 
@@ -31,7 +32,7 @@ export function useDeviceColumns(
       },
       {
         accessorKey: "machine_series_number",
-        header: "Series Number",
+        header: "Serial Number",
         meta: { width: 180 },
         cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
       },
@@ -52,6 +53,17 @@ export function useDeviceColumns(
         header: "Department",
         meta: { width: 160 },
         cell: (info) => <>{info.getValue<string | null>() || "-"}</>,
+      },
+      {
+        id: "mqtt_topic",
+        header: "MQTT Topic",
+        accessorFn: getDeviceMqttTopic,
+        meta: { width: 320 },
+        cell: (info) => (
+          <code style={{ whiteSpace: "normal", overflowWrap: "anywhere", userSelect: "text" }}>
+            {info.getValue<string | null>() || "-"}
+          </code>
+        ),
       },
       {
         accessorKey: "installation_date",

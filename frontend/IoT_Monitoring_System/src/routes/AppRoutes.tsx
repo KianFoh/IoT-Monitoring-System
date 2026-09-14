@@ -3,7 +3,7 @@ import { LoginPage, EmailVerificationPage, ResendVerificationPage, ResetPassword
 import { ProtectedRoute } from "./ProtectedRoute";
 import { RoleRoute } from "./RoleRoute";
 import { GuestRoute } from "./GuestRoute";
-import { DashboardLayout, DashboardHome, CustomersPage, DistributorsPage, DepartmentPage, DevicesPage, DeviceDashboardPage, MqttUserPage, SettingsPage, UsersPage } from "@/features/dashboard";
+import { DashboardLayout, DashboardHome, CustomersPage, DistributorsPage, DepartmentPage, DevicesPage, DeviceDashboardPage, SettingsPage, UsersPage } from "@/features/dashboard";
 
 export default function AppRoutes() {
 
@@ -32,7 +32,8 @@ export default function AppRoutes() {
             <Route path="customers" element={<CustomersPage />} />
             <Route path="departments" element={<DepartmentPage />} />
             <Route path="users" element={<UsersPage />} />
-            <Route path="mqtt-users" element={<MqttUserPage />} />
+            {/* MQTT Users is temporarily disabled; its page code is retained for future use. */}
+            <Route path="mqtt-users" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Route>
       </Route>

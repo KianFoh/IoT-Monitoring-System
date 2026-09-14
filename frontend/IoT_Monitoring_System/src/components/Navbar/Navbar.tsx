@@ -9,7 +9,6 @@ import {
   FaNetworkWired,
   FaUsers,
   FaCog,
-  FaUserCog,
   FaUserAlt ,
   FaBuilding,
   FaSitemap,
@@ -26,10 +25,9 @@ export interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
-  { to: "/dashboard/distributors", label: "Machine Makers", icon: <FaSitemap /> },
+  { to: "/dashboard/distributors", label: "Distributors", icon: <FaSitemap /> },
   { to: "/dashboard/customers", label: "Customers", icon: <FaUserAlt /> },
   { to: "/dashboard/departments", label: "Departments", icon: <FaBuilding /> },
-  { to: "/dashboard/mqtt-users", label: "MQTT Users", icon: <FaUserCog /> },
   { to: "/dashboard/devices", label: "Devices", icon: <FaNetworkWired /> },
   { to: "/dashboard/users", label: "Users", icon: <FaUsers /> },
   { to: "/dashboard/settings", label: "Settings", icon: <FaCog /> },

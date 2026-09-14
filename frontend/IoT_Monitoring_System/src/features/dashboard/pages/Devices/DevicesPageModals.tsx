@@ -288,9 +288,9 @@ export function SuperuserDevicesPageModals({
                 onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
               />
               <Input
-                id="add-device-machine-series-number"
-                label="Machine Series Number"
-                placeholder="Enter machine series number"
+                id="add-device-machine-serial-number"
+                label="Machine Serial Number"
+                placeholder="Enter machine serial number"
                 value={addForm.machine_series_number}
                 onChange={(e) => setAddForm((prev) => ({ ...prev, machine_series_number: e.target.value }))}
               />
@@ -341,9 +341,9 @@ export function SuperuserDevicesPageModals({
             onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
           />
           <Input
-            id="edit-device-machine-series-number"
-            label="Machine Series Number"
-            placeholder="Update machine series number"
+            id="edit-device-machine-serial-number"
+            label="Machine Serial Number"
+            placeholder="Update machine serial number"
             value={editForm.machine_series_number}
             onChange={(e) => setEditForm((prev) => ({ ...prev, machine_series_number: e.target.value }))}
           />
