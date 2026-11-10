@@ -5,6 +5,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.crud.postgres import alert_rule as alert_rule_crud
 from app.crud.postgres import device as device_crud
+from app.crud.postgres import user as user_crud
 from app.models.alert_rule import AlertRule as AlertRuleModel
 from app.models.enum.alert_rule import AlertFieldType, AlertOperator
 from app.models.enum.user_role import UserRole
@@ -37,6 +38,28 @@ def _get_device_context(db: Session, device_id: int):
 
 def _ensure_device_exists(db: Session, device_id: int) -> None:
     _get_device_context(db, device_id)
+
+
+def _ensure_user_can_access_device(db: Session, current_user: UserModel, device) -> None:
+    if current_user.role == UserRole.user and not user_crud.user_has_department(
+        db, current_user.id, device.department_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this device's alert rules",
+        )
+
+
+def _get_accessible_alert_rule(db: Session, alert_rule_id: int, current_user: UserModel):
+    alert_rule = alert_rule_crud.get_alert_rule(db, alert_rule_id)
+    if not alert_rule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alert rule not found",
+        )
+    device = _get_device_context(db, alert_rule.device_id)
+    _ensure_user_can_access_device(db, current_user, device)
+    return alert_rule, device
 
 
 def _publish_alert_rule_event(request: Request, device, action: str) -> None:
@@ -93,10 +116,16 @@ def list_alert_rules(
     db: Session = Depends(get_db),
 ):
     """List alert rules."""
-    _require_superuser(current_user)
+    require_role(current_user, [UserRole.superuser, UserRole.user])
 
+    department_ids = None
     if device_id is not None:
-        _ensure_device_exists(db, device_id)
+        device = _get_device_context(db, device_id)
+        _ensure_user_can_access_device(db, current_user, device)
+    elif current_user.role == UserRole.user:
+        department_ids = user_crud.get_user_department_ids(db, current_user.id)
+        if not department_ids:
+            return AlertRuleListResponse(items=[], total=0, page=page, page_size=page_size)
 
     items, total = alert_rule_crud.get_alert_rules(
         db,
@@ -104,6 +133,7 @@ def list_alert_rules(
         page=page,
         page_size=page_size,
         device_id=device_id,
+        department_ids=department_ids,
     )
     return AlertRuleListResponse(
         items=[AlertRuleOut.model_validate(item) for item in items],
@@ -121,8 +151,9 @@ def create_alert_rule(
     db: Session = Depends(get_db),
 ):
     """Create an alert rule."""
-    _require_superuser(current_user)
+    require_role(current_user, [UserRole.superuser, UserRole.user])
     device = _get_device_context(db, alert_rule.device_id)
+    _ensure_user_can_access_device(db, current_user, device)
     created = alert_rule_crud.create_alert_rule(db, alert_rule)
     _publish_alert_rule_event(request, device, "add")
     return created
@@ -135,13 +166,8 @@ def get_alert_rule(
     db: Session = Depends(get_db),
 ):
     """Get an alert rule by ID."""
-    _require_superuser(current_user)
-    alert_rule = alert_rule_crud.get_alert_rule(db, alert_rule_id)
-    if not alert_rule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Alert rule not found",
-        )
+    require_role(current_user, [UserRole.superuser, UserRole.user])
+    alert_rule, _ = _get_accessible_alert_rule(db, alert_rule_id, current_user)
     return alert_rule
 
 
@@ -154,16 +180,16 @@ def update_alert_rule(
     db: Session = Depends(get_db),
 ):
     """Update an alert rule."""
-    _require_superuser(current_user)
-    existing = alert_rule_crud.get_alert_rule(db, alert_rule_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Alert rule not found",
-        )
+    require_role(current_user, [UserRole.superuser, UserRole.user])
+    existing, device = _get_accessible_alert_rule(db, alert_rule_id, current_user)
     _validate_updated_rule(existing, alert_rule_update)
+    update_data = alert_rule_update.model_dump(exclude_unset=True)
+    if current_user.role == UserRole.user and "device_id" in update_data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You  move alert rules to another device",
+        )
     updated = alert_rule_crud.update_alert_rule(db, existing, alert_rule_update)
-    device = _get_device_context(db, updated.device_id)
     _publish_alert_rule_event(request, device, "update")
     return updated
 
@@ -176,13 +202,7 @@ def delete_alert_rule(
     db: Session = Depends(get_db),
 ):
     """Delete an alert rule."""
-    _require_superuser(current_user)
-    existing = alert_rule_crud.get_alert_rule(db, alert_rule_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Alert rule not found",
-        )
-    device = _get_device_context(db, existing.device_id)
+    require_role(current_user, [UserRole.superuser, UserRole.user])
+    _, device = _get_accessible_alert_rule(db, alert_rule_id, current_user)
     alert_rule_crud.delete_alert_rule(db, alert_rule_id)
     _publish_alert_rule_event(request, device, "delete")

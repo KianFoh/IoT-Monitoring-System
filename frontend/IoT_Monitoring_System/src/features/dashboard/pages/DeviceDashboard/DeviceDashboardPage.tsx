@@ -33,7 +33,7 @@ export function DeviceDashboardPage() {
   const normalizedRole = String(user?.role ?? "").trim().toLowerCase();
   const isReadOnly = normalizedRole === "user";
   const canEdit = !isReadOnly;
-  const canManageAlertRules = normalizedRole === "superuser";
+  const canManageAlertRules = normalizedRole === "superuser" || normalizedRole === "user";
   const canControlOutput = Boolean(user);
   const noop = () => {};
   const dashboard = useDeviceDashboard(deviceUid);

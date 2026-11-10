@@ -272,7 +272,8 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [chartError, setChartError] = useState<string | null>(null);
   const [latestFetched, setLatestFetched] = useState(false);
   const [chartLiveData, setChartLiveData] = useState<DevicePayload | null>(null);
-  const canManageAlertRules = String(user?.role ?? "").trim().toLowerCase() === "superuser";
+  const alertRuleRole = String(user?.role ?? "").trim().toLowerCase();
+  const canManageAlertRules = alertRuleRole === "superuser" || alertRuleRole === "user";
   const liveListCountFields = useMemo(() => getLiveListCountFields(device), [device]);
   const liveListCountFieldsKey = useMemo(
     () => Array.from(liveListCountFields).sort().join("\u0000"),

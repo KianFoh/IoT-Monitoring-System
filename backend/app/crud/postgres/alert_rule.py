@@ -4,6 +4,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.alert_rule import AlertRule as AlertRuleModel
+from app.models.device import Device as DeviceModel
 from app.schemas.alert_rule import AlertRuleCreate, AlertRuleUpdate
 
 
@@ -45,11 +46,14 @@ def get_alert_rules(
     page: int = 1,
     page_size: int = 10,
     device_id: Optional[int] = None,
+    department_ids: Optional[list[int]] = None,
 ):
-    query = db.query(AlertRuleModel)
+    query = db.query(AlertRuleModel).join(DeviceModel, AlertRuleModel.device_id == DeviceModel.id)
 
     if device_id is not None:
         query = query.filter(AlertRuleModel.device_id == device_id)
+    if department_ids is not None:
+        query = query.filter(DeviceModel.department_id.in_(department_ids))
 
     if search:
         like = f"%{search.lower()}%"
