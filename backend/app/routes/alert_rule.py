@@ -22,22 +22,14 @@ from app.utils.device_events import publish_device_alert
 router = APIRouter(prefix="/alert-rules", tags=["alert-rules"])
 
 
-def _require_superuser(current_user: UserModel) -> None:
-    require_role(current_user, [UserRole.superuser])
-
-
 def _get_device_context(db: Session, device_id: int):
-    device = device_crud.get_device_with_relations(db, device_id)
+    device = device_crud.get_device(db, device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found",
         )
     return device
-
-
-def _ensure_device_exists(db: Session, device_id: int) -> None:
-    _get_device_context(db, device_id)
 
 
 def _ensure_user_can_access_device(db: Session, current_user: UserModel, device) -> None:
@@ -59,7 +51,7 @@ def _get_accessible_alert_rule(db: Session, alert_rule_id: int, current_user: Us
         )
     device = _get_device_context(db, alert_rule.device_id)
     _ensure_user_can_access_device(db, current_user, device)
-    return alert_rule, device
+    return alert_rule, device_crud.get_device_with_relations(db, device.id)
 
 
 def _publish_alert_rule_event(request: Request, device, action: str) -> None:
@@ -155,7 +147,7 @@ def create_alert_rule(
     device = _get_device_context(db, alert_rule.device_id)
     _ensure_user_can_access_device(db, current_user, device)
     created = alert_rule_crud.create_alert_rule(db, alert_rule)
-    _publish_alert_rule_event(request, device, "add")
+    _publish_alert_rule_event(request, device_crud.get_device_with_relations(db, device.id), "add")
     return created
 
 
@@ -187,7 +179,7 @@ def update_alert_rule(
     if current_user.role == UserRole.user and "device_id" in update_data:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You  move alert rules to another device",
+            detail="You cannot move alert rules to another device",
         )
     updated = alert_rule_crud.update_alert_rule(db, existing, alert_rule_update)
     _publish_alert_rule_event(request, device, "update")
