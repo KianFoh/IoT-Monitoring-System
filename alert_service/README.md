@@ -11,6 +11,13 @@ It is separate from the backend and ingestion processes. It:
 - evaluates rules with cooldown handling
 - sends notifications through a pluggable notification service
 
+The `no data` operator works for any field type. Set the rule value to a positive
+integer number of seconds. The service starts a timer when it loads the rule,
+resets it whenever a processed payload contains that field, and sends an alert
+once the timeout expires. If the field remains missing, the rule's cooldown
+controls repeat notifications. Restarting the alert service starts active
+no-data timers again because field receipt timestamps are held in memory.
+
 Run with its own virtual environment from the repository root:
 
 ```powershell

@@ -13,7 +13,8 @@ export type AlertRuleOperator =
   | "not contains"
   | "contains any"
   | "contains all"
-  | "is empty";
+  | "is empty"
+  | "no data";
 
 export type AlertRule = {
   id: number;

@@ -50,6 +50,13 @@ class AlertRuleBase(BaseModel):
 
     @model_validator(mode="after")
     def validate_operator_for_field_type(self):
+        if self.operator == AlertOperator.no_data:
+            if isinstance(self.value, bool) or not isinstance(self.value, int) or self.value <= 0:
+                raise ValueError("The 'no data' operator requires a positive integer timeout in seconds.")
+            if self.cooldown_seconds < 0:
+                raise ValueError("cooldown_seconds must be greater than or equal to 0.")
+            return self
+
         allowed = ALERT_OPERATORS_BY_FIELD_TYPE[self.field_type]
         if self.operator not in allowed:
             raise ValueError(f"Operator {self.operator.value!r} is not valid for {self.field_type.value}.")

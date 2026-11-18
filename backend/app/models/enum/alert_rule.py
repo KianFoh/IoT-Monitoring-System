@@ -22,3 +22,4 @@ class AlertOperator(enum.Enum):
     contains_any = "contains any"
     contains_all = "contains all"
     is_empty = "is empty"
+    no_data = "no data"

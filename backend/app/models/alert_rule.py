@@ -38,7 +38,7 @@ class AlertRule(Base):
         ),
         CheckConstraint(
             "operator IN ('==', '!=', 'in', 'not in', '<', '>', '<=', '>=', "
-            "'contains', 'not contains', 'contains any', 'contains all', 'is empty')",
+            "'contains', 'not contains', 'contains any', 'contains all', 'is empty', 'no data')",
             name="ck_alert_rule_operator",
         ),
         CheckConstraint("cooldown_seconds >= 0", name="ck_alert_rule_cooldown_seconds_nonnegative"),

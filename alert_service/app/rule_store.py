@@ -103,6 +103,10 @@ class AlertRuleStore:
                 return []
             return list(self._rules_by_device_id.get(device_id, []))
 
+    def get_all_rules(self) -> list[AlertRule]:
+        with self._lock:
+            return [rule for rules in self._rules_by_device_id.values() for rule in rules]
+
     def _load_device_rules(self, db: Session, device_id: int) -> list[AlertRule]:
         rows = db.execute(
             text(f"{ALERT_RULE_SELECT} AND ar.device_id = :device_id"),

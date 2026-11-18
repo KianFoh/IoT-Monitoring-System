@@ -77,6 +77,11 @@ const LIST_OPERATOR_OPTIONS: DisplayOption<AlertRuleOperator>[] = [
   { value: "is empty", label: "is empty" },
 ];
 
+const NO_DATA_OPERATOR_OPTION: DisplayOption<AlertRuleOperator> = {
+  value: "no data",
+  label: "No data within",
+};
+
 const NOTIFICATION_OPTIONS: DisplayOption<string>[] = [{ value: "email", label: "Email" }];
 
 const BOOLEAN_VALUE_OPTIONS: DisplayOption<"true" | "false">[] = [
@@ -85,10 +90,12 @@ const BOOLEAN_VALUE_OPTIONS: DisplayOption<"true" | "false">[] = [
 ];
 
 const getOperatorOptions = (fieldType: AlertRuleFieldType) => {
-  if (fieldType === "number") return NUMBER_OPERATOR_OPTIONS;
-  if (fieldType === "boolean") return BOOLEAN_OPERATOR_OPTIONS;
-  if (fieldType === "list") return LIST_OPERATOR_OPTIONS;
-  return TEXT_OPERATOR_OPTIONS;
+  let options: DisplayOption<AlertRuleOperator>[];
+  if (fieldType === "number") options = NUMBER_OPERATOR_OPTIONS;
+  else if (fieldType === "boolean") options = BOOLEAN_OPERATOR_OPTIONS;
+  else if (fieldType === "list") options = LIST_OPERATOR_OPTIONS;
+  else options = TEXT_OPERATOR_OPTIONS;
+  return [...options, NO_DATA_OPERATOR_OPTION];
 };
 
 const getDefaultOperator = (fieldType: AlertRuleFieldType): AlertRuleOperator =>
@@ -110,6 +117,12 @@ const formatRuleValue = (value: unknown) => {
   if (Array.isArray(value)) return value.length ? value.join(", ") : "-";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
+};
+
+const formatRuleCondition = (rule: AlertRule) => {
+  if (rule.operator === "no data") return `No data within ${formatRuleValue(rule.value)}s`;
+  if (rule.operator === "is empty") return rule.operator;
+  return `${rule.operator} ${formatRuleValue(rule.value)}`;
 };
 
 const getRuleSearchText = (rule: AlertRule) =>
@@ -255,6 +268,12 @@ export function DeviceAlertRulesPanel<T extends string>({
         meta: { width: 150 },
       },
       {
+        id: "condition",
+        header: "Condition",
+        cell: (info) => <>{formatRuleCondition(info.row.original)}</>,
+        meta: { width: 190 },
+      },
+      {
         accessorKey: "notification_method",
         header: "Notify",
         meta: { width: 120 },
@@ -350,7 +369,7 @@ export function DeviceAlertRulesPanel<T extends string>({
 
   const handleOperatorChange = (value: AlertRuleOperator) => {
     setOperator(value);
-    setSingleValue(selectedFieldType === "boolean" ? "true" : "");
+    setSingleValue(value === "no data" ? "60" : selectedFieldType === "boolean" ? "true" : "");
     setMultiValues([]);
     setFormError(null);
   };
@@ -362,6 +381,10 @@ export function DeviceAlertRulesPanel<T extends string>({
   };
 
   const buildValue = () => {
+    if (operator === "no data") {
+      const parsed = Number(singleValue);
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    }
     if (requiresAllCasesValue(operator)) return selectedFieldCases;
     if (requiresNoValue(operator)) return null;
     if (selectedFieldType === "number") {
@@ -377,6 +400,25 @@ export function DeviceAlertRulesPanel<T extends string>({
     return singleValue;
   };
 
+  const validateConditionValue = () => {
+    if (operator === "no data") {
+      const timeout = Number(singleValue);
+      if (!Number.isInteger(timeout) || timeout <= 0) {
+        return "Enter a whole number of seconds greater than 0.";
+      }
+      return null;
+    }
+    if (requiresNoValue(operator)) return null;
+    if (selectedFieldType === "number") {
+      if (singleValue.trim() === "" || buildValue() === null) return "Enter a valid number value.";
+    } else if (requiresMultiValue(operator)) {
+      if (multiValues.length === 0) return "Select at least one value.";
+    } else if (!singleValue) {
+      return "Select a value.";
+    }
+    return null;
+  };
+
   const validateForm = () => {
     if (!deviceId) return "Device is not loaded.";
     if (!ruleName.trim()) return "Rule name is required.";
@@ -386,16 +428,7 @@ export function DeviceAlertRulesPanel<T extends string>({
     if (!Number.isInteger(cooldown) || cooldown < 0) {
       return "Cooldown must be 0 or greater.";
     }
-    if (!requiresNoValue(operator)) {
-      if (selectedFieldType === "number") {
-        if (singleValue.trim() === "" || buildValue() === null) return "Enter a valid number value.";
-      } else if (requiresMultiValue(operator)) {
-        if (multiValues.length === 0) return "Select at least one value.";
-      } else if (!singleValue) {
-        return "Select a value.";
-      }
-    }
-    return null;
+    return validateConditionValue();
   };
 
   const validateDetailsStep = () => {
@@ -407,16 +440,7 @@ export function DeviceAlertRulesPanel<T extends string>({
   const validateConditionStep = () => {
     if (!selectedField) return "Select a data field.";
     if (!operator) return "Select an operator.";
-    if (!requiresNoValue(operator)) {
-      if (selectedFieldType === "number") {
-        if (singleValue.trim() === "" || buildValue() === null) return "Enter a valid number value.";
-      } else if (requiresMultiValue(operator)) {
-        if (multiValues.length === 0) return "Select at least one value.";
-      } else if (!singleValue) {
-        return "Select a value.";
-      }
-    }
-    return null;
+    return validateConditionValue();
   };
 
   const handleNextStep = (event?: FormEvent | ReactMouseEvent<HTMLButtonElement>) => {
@@ -483,6 +507,22 @@ export function DeviceAlertRulesPanel<T extends string>({
   };
 
   const renderValueControl = () => {
+    if (selectedField && operator === "no data") {
+      return (
+        <Input
+          id="alert-rule-no-data-timeout"
+          label="Timeout (seconds)"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          step={1}
+          value={singleValue}
+          onChange={(event) => setSingleValue(event.target.value)}
+          disabled={disabled || savingRule}
+        />
+      );
+    }
+
     if (selectedField && requiresAllCasesValue(operator)) {
       return (
         <div className={formStyles["dashboard-readonly-item"]}>
