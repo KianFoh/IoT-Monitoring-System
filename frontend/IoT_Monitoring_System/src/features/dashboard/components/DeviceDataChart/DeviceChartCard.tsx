@@ -168,7 +168,11 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     isEditing ? styles["device-chart-card-editing"] : ""
   }${className ? ` ${className}` : ""}`;
   const rawValue =
-    filterMode === "raw"
+    chart.type === "meter"
+      ? getChartValue
+        ? getChartValue(chart.field)
+        : null
+      : filterMode === "raw"
         ? isEditing && frozenValues
           ? frozenValues[chart.field] ?? null
           : getChartValue
