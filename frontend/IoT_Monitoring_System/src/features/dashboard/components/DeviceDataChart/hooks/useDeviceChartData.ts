@@ -565,6 +565,7 @@ export const useDeviceChartData = ({
           getChartCasesRef.current,
           historicalWindow
         );
+        const orderedRawRows = [...parsedRows].sort((a, b) => a.ts - b.ts);
         const latestValues: Record<string, unknown> = {};
         for (let i = processedRows.length - 1; i >= 0; i -= 1) {
           const row = processedRows[i];
@@ -593,6 +594,18 @@ export const useDeviceChartData = ({
             }
           });
         }
+        // Meter charts use the last raw sample in the selected window, regardless
+        // of the field's aggregation metric. Keep the normal metric-derived value
+        // for all other chart types.
+        availableFields.forEach((field) => {
+          for (let i = orderedRawRows.length - 1; i >= 0; i -= 1) {
+            const rawValue = orderedRawRows[i]?.data[field];
+            if (rawValue !== undefined && rawValue !== null) {
+              latestValues[field] = rawValue;
+              break;
+            }
+          }
+        });
         setFilteredRawData(processedRows.map(({ ts, data }) => ({ ts, data })));
         setFilteredLatestValues(latestValues);
       })

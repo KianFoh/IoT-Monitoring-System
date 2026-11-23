@@ -169,12 +169,12 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
   }${className ? ` ${className}` : ""}`;
   const rawValue =
     filterMode === "raw"
-      ? isEditing && frozenValues
-        ? frozenValues[chart.field] ?? null
-        : getChartValue
-          ? getChartValue(chart.field)
-          : null
-      : filteredLatestValues[chart.field] ?? null;
+        ? isEditing && frozenValues
+          ? frozenValues[chart.field] ?? null
+          : getChartValue
+            ? getChartValue(chart.field)
+            : null
+        : filteredLatestValues[chart.field] ?? null;
   const numericValue = parseNumericValue(rawValue);
   const unit = getChartUnit ? getChartUnit(chart.field) : "";
   const fieldLabel = getChartLabel ? getChartLabel(chart.field) : chart.field;
