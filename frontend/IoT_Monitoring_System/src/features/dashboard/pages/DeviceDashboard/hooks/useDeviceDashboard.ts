@@ -199,39 +199,57 @@ const formatLastUpdate = (value: Date) => {
   return `${day}/${month}/${year} ${pad(hours12)}:${minutes}:${seconds} ${meridiem}`;
 };
 
-const getLiveListCountFields = (device: Device | null) => {
+const getLiveEventFields = (device: Device | null) => {
+  if (!device) return new Set<string>();
+  const normalized = normalizeDashboardConfig(device.dashboard_config);
+  return new Set(
+    normalized.data_panel.fields.filter(
+      (field) => {
+        const config = normalized.data_panel.config[field];
+        return (
+          (config?.type === "list" && config?.metric === "count") ||
+          (config?.type === "number" && config?.metric === "ratio")
+        );
+      }
+    )
+  );
+};
+
+const getLiveRatioFields = (device: Device | null) => {
   if (!device) return new Set<string>();
   const normalized = normalizeDashboardConfig(device.dashboard_config);
   return new Set(
     normalized.data_panel.fields.filter(
       (field) =>
-        normalized.data_panel.config[field]?.type === "list" &&
-        normalized.data_panel.config[field]?.metric === "count"
+        normalized.data_panel.config[field]?.type === "number" &&
+        normalized.data_panel.config[field]?.metric === "ratio"
     )
   );
 };
 
 // Ignore null/undefined values so partial updates don't wipe previous scalar state.
-// List count fields are event-like counts, so they should reflect only the latest payload.
+// List counts and ratio fields are event-like, so they should reflect only the latest payload.
 // Latest-list fields retain their most recent value across partial updates.
 const mergeLiveData = (
   prev: DevicePayload | null,
   next: DevicePayload,
-  listCountFields: Set<string>
+  eventFields: Set<string>,
+  preserveMissingFields: Set<string> = new Set()
 ) => {
   const filteredEntries = Object.entries(next).filter(([, value]) => value !== null && value !== undefined);
   const filteredKeys = new Set(filteredEntries.map(([key]) => key));
   if (filteredEntries.length === 0) {
-    if (!prev || listCountFields.size === 0) return prev ?? next;
+    if (!prev || eventFields.size === 0) return prev ?? next;
     return Object.fromEntries(
-      Object.entries(prev).filter(([key]) => !listCountFields.has(key))
+      Object.entries(prev).filter(([key]) => !eventFields.has(key) || preserveMissingFields.has(key))
     ) as DevicePayload;
   }
   const filtered = Object.fromEntries(filteredEntries);
   const carried = prev
     ? Object.fromEntries(
         Object.entries(prev).filter(
-          ([key]) => !listCountFields.has(key) || filteredKeys.has(key)
+          ([key]) =>
+            !eventFields.has(key) || filteredKeys.has(key) || preserveMissingFields.has(key)
         )
       )
     : {};
@@ -274,10 +292,11 @@ export function useDeviceDashboard(deviceUid?: string) {
   const [chartLiveData, setChartLiveData] = useState<DevicePayload | null>(null);
   const alertRuleRole = String(user?.role ?? "").trim().toLowerCase();
   const canManageAlertRules = alertRuleRole === "superuser" || alertRuleRole === "user";
-  const liveListCountFields = useMemo(() => getLiveListCountFields(device), [device]);
-  const liveListCountFieldsKey = useMemo(
-    () => Array.from(liveListCountFields).sort().join("\u0000"),
-    [liveListCountFields]
+  const liveEventFields = useMemo(() => getLiveEventFields(device), [device]);
+  const liveRatioFields = useMemo(() => getLiveRatioFields(device), [device]);
+  const liveEventFieldsKey = useMemo(
+    () => Array.from(liveEventFields).sort().join("\u0000"),
+    [liveEventFields]
   );
 
   useEffect(() => {
@@ -406,7 +425,7 @@ export function useDeviceDashboard(deviceUid?: string) {
         updateLastUpdate(timestamp);
       }
       if (data) {
-        setLiveData((prev) => mergeLiveData(prev, data, liveListCountFields));
+        setLiveData((prev) => mergeLiveData(prev, data, liveEventFields));
         setChartLiveData(data);
       }
     });
@@ -435,7 +454,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     device?.department_mqtt_topic,
     device?.department_name,
     device?.uid,
-    liveListCountFields,
+    liveEventFields,
     updateLastUpdate,
   ]);
 
@@ -448,7 +467,7 @@ export function useDeviceDashboard(deviceUid?: string) {
   useEffect(() => {
     if (wsStatus !== "connected") return;
     setLatestFetched(false);
-  }, [liveListCountFieldsKey, wsStatus]);
+  }, [liveEventFieldsKey, wsStatus]);
 
   useEffect(() => {
     const uid = device?.uid;
@@ -528,8 +547,16 @@ export function useDeviceDashboard(deviceUid?: string) {
         }
         const { data, timestamp } = extractPayloadInfo(payload);
         if (data) {
-          setLiveData((prev) => mergeLiveData(prev, data, liveListCountFields));
-          setChartLiveData((prev) => (prev ? mergeLiveData(data, prev, liveListCountFields) : data));
+          // The latest endpoint stores the last value seen for every field. That is useful
+          // for ordinary fields, but it cannot tell whether a ratio field appeared in the
+          // latest device message. Keep ratios empty until a fresh stream payload supplies them.
+          const latestData = Object.fromEntries(
+            Object.entries(data).filter(([field]) => !liveRatioFields.has(field))
+          );
+          setLiveData((prev) =>
+            mergeLiveData(prev, latestData, liveEventFields, liveRatioFields)
+          );
+          setChartLiveData((prev) => (prev ? mergeLiveData(latestData, prev, liveEventFields) : latestData));
         }
         if (timestamp) {
           updateLastUpdate(timestamp);
@@ -542,7 +569,7 @@ export function useDeviceDashboard(deviceUid?: string) {
     return () => {
       cancelled = true;
     };
-  }, [wsStatus, device?.uid, latestFetched, liveListCountFields, updateLastUpdate]);
+  }, [wsStatus, device?.uid, latestFetched, liveEventFields, liveRatioFields, updateLastUpdate]);
 
   const handleDeviceUpdate = useCallback((updated: Device) => {
     setDevice(updated);

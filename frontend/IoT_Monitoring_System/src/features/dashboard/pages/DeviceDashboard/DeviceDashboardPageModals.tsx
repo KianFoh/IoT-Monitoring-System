@@ -19,12 +19,12 @@ const FIELD_METRIC_OPTIONS: Record<"number" | "text" | "list" | "boolean", Field
   ],
   number: [
     { value: "last_value", label: "Last value" },
+    { value: "ratio", label: "Ratio" },
     { value: "count", label: "Count" },
     { value: "sum", label: "Sum" },
     { value: "min", label: "Min" },
     { value: "max", label: "Max" },
     { value: "avg", label: "Average" },
-    { value: "ratio", label: "Ratio" },
   ],
   boolean: [
     { value: "latest_value", label: "Latest Value" },
