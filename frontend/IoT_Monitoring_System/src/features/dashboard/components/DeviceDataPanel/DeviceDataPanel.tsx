@@ -493,7 +493,9 @@ export function DeviceDataPanel<T extends string>({
       }
       return label;
     }
-    const displayValue = filterMode === "raw" ? getFieldValue(field) : (() => {
+    const displayValue = filterMode === "raw" && !(fieldType === "number" && fieldMetric === "ratio")
+      ? getFieldValue(field)
+      : (() => {
       const rawValue = getDisplayRawValue(field);
       const unit = getFieldUnit(field);
       const numericValue = parsePanelNumber(rawValue);
