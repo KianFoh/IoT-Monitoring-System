@@ -36,7 +36,7 @@ const DEFAULT_METRIC_BY_TYPE: Record<DataFieldType, DataFieldMetric> = {
 
 const VALID_METRICS_BY_TYPE: Record<DataFieldType, Set<DataFieldMetric>> = {
   text: new Set(["last_state", "count"]),
-  number: new Set(["count", "sum", "min", "max", "last_value", "avg"]),
+  number: new Set(["count", "sum", "min", "max", "last_value", "avg", "ratio"]),
   boolean: new Set(["latest_value", "count"]),
   list: new Set(["latest_list", "count"]),
 };

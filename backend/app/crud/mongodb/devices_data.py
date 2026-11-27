@@ -154,6 +154,8 @@ def _rollup_metric_value(
             if isinstance(total, (int, float)) and isinstance(count, (int, float)) and count > 0:
                 return _truncate_two_decimals(total / count)
             return _truncate_two_decimals(source_data.get(field))
+        if metric == "ratio":
+            return num_last.get(field)
         return num_last.get(field)
 
     if field_type == "boolean":
@@ -909,6 +911,8 @@ def get_rollup_aggregated_by_uid(
                 value = stats["max"]
             elif field_type == "number" and metric == "avg":
                 value = _truncate_two_decimals(stats["sum"] / stats["count"]) if stats["count"] else None
+            elif field_type == "number" and metric == "ratio":
+                value = stats["last"]
             else:
                 value = stats["last"]
             if value is not None:

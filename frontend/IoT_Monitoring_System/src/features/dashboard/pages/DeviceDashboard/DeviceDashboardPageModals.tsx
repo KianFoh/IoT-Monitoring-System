@@ -24,6 +24,7 @@ const FIELD_METRIC_OPTIONS: Record<"number" | "text" | "list" | "boolean", Field
     { value: "min", label: "Min" },
     { value: "max", label: "Max" },
     { value: "avg", label: "Average" },
+    { value: "ratio", label: "Ratio" },
   ],
   boolean: [
     { value: "latest_value", label: "Latest Value" },

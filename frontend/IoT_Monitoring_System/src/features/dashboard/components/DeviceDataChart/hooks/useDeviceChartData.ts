@@ -293,14 +293,17 @@ const processHistoricalRows = (
       if (fieldType === "number") {
         const current = nextData[field];
 
-        // Only last_value should carry the previous value forward.
-        if (fieldMetric === "last_value") {
+        // last_value and ratio use the latest real reading, but only last_value carries it forward.
+        if (fieldMetric === "last_value" || fieldMetric === "ratio") {
           if (current === undefined || current === null) {
-            if (lastState.has(field)) {
+            if (fieldMetric === "last_value" && lastState.has(field)) {
               nextData[field] = lastState.get(field);
             }
           } else {
             lastState.set(field, current);
+          }
+          if (fieldMetric === "ratio" && (current === undefined || current === null)) {
+            nextData[field] = 0;
           }
           return;
         }

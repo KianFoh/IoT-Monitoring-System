@@ -671,7 +671,7 @@ def fetch_device_data(
         )
         or (
             field_type == "number"
-            and field_metrics.get(field, "last_value") == "last_value"
+            and field_metrics.get(field, "last_value") in {"last_value", "ratio"}
         )
         or (
             field_type == "boolean"

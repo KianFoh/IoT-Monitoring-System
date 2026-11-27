@@ -18,6 +18,7 @@ export type FieldMetric =
   | "max"
   | "last_value"
   | "avg"
+  | "ratio"
   | "latest_value"
   | "latest_list";
 

@@ -74,6 +74,13 @@ export function DeviceDashboardPage() {
       ) {
         return undefined;
       }
+      if (
+        chartLiveData &&
+        panel.getters.getFieldType(field) === "number" &&
+        panel.getters.getFieldMetric(field) === "ratio"
+      ) {
+        return 0;
+      }
       return panel.getters.getFieldRawValue(field);
     },
     [chart.liveData, panel.getters.getFieldMetric, panel.getters.getFieldRawValue, panel.getters.getFieldType]

@@ -300,10 +300,12 @@ export function DeviceDataPanel<T extends string>({
     suspendRange: isLayoutEditing,
   });
   const getDisplayRawValue = (field: string) => {
-    if (filterMode === "raw") return getFieldRawValue(field);
-    const value = filteredLatestValues[field];
     const fieldType = getFieldType(field);
     const fieldMetric = getFieldMetric?.(field);
+    const value = filterMode === "raw" ? getFieldRawValue(field) : filteredLatestValues[field];
+    if (fieldType === "number" && fieldMetric === "ratio" && (value === null || value === undefined)) {
+      return 0;
+    }
     if (
       fieldMetric !== "count" &&
       (fieldType === "text" || fieldType === "boolean") &&

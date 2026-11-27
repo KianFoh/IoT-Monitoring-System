@@ -39,7 +39,7 @@ def normalize_field_metric(field_type: str, value: Any) -> str:
     }
     valid_by_type = {
         "text": {"last_state", "count"},
-        "number": {"count", "sum", "min", "max", "last_value", "avg"},
+        "number": {"count", "sum", "min", "max", "last_value", "avg", "ratio"},
         "boolean": {"latest_value", "count"},
         "list": {"latest_list", "count"},
     }

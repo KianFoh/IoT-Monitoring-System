@@ -168,17 +168,13 @@ export const DeviceChartCard = forwardRef<HTMLDivElement, DeviceChartCardProps>(
     isEditing ? styles["device-chart-card-editing"] : ""
   }${className ? ` ${className}` : ""}`;
   const rawValue =
-    chart.type === "meter"
-      ? getChartValue
-        ? getChartValue(chart.field)
-        : null
-      : filterMode === "raw"
-        ? isEditing && frozenValues
-          ? frozenValues[chart.field] ?? null
-          : getChartValue
-            ? getChartValue(chart.field)
-            : null
-        : filteredLatestValues[chart.field] ?? null;
+    filterMode === "raw"
+      ? isEditing && frozenValues
+        ? frozenValues[chart.field] ?? null
+        : getChartValue
+          ? getChartValue(chart.field)
+          : null
+      : filteredLatestValues[chart.field] ?? null;
   const numericValue = parseNumericValue(rawValue);
   const unit = getChartUnit ? getChartUnit(chart.field) : "";
   const fieldLabel = getChartLabel ? getChartLabel(chart.field) : chart.field;
